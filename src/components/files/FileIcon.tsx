@@ -41,6 +41,7 @@ export default function FileIcon({ file, size = 20, height = null, width = null 
 			return <FaFilePdf size={size} className='text-red-500' />;
 
 		case 'xlsx':
+		case 'xlsm':
 		case 'xls':
 		case 'csv':
 			return <FileSpreadsheet size={size} className='text-green-500' />;
