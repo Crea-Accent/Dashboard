@@ -15,12 +15,13 @@ type CompleteTaskModalProps = {
 	client: string;
 	poiId: string;
 	requiresPicture?: boolean;
-	users: any[];
+	users?: any[];
+	ticketId: string;
 	onClose: () => void;
 	onComplete: (finishedImagePath?: string, completedBy?: string, proofDescription?: string) => Promise<void>;
 };
 
-export default function CompleteTaskModal({ open, client, poiId, requiresPicture, users, onClose, onComplete }: CompleteTaskModalProps) {
+export default function CompleteTaskModal({ open, client, poiId, requiresPicture, users = [], ticketId, onClose, onComplete }: CompleteTaskModalProps) {
 	const { data: session } = useSession();
 	const { uploadFile, uploading } = useUpload();
 	const fileInputRef = useRef<HTMLInputElement>(null);
@@ -52,7 +53,7 @@ export default function CompleteTaskModal({ open, client, poiId, requiresPicture
 
 			if (file) {
 				const filename = `${poiId}_proof_${file.name.replace(/\s+/g, '_')}`;
-				const savedAs = await uploadFile(file, client, `tickets/${ticketId}`, { name: filename });
+				const savedAs = await uploadFile(file, client, `tickets/${ticketId}` as any, { name: filename });
 				imagePath = savedAs || undefined;
 			}
 

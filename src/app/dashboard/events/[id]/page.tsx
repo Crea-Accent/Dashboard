@@ -180,7 +180,7 @@ export default function EventDetail() {
 	}
 
 	async function handleSendAll() {
-		const uninvited = invitedContacts.filter(c => (c.inviteData.inviteCount || 0) === 0 && (!c.inviteData.status || c.inviteData.status === 'pending'));
+		const uninvited = invitedContacts.filter((c: any) => (c.inviteData.inviteCount || 0) === 0 && (!c.inviteData.status || c.inviteData.status === 'pending'));
 		if (uninvited.length === 0) {
 			toast('error', 'No uninvited pending contacts found.');
 			return;
@@ -364,7 +364,7 @@ export default function EventDetail() {
 						<Button onClick={handleSendTest} variant="secondary" icon={<Mail size={16} />} disabled={sendingTest}>Test Email</Button>
 						<Button onClick={handleSendAll} variant="secondary" icon={<Mails size={16} />} disabled={isPast}>Send All</Button>
 						<Button onClick={() => setModalOpen(true)} icon={<Plus size={16} />} disabled={isPast}>Add Invite</Button>
-						<Button onClick={handleGenerateSchedule} variant="secondary" icon={<CalendarRange size={16} />} disabled={isPast || invitedContacts.filter(c => c.inviteData.status === 'confirmed').reduce((acc, c) => acc + 1 + (c.inviteData.guests?.length || 0), 0) < 3}>Generate Schedule</Button>
+						<Button onClick={handleGenerateSchedule} variant="secondary" icon={<CalendarRange size={16} />} disabled={isPast || invitedContacts.filter((c: any) => c.inviteData.status === 'confirmed').reduce((acc: number, c: any) => acc + 1 + (c.inviteData.guests?.length || 0), 0) < 3}>Generate Schedule</Button>
 					</div>
 				</div>
 

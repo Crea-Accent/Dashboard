@@ -100,7 +100,7 @@ export default function TicketModal({ open, client, users, existingTicket, onClo
 				if (poi.file) {
 					// Upload the image
 					const filename = `${poi.id}_${poi.file.name.replace(/\s+/g, '_')}`;
-					const savedAs = await uploadFile(poi.file, client, `tickets/${ticketId}`, { name: filename });
+					const savedAs = await uploadFile(poi.file, client, `tickets/${ticketId}` as any, { name: filename });
 					imagePath = savedAs || undefined;
 				}
 

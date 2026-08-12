@@ -227,6 +227,8 @@ export default function TasksPage() {
 					client={taskToComplete.projectName}
 					poiId={taskToComplete.id}
 					requiresPicture={taskToComplete.requiresPicture}
+					ticketId={taskToComplete.ticketId || taskToComplete.id.split('_')[0]}
+					users={[]}
 					onClose={() => setTaskToComplete(null)}
 					onComplete={(imagePath, completedBy, proofDescription) => markPOIDone(taskToComplete, imagePath, completedBy, proofDescription)}
 				/>

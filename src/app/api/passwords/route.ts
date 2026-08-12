@@ -78,7 +78,7 @@ function generateId() {
 }
 
 function isAdmin(user: User) {
-	return user.permissions.includes('admin.read');
+	return user?.permissions?.includes('admin.read') ?? false;
 }
 
 async function getCurrentUser() {

@@ -31,6 +31,7 @@ type POI = {
 	imagePath?: string;
 	finishedImagePath?: string;
 	completedBy?: string;
+	proofDescription?: string;
 };
 
 type Ticket = {
@@ -876,6 +877,7 @@ export default function Tickets({ client }: { client: string }) {
 					client={client}
 					poiId={poiToComplete.poiId}
 					requiresPicture={poiToComplete.requiresPicture}
+					ticketId={poiToComplete.ticketId}
 					users={users}
 					onClose={() => setPoiToComplete(null)}
 					onComplete={(imagePath, completedBy, proofDescription) => markPOIDone(poiToComplete.ticketId, poiToComplete.poiId, imagePath, completedBy, proofDescription)}
