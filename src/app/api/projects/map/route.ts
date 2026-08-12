@@ -20,6 +20,10 @@ export async function GET() {
 
 		const labels = settings.labels ?? [];
 
+		if (!fs.existsSync(basePath)) {
+			return NextResponse.json([]);
+		}
+
 		const folders = fs
 			.readdirSync(basePath, {
 				withFileTypes: true,
@@ -37,6 +41,15 @@ export async function GET() {
 
 					const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8'));
 
+					const solarPath = path.join(basePath, folder.name, 'solar.json');
+					let solar = null;
+					if (fs.existsSync(solarPath)) {
+						solar = JSON.parse(fs.readFileSync(solarPath, 'utf8'));
+					} else if (metadata.solar) {
+						// Fallback to legacy metadata.solar if it exists
+						solar = metadata.solar;
+					}
+
 					const lat = metadata?.address?.lat;
 					const lng = metadata?.address?.lng;
 
@@ -50,6 +63,7 @@ export async function GET() {
 						type: 'directory',
 
 						label: metadata.label ?? null,
+						project: metadata.project ?? null,
 						color: label?.color ?? '#6b7280',
 
 						address: metadata.address ?? null,
@@ -58,9 +72,9 @@ export async function GET() {
 
 						contacts: metadata.contacts?.length ?? 0,
 
-						panels: metadata.solar?.recommended?.panelsCount ?? metadata.solar?.maximum?.panelsCount ?? null,
+						panels: solar?.recommended?.panelsCount ?? solar?.maximum?.panelsCount ?? null,
 
-						yield: metadata.solar?.recommended?.yearlyEnergyDcKwh ?? metadata.solar?.maximum?.yearlyEnergyDcKwh ?? null,
+						yield: solar?.recommended?.yearlyEnergyDcKwh ?? solar?.maximum?.yearlyEnergyDcKwh ?? null,
 
 						hasLocation,
 						lat: hasLocation ? lat : null,

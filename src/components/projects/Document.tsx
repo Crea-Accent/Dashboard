@@ -58,6 +58,9 @@ export default function Documents({ basePath, client }: { basePath: string; clie
 	const [loading, setLoading] = useState(true);
 	const [view, setView] = useState<'grid' | 'list'>('list');
 
+	const dragCounter = useRef(0);
+	const [dragging, setDragging] = useState(false);
+
 	const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 	const [uploadModalOpen, setUploadModalOpen] = useState(false);
 
@@ -173,7 +176,18 @@ export default function Documents({ basePath, client }: { basePath: string; clie
 	if (loading) return <Loading title='Loading documents' />;
 
 	return (
-		<section className='space-y-6'>
+		<section
+			className='space-y-6 relative'
+			onDragEnter={(e) => {
+				if (!canWrite) return;
+				e.preventDefault();
+				dragCounter.current++;
+				setDragging(true);
+			}}
+			onDragOver={(e) => {
+				if (!canWrite) return;
+				e.preventDefault();
+			}}>
 			<input
 				ref={inputRef}
 				type='file'
@@ -193,8 +207,8 @@ export default function Documents({ basePath, client }: { basePath: string; clie
 			/>
 
 			<div className='rounded-3xl p-6 space-y-6 bg-(--foreground)'>
-				<AnimatePresence>
-					<div className='flex items-center justify-end gap-2'>
+				<AnimatePresence mode='popLayout'>
+					<div key='header' className='flex items-center justify-end gap-2'>
 						<ViewToggle value={view ?? 'list'} onChange={setView} />
 
 						{canWrite && (
@@ -244,7 +258,7 @@ export default function Documents({ basePath, client }: { basePath: string; clie
 
 										<AnimatePresence>
 											{isExpanded && (
-												<motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+												<motion.div key='expanded-grid' initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
 													<FileGrid
 														files={older}
 														users={users}
@@ -284,7 +298,7 @@ export default function Documents({ basePath, client }: { basePath: string; clie
 
 										<AnimatePresence>
 											{isExpanded && (
-												<motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className='overflow-hidden'>
+												<motion.div key='expanded-list' initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className='overflow-hidden'>
 													<FileList
 														files={older}
 														users={users}
@@ -305,7 +319,9 @@ export default function Documents({ basePath, client }: { basePath: string; clie
 					})}
 
 					{!loading && Object.values(grouped).every((arr) => arr.length === 0) && (
-						<EmptyState title='No Documents Found' description='Upload project documentation, spreadsheets or PDF files to get started.' />
+						<motion.div key='empty-state' initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+							<EmptyState title='No Documents Found' description='Upload PDF, Word, Excel or text documents to get started.' />
+						</motion.div>
 					)}
 				</AnimatePresence>
 			</div>
@@ -342,6 +358,39 @@ export default function Documents({ basePath, client }: { basePath: string; clie
 					setEditingFile(null);
 				}}
 			/>
+
+			{dragging && (
+				<motion.div
+					initial={{ opacity: 0 }}
+					animate={{ opacity: 1 }}
+					exit={{ opacity: 0 }}
+					onDragLeave={() => {
+						dragCounter.current--;
+						if (dragCounter.current <= 0) {
+							setDragging(false);
+						}
+					}}
+					onDrop={(e) => {
+						e.preventDefault();
+						dragCounter.current = 0;
+						setDragging(false);
+
+						const dropped = Array.from(e.dataTransfer.files).filter((file) => DOCUMENT_EXTENSIONS.some((ext) => file.name.toLowerCase().endsWith(ext)));
+						if (dropped.length === 0) return;
+
+						setSelectedFiles(dropped);
+						setUploadModalOpen(true);
+					}}
+					className='fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center'>
+					<div className='p-12 text-center bg-(--foreground) rounded-2xl shadow-xl border border-(--border)/10 pointer-events-none'>
+						<div className='space-y-3'>
+							<Upload size={48} className='mx-auto text-(--accent)' />
+							<h2 className='text-xl font-semibold'>Drop documents to upload</h2>
+							<p className='text-sm text-(--text-muted)'>Release your files anywhere to upload them.</p>
+						</div>
+					</div>
+				</motion.div>
+			)}
 		</section>
 	);
 }

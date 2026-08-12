@@ -9,7 +9,7 @@ import path from 'path';
 
 const DATA_DIR = path.join(process.cwd(), 'data');
 const PASSWORDS_PATH = path.join(DATA_DIR, 'passwords.json');
-const USERS_PATH = path.join(DATA_DIR, 'users.json');
+import { getUsers, User } from '@/lib/users';
 
 const SECRET = crypto
 	.createHash('sha256')
@@ -29,14 +29,6 @@ type Password = {
 
 	createdAt: string;
 	updatedAt: string;
-};
-
-type User = {
-	id: string;
-	name: string;
-	email: string;
-	roleId: string;
-	permissions: string[];
 };
 
 function encrypt(text: string) {
@@ -81,11 +73,6 @@ function savePasswords(passwords: Password[]) {
 	fs.writeFileSync(PASSWORDS_PATH, JSON.stringify(passwords, null, 2));
 }
 
-function loadUsers(): User[] {
-	if (!fs.existsSync(USERS_PATH)) return [];
-	return JSON.parse(fs.readFileSync(USERS_PATH, 'utf8'));
-}
-
 function generateId() {
 	return `pw_${Date.now()}`;
 }
@@ -99,7 +86,7 @@ async function getCurrentUser() {
 
 	if (!session?.user?.email) return null;
 
-	const users = loadUsers();
+	const users = await getUsers();
 
 	return users.find((u) => u.email.toLowerCase() === session.user.email?.toLowerCase()) ?? null;
 }

@@ -46,7 +46,8 @@ export default function RoleSettings() {
 	}
 
 	async function load() {
-		const res = await fetch(`/api/settings/roles?companyId=${companyId}`);
+		const t = Date.now();
+		const res = await fetch(`/api/settings/roles?companyId=${companyId}&_t=${t}`);
 		const data = await res.json();
 		setRoles(data.roles);
 	}
@@ -74,6 +75,7 @@ export default function RoleSettings() {
 		});
 
 		setNewRoleName('');
+		setCreating(false);
 		load();
 	}
 

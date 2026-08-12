@@ -3,12 +3,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { Session } from 'next-auth';
+import { getUsers } from '@/lib/users';
 import fs from 'fs';
 import path from 'path';
 
 const DATA_DIR = path.join(process.cwd(), 'data');
-const USERS_PATH = path.join(DATA_DIR, 'users.json');
-const ROLES_PATH = path.join(DATA_DIR, 'roles.json');
 const PRESENCES_PATH = path.join(DATA_DIR, 'presences.json');
 
 type User = Session['user'];
@@ -27,23 +26,9 @@ function ensureFiles() {
 		fs.mkdirSync(DATA_DIR, { recursive: true });
 	}
 
-	if (!fs.existsSync(USERS_PATH)) {
-		fs.writeFileSync(USERS_PATH, JSON.stringify([], null, 2));
-	}
-
-	if (!fs.existsSync(ROLES_PATH)) {
-		fs.writeFileSync(ROLES_PATH, JSON.stringify([], null, 2));
-	}
-
 	if (!fs.existsSync(PRESENCES_PATH)) {
 		fs.writeFileSync(PRESENCES_PATH, '{}');
 	}
-}
-
-function loadUsers(): User[] {
-	ensureFiles();
-
-	return JSON.parse(fs.readFileSync(USERS_PATH, 'utf8'));
 }
 
 function loadPresences(): Presences {
@@ -71,7 +56,7 @@ function savePresences(presences: Presences) {
 export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
 	const { id } = await params;
 
-	const users = loadUsers();
+	const users = await getUsers();
 	const presences = loadPresences();
 
 	const user = users.find((u) => u.id === id);
@@ -101,7 +86,7 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
 	const { id } = await params;
 
-	const users = loadUsers();
+	const users = await getUsers();
 
 	const user = users.find((u) => u.id === id);
 

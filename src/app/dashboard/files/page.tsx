@@ -24,6 +24,7 @@ type Settings = {
 export default function FilesPage() {
 	const abortRef = useRef<AbortController | null>(null);
 	const uploadRef = useRef<HTMLInputElement>(null);
+	const uploadFolderRef = useRef<HTMLInputElement>(null);
 	const [settings, setSettings] = useState<Settings | null>(null);
 
 	const { currentPath, navigate, goUp, goBack, goForward, canGoBack, canGoForward, canGoUp, breadcrumbs, Breadcrumbs } = useFileNavigation();
@@ -246,6 +247,16 @@ export default function FilesPage() {
 			fd.append('file', file);
 			fd.append('dir', currentPath);
 
+			if (file.webkitRelativePath) {
+				fd.append('relativePath', file.webkitRelativePath);
+			} else {
+				// We attach relativePath with the same name if we manually parsed it
+				const anyFile = file as any;
+				if (anyFile.fullPath) {
+					fd.append('relativePath', anyFile.fullPath.replace(/^\//, ''));
+				}
+			}
+
 			await fetch('/api/files', {
 				method: 'POST',
 				body: fd,
@@ -373,10 +384,13 @@ export default function FilesPage() {
 
 						<ViewToggle value={view} onChange={setView} />
 
-						{/* Actions */}
 						<div className='flex items-center gap-2'>
 							<Button variant='secondary' icon={<Folder size={16} />} onClick={() => setCreatingFolder(true)}>
 								New Folder
+							</Button>
+
+							<Button variant='secondary' icon={<Upload size={16} />} onClick={() => uploadFolderRef.current?.click()}>
+								Upload Folder
 							</Button>
 
 							<Button icon={<Upload size={16} />} onClick={() => uploadRef.current?.click()}>
@@ -385,6 +399,10 @@ export default function FilesPage() {
 						</div>
 
 						<input type='file' ref={uploadRef} multiple className='hidden' onChange={upload} />
+						<input type='file' ref={(el) => {
+							if (el) el.setAttribute('webkitdirectory', 'true');
+							uploadFolderRef.current = el;
+						}} multiple className='hidden' onChange={upload} />
 					</div>
 
 					{selected.length > 0 && (
@@ -535,7 +553,47 @@ export default function FilesPage() {
 						dragCounter.current = 0;
 						setDragging(false);
 
-						const files = Array.from(e.dataTransfer.files);
+						// Synchronously grab entries before any await
+						const entries = Array.from(e.dataTransfer.items)
+							.map((item) => (item.webkitGetAsEntry ? item.webkitGetAsEntry() : null))
+							.filter(Boolean);
+
+						const files: File[] = [];
+
+						const readEntry = async (entry: any, path = '') => {
+							if (entry.isFile) {
+								const file = await new Promise<File>((resolve, reject) => entry.file(resolve, reject));
+								(file as any).fullPath = path + file.name;
+								files.push(file);
+							} else if (entry.isDirectory) {
+								const dirReader = entry.createReader();
+								
+								const readAll = async (): Promise<any[]> => {
+									return new Promise((resolve, reject) => {
+										dirReader.readEntries(resolve, reject);
+									});
+								};
+								
+								let allEntries: any[] = [];
+								let readResult = await readAll();
+								while (readResult.length > 0) {
+									allEntries.push(...readResult);
+									readResult = await readAll();
+								}
+
+								for (const child of allEntries) {
+									await readEntry(child, path + entry.name + '/');
+								}
+							}
+						};
+
+						if (entries.length > 0) {
+							for (const entry of entries) {
+								await readEntry(entry);
+							}
+						} else {
+							files.push(...Array.from(e.dataTransfer.files));
+						}
 
 						if (files.length === 0) return;
 

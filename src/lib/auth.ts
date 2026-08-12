@@ -3,17 +3,7 @@
 import Credentials from 'next-auth/providers/credentials';
 import { NextAuthOptions } from 'next-auth';
 import bcrypt from 'bcryptjs';
-import fs from 'fs';
-import path from 'path';
-
-const USERS_PATH = path.join(process.cwd(), 'data', 'users.json');
-
-function loadUsers() {
-	if (!fs.existsSync(USERS_PATH)) return [];
-	const raw = fs.readFileSync(USERS_PATH, 'utf8');
-	const parsed = JSON.parse(raw);
-	return Array.isArray(parsed) ? parsed : [];
-}
+import { getUsers } from '@/lib/users';
 
 export const authConfig: NextAuthOptions = {
 	pages: {
@@ -35,10 +25,10 @@ export const authConfig: NextAuthOptions = {
 					return null;
 				}
 
-				const users = loadUsers();
-				const user = users.find((u) => u.email.toLowerCase() === credentials.email.toLowerCase());
+				const users = await getUsers();
+				const user = users.find((u) => u.email?.toLowerCase() === credentials.email.toLowerCase());
 
-				if (!user) return null;
+				if (!user || !user.passwordHash) return null;
 
 				const valid = await bcrypt.compare(credentials.password, user.passwordHash);
 
@@ -77,8 +67,8 @@ export const authConfig: NextAuthOptions = {
 			}
 
 			// 🔹 On refresh → rehydrate from users.json
-			const users = loadUsers();
-			const dbUser = users.find((u) => u.email.toLowerCase() === token.email?.toLowerCase());
+			const users = await getUsers();
+			const dbUser = users.find((u) => u.email?.toLowerCase() === token.email?.toLowerCase());
 
 			if (dbUser) {
 				token.roleId = dbUser.roleId;

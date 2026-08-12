@@ -1,345 +1,104 @@
 /** @format */
 'use client';
 
-import * as XLSX from 'xlsx';
-
-import { Download, FileUp, GitPullRequestCreate, Link2, MapPin, Upload, User, Users } from 'lucide-react';
-import groupsplit, { leaders } from '@/lib/groupsplit';
 import { useEffect, useState } from 'react';
-
-import { motion } from 'framer-motion';
+import Link from 'next/link';
+import { Activity, CalendarClock, History, Calendar, Clock, MapPin, Users } from 'lucide-react';
+import EventModal from '@/components/events/EventModal';
 
 export default function Page() {
-	const [people, setPeople] = useState<string[]>([]);
-	const [data, setData] = useState<any[]>([]);
+	const [events, setEvents] = useState<any[]>([]);
+	const [modalOpen, setModalOpen] = useState(false);
 
-	const [inviteImage, setInviteImage] = useState('');
-	const [formUrl, setFormUrl] = useState('');
-
-	const [generatedInvites, setGeneratedInvites] = useState<any[]>([]);
-
-	function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
-		const file = e.target.files?.[0];
-		if (!file) return;
-
-		const reader = new FileReader();
-
-		reader.onload = (evt) => {
-			const binary = evt.target?.result;
-			const workbook = XLSX.read(binary, { type: 'binary' });
-
-			const sheet = workbook.Sheets[workbook.SheetNames[0]];
-			const json = XLSX.utils.sheet_to_json<any[]>(sheet, { header: 1 });
-
-			const extracted = json.map((row) => row[0]).filter((v) => typeof v === 'string' && v.trim() !== '');
-
-			setPeople(extracted);
-
-			const result = groupsplit(extracted);
-			setData(result);
-		};
-
-		reader.readAsBinaryString(file);
-	}
-
-	async function loadInvites() {
-		const response = await fetch('/api/files/invite');
-
-		const json = await response.json();
-
-		if (json.ok) {
-			setGeneratedInvites(json.invites);
+	async function loadEvents() {
+		try {
+			const response = await fetch('/api/events');
+			const json = await response.json();
+			setEvents(json.events || []);
+		} catch (error) {
+			console.error('Failed to load events', error);
 		}
-	}
-
-	function exportStyledExcel(data: any[], people: string[]) {
-		const wb = XLSX.utils.book_new();
-		const ws: XLSX.WorkSheet = {};
-
-		const headerStyle = {
-			font: { bold: true },
-			alignment: { horizontal: 'center' },
-		};
-
-		const leaderStyle = {
-			font: { bold: true },
-		};
-
-		const centerStyle = {
-			alignment: { horizontal: 'center' },
-		};
-
-		let colOffset = 3;
-
-		data.forEach((round, roundIndex) => {
-			const startCol = colOffset + roundIndex * 4;
-
-			ws[XLSX.utils.encode_cell({ r: 0, c: startCol })] = {
-				v: `SESSIE ${round.round}`,
-				s: headerStyle,
-			};
-
-			let rowCursor = 1;
-
-			round.groups.forEach((group: any) => {
-				const baseRow = rowCursor;
-				const hasLeader = !!group.leader;
-
-				if (hasLeader) {
-					ws[XLSX.utils.encode_cell({ r: baseRow, c: startCol - 1 })] = {
-						v: '10min',
-						s: leaderStyle,
-					};
-
-					ws[XLSX.utils.encode_cell({ r: baseRow, c: startCol })] = {
-						v: group.location,
-						s: leaderStyle,
-					};
-
-					ws[XLSX.utils.encode_cell({ r: baseRow, c: startCol + 1 })] = {
-						v: group.leader,
-						s: leaderStyle,
-					};
-				} else {
-					ws[XLSX.utils.encode_cell({ r: baseRow, c: startCol })] = {
-						v: group.location,
-						s: leaderStyle,
-					};
-				}
-
-				group.people.forEach((p: string, i: number) => {
-					const row = baseRow + (hasLeader ? 1 + i : i);
-
-					ws[XLSX.utils.encode_cell({ r: row, c: startCol - 1 })] = {
-						v: hasLeader ? '2min' : '4min',
-						s: centerStyle,
-					};
-
-					ws[XLSX.utils.encode_cell({ r: row, c: startCol + 1 })] = {
-						v: p,
-						s: centerStyle,
-					};
-				});
-
-				rowCursor += (hasLeader ? 1 + group.people.length : group.people.length) + 1;
-			});
-		});
-
-		ws['A1'] = { v: 'Nr', s: headerStyle };
-		ws['B1'] = { v: 'Naam', s: headerStyle };
-
-		const finalPeople = [...leaders, ...people.filter((p) => !leaders.includes(p))];
-
-		for (let i = 0; i < finalPeople.length; i++) {
-			const name = finalPeople[i];
-			const nr = i === 0 ? 'A' : i === 1 ? 'B' : i === 2 ? 'C' : i - 2;
-
-			ws[XLSX.utils.encode_cell({ r: i + 1, c: 0 })] = { v: nr };
-			ws[XLSX.utils.encode_cell({ r: i + 1, c: 1 })] = { v: name };
-		}
-
-		ws['!cols'] = [{ wch: 6 }, { wch: 28 }, { wch: 10 }, ...Array(data.length * 4).fill({ wch: 18 })];
-
-		ws['!ref'] = XLSX.utils.encode_range({
-			s: { r: 0, c: 0 },
-			e: { r: 100, c: colOffset + data.length * 4 },
-		});
-
-		XLSX.utils.book_append_sheet(wb, ws, 'Schedule');
-		XLSX.writeFile(wb, 'styled_schedule.xlsx');
-	}
-
-	async function uploadInvite(e: React.ChangeEvent<HTMLInputElement>) {
-		const file = e.target.files?.[0];
-
-		if (!file) return;
-
-		const formData = new FormData();
-
-		formData.append('file', file);
-
-		const response = await fetch('/api/files/invite', {
-			method: 'POST',
-			body: formData,
-		});
-
-		const json = await response.json();
-
-		if (json.ok) {
-			setInviteImage(json.imageUrl);
-		}
-	}
-
-	async function generateInviteHtml() {
-		if (!inviteImage || !formUrl) return;
-
-		const response = await fetch('/api/files/invite', {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-			},
-			body: JSON.stringify({
-				imageUrl: window.location.origin + inviteImage,
-				formUrl,
-			}),
-		});
-
-		const json = await response.json();
-
-		if (json.ok) {
-			loadInvites();
-		}
-	}
-
-	async function deleteInvite(name: string) {
-		await fetch(`/api/files/invite?name=${encodeURIComponent(name)}`, {
-			method: 'DELETE',
-		});
-
-		loadInvites();
 	}
 
 	useEffect(() => {
-		loadInvites();
+		loadEvents();
 	}, []);
+
+	const now = new Date();
+
+	const categorized = events.reduce((acc, event) => {
+		const welcomeStr = event.welcomeTime || event.time || "00:00";
+		const endStr = event.endTime || "23:59";
+
+		// Create date objects for comparison
+		const welcomeDate = new Date(`${event.date}T${welcomeStr}:00`);
+		const endDate = new Date(`${event.date}T${endStr}:00`);
+
+		if (now < welcomeDate) {
+			acc.upcoming.push(event);
+		} else if (now > endDate) {
+			acc.past.push(event);
+		} else {
+			acc.happening.push(event);
+		}
+
+		return acc;
+	}, { upcoming: [] as any[], happening: [] as any[], past: [] as any[] });
+
+	const EventGrid = ({ title, icon: Icon, iconColor, data }: { title: string, icon: any, iconColor: string, data: any[] }) => {
+		if (data.length === 0) return null;
+		
+		return (
+			<div className='bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-sm p-6 space-y-4'>
+				<h2 className='text-xl font-semibold flex items-center gap-2'>
+					<Icon size={20} className={iconColor} />
+					{title}
+				</h2>
+				<div className='grid sm:grid-cols-2 lg:grid-cols-3 gap-4'>
+					{data.map((event) => (
+						<Link href={`/dashboard/events/${event.id}`} key={event.id} className='border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 bg-zinc-50 dark:bg-zinc-800 space-y-2 block hover:border-(--accent) transition-colors cursor-pointer'>
+							<h3 className='font-semibold text-lg text-zinc-900 dark:text-zinc-100'>{event.name}</h3>
+							<div className='text-sm text-zinc-500 space-y-1.5'>
+								<p className="flex items-center gap-2"><Calendar size={14} className="text-zinc-400" /> {event.date}</p>
+								<p className="flex items-center gap-2"><Clock size={14} className="text-zinc-400" /> {event.welcomeTime ? `${event.welcomeTime} (Welcome)` : event.time}</p>
+								{event.location && <p className="flex items-center gap-2"><MapPin size={14} className="text-zinc-400" /> {event.location}</p>}
+								<p className="flex items-center gap-2"><Users size={14} className="text-zinc-400" /> {event.invites?.length || 0} Invited</p>
+							</div>
+						</Link>
+					))}
+				</div>
+			</div>
+		);
+	};
 
 	return (
 		<div className='space-y-8'>
 			{/* HEADER */}
-			<div>
-				<h1 className='text-2xl font-semibold text-zinc-900 dark:text-zinc-100'>Group Splitter</h1>
-				<p className='text-sm text-zinc-500 dark:text-zinc-400 mt-1'>Upload an Excel file to generate group rotations.</p>
-			</div>
-
-			{/* UPLOAD CARD */}
-			<div className='bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-sm p-6 space-y-4'>
-				<div className='flex items-center gap-3'>
-					<div className='h-10 w-10 rounded-xl bg-(--active-accent) flex items-center justify-center'>
-						<FileUp size={16} className='text-(--accent)' />
-					</div>
-
-					<div>
-						<h2 className='text-base font-medium text-zinc-900 dark:text-zinc-100'>Upload Excel</h2>
-						<p className='text-xs text-zinc-500 dark:text-zinc-400'>First column should contain names</p>
-					</div>
-				</div>
-
-				<input
-					type='file'
-					accept='.xlsx,.xls,.xlsm'
-					onChange={handleFile}
-					className='block w-full text-sm text-zinc-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-(--accent) file:text-white hover:file:bg-(--hover-accent)'
-				/>
-
-				{people.length > 0 && (
-					<div className='text-sm text-zinc-600 dark:text-zinc-400'>
-						<strong>Loaded:</strong> {people.length} people
-					</div>
-				)}
-
-				{data.length > 0 && (
-					<button
-						onClick={() => exportStyledExcel(data, people)}
-						className='h-10 px-4 rounded-xl bg-(--accent) text-white text-sm font-medium flex items-center gap-2 hover:bg-(--hover-accent) transition'>
-						<Download size={16} />
-						Download Excel
-					</button>
-				)}
-			</div>
-
-			{/* RESULTS */}
-			<div className='space-y-6'>
-				{data.map((round) => (
-					<motion.div
-						key={round.round}
-						initial={{ opacity: 0, y: 6 }}
-						animate={{ opacity: 1, y: 0 }}
-						className='bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-sm p-6 space-y-4'>
-						<div className='flex items-center gap-2'>
-							<Users size={16} className='text-(--accent)' />
-							<h2 className='text-lg font-semibold text-zinc-900 dark:text-zinc-100'>Round {round.round}</h2>
-						</div>
-
-						<div className='grid md:grid-cols-2 gap-4'>
-							{round.groups.map((group: any, i: number) => (
-								<div key={i} className='border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 bg-zinc-50 dark:bg-zinc-800 space-y-2'>
-									<div className='flex items-center gap-2 text-sm'>
-										<MapPin size={14} />
-										<span className='font-medium'>{group.location}</span>
-									</div>
-
-									<div className='flex items-center gap-2 text-sm text-zinc-500'>
-										<User size={14} />
-										{group.leader ?? 'No leader'}
-									</div>
-
-									<div className='text-sm text-zinc-600 dark:text-zinc-300'>{group.people.join(', ')}</div>
-								</div>
-							))}
-						</div>
-					</motion.div>
-				))}
-			</div>
-
-			<div className='bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-sm p-6 space-y-4'>
+			<div className='flex flex-col sm:flex-row sm:items-center justify-between gap-4'>
 				<div>
-					<h1 className='text-xl font-semibold'>Event Invite</h1>
-
-					<p className='text-sm text-zinc-500'>Upload invite image and signup URL</p>
+					<h1 className='text-2xl font-semibold text-zinc-900 dark:text-zinc-100'>Events</h1>
+					<p className='text-sm text-zinc-500 dark:text-zinc-400 mt-1'>Manage group rotations and event invites.</p>
 				</div>
-
-				<div className='space-y-4'>
-					<div>
-						<label className='flex items-center gap-2'>
-							<Upload size={16} />
-
-							<input type='file' accept='image/*' onChange={uploadInvite} />
-						</label>
-					</div>
-
-					<div className='relative'>
-						<Link2 size={16} className='absolute left-3 top-3 text-zinc-400' />
-
-						<input
-							value={formUrl}
-							onChange={(e) => setFormUrl(e.target.value)}
-							placeholder='Signup form URL'
-							className='w-full h-10 pl-10 pr-4 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-transparent'
-						/>
-					</div>
-
-					{inviteImage && <img src={inviteImage} alt='Invite preview' className='rounded-xl max-h-64 object-cover' />}
-
-					{inviteImage && formUrl && (
-						<button onClick={generateInviteHtml} className='h-10 px-4 rounded-xl bg-(--accent) text-white flex items-center gap-2'>
-							<GitPullRequestCreate size={16} />
-							Generate Invite
-						</button>
-					)}
-
-					<div className='space-y-2'>
-						{generatedInvites.map((invite) => (
-							<div key={invite.name} className='flex items-center justify-between p-3 rounded-xl border border-zinc-200 dark:border-zinc-800'>
-								<div>
-									<p className='text-sm font-medium'>{invite.name}</p>
-
-									<p className='text-xs text-zinc-500'>{new Date(invite.created).toLocaleString()}</p>
-								</div>
-
-								<div className='flex items-center gap-2'>
-									<a href={invite.url} download className='h-9 px-3 rounded-lg bg-(--accent) text-white text-sm flex items-center'>
-										Download
-									</a>
-
-									<button onClick={() => deleteInvite(invite.name)} className='h-9 px-3 rounded-lg border border-red-500 text-red-500 text-sm'>
-										Delete
-									</button>
-								</div>
-							</div>
-						))}
-					</div>
-				</div>
+				
+				<button 
+					onClick={() => setModalOpen(true)}
+					className='h-10 px-4 rounded-xl bg-(--accent) text-white font-medium hover:bg-(--hover-accent) transition-colors shrink-0'>
+					New Event
+				</button>
 			</div>
+
+			{/* CATEGORIZED LISTS */}
+			<div className="space-y-6">
+				<EventGrid title="Happening Now" icon={Activity} iconColor="text-red-500" data={categorized.happening} />
+				<EventGrid title="Upcoming Events" icon={CalendarClock} iconColor="text-emerald-500" data={categorized.upcoming} />
+				<EventGrid title="Past Events" icon={History} iconColor="text-zinc-400" data={categorized.past} />
+			</div>
+
+			<EventModal
+				open={modalOpen}
+				onClose={() => setModalOpen(false)}
+				onSuccess={loadEvents}
+			/>
 		</div>
 	);
 }

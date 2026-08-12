@@ -151,8 +151,8 @@ export default function File({
 					onDoubleClick={handleOpen}
 					onContextMenu={handleContextMenu}>
 					<button type='button' onClick={() => setViewing(true)} className='group aspect-square overflow-hidden w-full max-h-50 block cursor-zoom-in'>
-						<div className='transition-transform duration-200 group-hover:scale-105'>
-							<FileIcon file={file} height={1080} width={1920} />
+						<div className='transition-transform duration-200 group-hover:scale-105 w-full h-full'>
+							<FileIcon file={file} height={1080} width={1920} className='w-full h-full' />
 						</div>
 					</button>
 

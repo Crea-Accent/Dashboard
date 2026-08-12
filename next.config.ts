@@ -18,6 +18,7 @@ const nextConfig: NextConfig = {
 	experimental: {
 		proxyClientMaxBodySize: 5000 * 1024 * 1024, // 500 MB
 	},
+	allowedDevOrigins: ['172.16.10.240'],
 };
 
 export default nextConfig;

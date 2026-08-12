@@ -55,7 +55,12 @@ export default function UserSettings() {
 	const [user, setUser] = useState(emptyUser);
 
 	async function load() {
-		const [usersRes, rolesRes, companiesRes] = await Promise.all([fetch('/api/users'), fetch('/api/settings/roles'), fetch('/api/settings/companies')]);
+		const t = Date.now();
+		const [usersRes, rolesRes, companiesRes] = await Promise.all([
+			fetch(`/api/users?_t=${t}`), 
+			fetch(`/api/settings/roles?_t=${t}`), 
+			fetch(`/api/settings/companies?_t=${t}`)
+		]);
 
 		const usersData = await usersRes.json();
 		const rolesData = await rolesRes.json();

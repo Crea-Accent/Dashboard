@@ -5,6 +5,7 @@ import SidePanel from '@/components/SidePanel';
 import Sidebar from '@/components/Sidebar';
 import { SidebarLayout } from '@/components/SidebarLayout';
 import { StatusProvider } from '@/providers/StatusProvider';
+import { ToastProvider } from '@/providers/ToastProvider';
 import { authConfig } from '@/lib/auth';
 import { getServerSession } from 'next-auth';
 import { headers } from 'next/headers';
@@ -36,13 +37,15 @@ export default async function DashboardLayout({
 
 	return (
 		<>
-			<StatusProvider>
-				<SidebarLayout>
-					<Sidebar />
-					<SidePanel />
-					<main className='flex-1 w-full md:px-6 py-25 md:py-25'>{children}</main>
-				</SidebarLayout>
-			</StatusProvider>
+			<ToastProvider>
+				<StatusProvider>
+					<SidebarLayout>
+						<Sidebar />
+						<SidePanel />
+						<main className='flex-1 w-full md:px-6 py-25 md:py-25'>{children}</main>
+					</SidebarLayout>
+				</StatusProvider>
+			</ToastProvider>
 		</>
 	);
 }

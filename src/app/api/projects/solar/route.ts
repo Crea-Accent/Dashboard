@@ -1,6 +1,59 @@
 /** @format */
 
 import { NextRequest, NextResponse } from 'next/server';
+import fs from 'fs';
+import path from 'path';
+
+function loadProjectsSettings() {
+	const DATA_DIR = path.join(process.cwd(), 'data');
+	const PROJECTS_PATH = path.join(DATA_DIR, 'projects.json');
+	const raw = fs.readFileSync(PROJECTS_PATH, 'utf8');
+	return JSON.parse(raw);
+}
+
+export async function GET(request: NextRequest) {
+	try {
+		const client = request.nextUrl.searchParams.get('client');
+		if (!client) return NextResponse.json({ error: 'Missing client' }, { status: 400 });
+
+		const settings = loadProjectsSettings();
+		const solarPath = path.resolve(process.cwd(), settings.path, client, 'solar.json');
+
+		if (fs.existsSync(solarPath)) {
+			const data = JSON.parse(fs.readFileSync(solarPath, 'utf8'));
+			return NextResponse.json(data);
+		}
+
+		// Fallback to metadata.json's solar if it exists for backwards compatibility
+		const metadataPath = path.resolve(process.cwd(), settings.path, client, 'metadata.json');
+		if (fs.existsSync(metadataPath)) {
+			const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8'));
+			if (metadata.solar) return NextResponse.json(metadata.solar);
+		}
+
+		return NextResponse.json(null);
+	} catch (error) {
+		console.error(error);
+		return NextResponse.json({ error: 'Failed to load solar data' }, { status: 500 });
+	}
+}
+
+export async function PATCH(request: NextRequest) {
+	try {
+		const { client, data } = await request.json();
+		if (!client || !data) return NextResponse.json({ error: 'Missing client or data' }, { status: 400 });
+
+		const settings = loadProjectsSettings();
+		const solarPath = path.resolve(process.cwd(), settings.path, client, 'solar.json');
+
+		fs.writeFileSync(solarPath, JSON.stringify(data, null, '\t'));
+
+		return NextResponse.json({ success: true });
+	} catch (error) {
+		console.error(error);
+		return NextResponse.json({ error: 'Failed to save solar data' }, { status: 500 });
+	}
+}
 
 export async function POST(request: NextRequest) {
 	try {
@@ -26,7 +79,7 @@ export async function POST(request: NextRequest) {
 		if (!response.ok) {
 			return NextResponse.json(
 				{
-					error: 'Solar API request failed',
+					error: response.status === 404 ? 'No solar data available for this location' : 'Solar API request failed',
 				},
 				{
 					status: response.status,

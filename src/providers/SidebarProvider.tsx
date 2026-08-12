@@ -19,12 +19,16 @@ const STORAGE_KEY = 'sidebar-open';
 export function SidebarProvider({ children }: { children: React.ReactNode }) {
 	const pathname = usePathname();
 
-	const [open, setOpen] = useState(typeof window !== 'undefined' && window.innerWidth >= 768);
+	const [open, setOpen] = useState(true);
+	const [mounted, setMounted] = useState(false);
 
 	useEffect(() => {
+		setMounted(true);
 		const stored = localStorage.getItem(STORAGE_KEY);
 		(async () => {
-			if (stored !== null && window.innerWidth >= 768) {
+			if (window.innerWidth < 768) {
+				setOpen(false);
+			} else if (stored !== null) {
 				setOpen(stored === 'true');
 			}
 		})();
@@ -39,8 +43,10 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
 	}, [pathname]);
 
 	useEffect(() => {
-		localStorage.setItem(STORAGE_KEY, String(open));
-	}, [open]);
+		if (mounted) {
+			localStorage.setItem(STORAGE_KEY, String(open));
+		}
+	}, [open, mounted]);
 
 	const toggle = () => setOpen((o) => !o);
 

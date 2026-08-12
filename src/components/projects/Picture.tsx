@@ -51,6 +51,9 @@ export default function Pictures({ basePath, client }: { basePath: string; clien
 	const [loading, setLoading] = useState(true);
 	const [view, setView] = useState<'grid' | 'list'>('grid');
 
+	const dragCounter = useRef(0);
+	const [dragging, setDragging] = useState(false);
+
 	const [uploadModalOpen, setUploadModalOpen] = useState(false);
 	const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
@@ -273,7 +276,18 @@ export default function Pictures({ basePath, client }: { basePath: string; clien
 	if (loading) return <Loading title='Loading pictures' />;
 
 	return (
-		<section className='space-y-4'>
+		<section
+			className='space-y-6 relative'
+			onDragEnter={(e) => {
+				if (!isAllowed) return;
+				e.preventDefault();
+				dragCounter.current++;
+				setDragging(true);
+			}}
+			onDragOver={(e) => {
+				if (!isAllowed) return;
+				e.preventDefault();
+			}}>
 			<input
 				ref={inputRef}
 				type='file'
@@ -499,6 +513,36 @@ export default function Pictures({ basePath, client }: { basePath: string; clien
 					setEditingFile(null);
 				}}
 			/>
+
+			{dragging && (
+				<div
+					onDragLeave={() => {
+						dragCounter.current--;
+						if (dragCounter.current <= 0) {
+							setDragging(false);
+						}
+					}}
+					onDrop={(e) => {
+						e.preventDefault();
+						dragCounter.current = 0;
+						setDragging(false);
+
+						const dropped = Array.from(e.dataTransfer.files).filter((file) => IMAGE_EXTENSIONS.some((ext) => file.name.toLowerCase().endsWith(ext)));
+						if (dropped.length === 0) return;
+
+						setSelectedFiles(dropped);
+						setUploadModalOpen(true);
+					}}
+					className='fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center animate-in fade-in duration-200'>
+					<div className='p-12 text-center bg-(--foreground) rounded-2xl shadow-xl border border-(--border)/10 pointer-events-none'>
+						<div className='space-y-3'>
+							<Upload size={48} className='mx-auto text-(--accent)' />
+							<h2 className='text-xl font-semibold'>Drop pictures to upload</h2>
+							<p className='text-sm text-(--text-muted)'>Release your images anywhere to upload them.</p>
+						</div>
+					</div>
+				</div>
+			)}
 		</section>
 	);
 }

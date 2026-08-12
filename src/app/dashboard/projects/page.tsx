@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
+import EmptyState from '@/components/ui/EmptyState';
 import Input from '@/components/ui/Input';
 import Link from 'next/link';
 import Loading from '@/components/ui/Loading';
@@ -30,6 +31,7 @@ type Project = {
 	name: string;
 	type: string;
 	label?: string;
+	project?: string;
 	updatedAt?: string;
 	address?: {
 		street?: string;
@@ -161,6 +163,7 @@ export default function Page() {
 			if (
 				q &&
 				!p.name.toLowerCase().includes(q) &&
+				!p.project?.toLowerCase().includes(q) &&
 				!p.label?.toLowerCase().includes(q) &&
 				!p.address?.street?.toLowerCase().includes(q) &&
 				!p.address?.country?.toLowerCase().includes(q) &&
@@ -269,12 +272,17 @@ export default function Page() {
 				{/* Table */}
 
 				<motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
-					{view === 'list' ? (
+					{filteredProjects.length === 0 ? (
+						<div className='py-12'>
+							<EmptyState title='No projects found' description='Try adjusting your search filters or create a new project.' />
+						</div>
+					) : view === 'list' ? (
 						<Card className='overflow-hidden'>
-							<div className='grid grid-cols-[1fr_24px_80px] md:grid-cols-[1fr_140px_120px_100px] px-5 h-11 items-center text-xs font-semibold text-(--text-muted) border-b border-(--border)/10'>
+							<div className='grid grid-cols-[1fr_24px_80px] md:grid-cols-[1fr_120px_140px_120px_100px] px-5 h-11 items-center text-xs font-semibold text-(--text-muted) border-b border-(--border)/10'>
 								<button onClick={() => toggleSort('name')} className='text-left'>
 									Name
 								</button>
+								<span className='hidden md:block text-left'>Project</span>
 								<span className='text-center md:text-left'>Label</span>
 								<button onClick={() => toggleSort('updated')} className='hidden md:block text-left'>
 									Updated
@@ -286,7 +294,7 @@ export default function Page() {
 								<motion.div
 									layout
 									key={p.path}
-									className={`grid grid-cols-[1fr_24px_80px] md:grid-cols-[1fr_140px_120px_100px] items-center h-16 px-5 text-sm hover:bg-(--background) transition-colors ${index !== filteredProjects.length - 1 ? 'border-b border-(--border)/10' : ''}`}>
+									className={`grid grid-cols-[1fr_24px_80px] md:grid-cols-[1fr_120px_140px_120px_100px] items-center h-16 px-5 text-sm hover:bg-(--background) transition-colors ${index !== filteredProjects.length - 1 ? 'border-b border-(--border)/10' : ''}`}>
 									<Link href={`/dashboard/projects/${encodeURIComponent(p.name)}`} className='flex items-center gap-3 min-w-0'>
 										<div
 											className='w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-semibold shrink-0'
@@ -301,6 +309,11 @@ export default function Page() {
 											<div className='truncate text-xs text-(--text-muted) h-4'>{p.address?.city || ''}</div>
 										</div>
 									</Link>
+
+									{/* Key */}
+									<div className='hidden md:block text-sm font-medium text-[var(--text-muted)]'>
+										{p.project || '—'}
+									</div>
 
 									{/* Label */}
 									<div className='flex justify-center md:justify-start'>

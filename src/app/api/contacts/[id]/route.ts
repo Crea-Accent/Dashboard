@@ -1,15 +1,14 @@
 /** @format */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { readContacts, writeContacts } from '@/lib/contacts';
+import { getContact, writeContact, deleteContact } from '@/lib/contacts';
+import { registerCompanySafely } from '@/lib/companies';
 
 export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
 	try {
 		const { id } = await params;
 
-		const contacts = await readContacts();
-
-		const contact = contacts.find((contact) => contact.id === id);
+		const contact = await getContact(id);
 
 		if (!contact) {
 			return NextResponse.json(
@@ -43,31 +42,25 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
 		const body = await request.json();
 
-		const contacts = await readContacts();
+		const contact = await getContact(id);
 
-		const index = contacts.findIndex((contact) => contact.id === id);
-
-		if (index === -1) {
-			return NextResponse.json(
-				{
-					error: 'Contact not found',
-				},
-				{
-					status: 404,
-				}
-			);
+		if (!contact) {
+			return NextResponse.json({ error: 'Contact not found' }, { status: 404 });
 		}
 
-		contacts[index] = {
-			...contacts[index],
+		const updatedContact = {
+			...contact,
 			...body,
 			id,
 			updatedAt: new Date().toISOString(),
 		};
 
-		await writeContacts(contacts);
+		await writeContact(updatedContact);
+		if (updatedContact.company) {
+			await registerCompanySafely(updatedContact.company);
+		}
 
-		return NextResponse.json(contacts[index]);
+		return NextResponse.json(updatedContact);
 	} catch (error) {
 		console.error(error);
 
@@ -86,22 +79,13 @@ export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id:
 	try {
 		const { id } = await params;
 
-		const contacts = await readContacts();
+		const contact = await getContact(id);
 
-		const filtered = contacts.filter((contact) => contact.id !== id);
-
-		if (filtered.length === contacts.length) {
-			return NextResponse.json(
-				{
-					error: 'Contact not found',
-				},
-				{
-					status: 404,
-				}
-			);
+		if (!contact) {
+			return NextResponse.json({ error: 'Contact not found' }, { status: 404 });
 		}
 
-		await writeContacts(filtered);
+		await deleteContact(id);
 
 		return NextResponse.json({
 			success: true,

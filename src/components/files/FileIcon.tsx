@@ -12,15 +12,16 @@ type Props = {
 	size?: number;
 	height?: number | null;
 	width?: number | null;
+	className?: string;
 };
 
-export default function FileIcon({ file, size = 20, height = null, width = null }: Props) {
+export default function FileIcon({ file, size = 20, height = null, width = null, className }: Props) {
 	const ext = file.name.toLowerCase().split('.').pop();
 
 	const isImage = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(ext ?? '');
 
 	if (isImage && file.path) {
-		return <Image src={`/api/files/download?path=${encodeURIComponent(file.path)}`} alt={file.name} className='rounded object-cover' width={width || size} height={height || size} unoptimized />;
+		return <Image src={`/api/files/download?path=${encodeURIComponent(file.path)}`} alt={file.name} className={`rounded object-cover ${className ?? ''}`} width={width || size} height={height || size} unoptimized />;
 	}
 
 	if (file.type === 'directory') {

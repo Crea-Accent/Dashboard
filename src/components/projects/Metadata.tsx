@@ -12,6 +12,7 @@ import Address from './metadata/Address';
 import Button from '../ui/Button';
 import Contact from './metadata/Contact';
 import EmptyState from '../ui/EmptyState';
+import Input from '../ui/Input';
 import { User } from 'next-auth';
 import { usePermissions } from '@/providers/PermissionsProvider';
 
@@ -22,6 +23,7 @@ type Label = {
 
 export type MetadataType = {
 	label?: string;
+	project?: string;
 
 	address?: {
 		lat?: number;
@@ -76,9 +78,11 @@ export default function Metadata({ client, onActionsChange }: Props) {
 	const [saving, setSaving] = useState(false);
 	const [saved, setSaved] = useState(false);
 
-	const [openSections, setOpenSections] = useState(['address', 'contact', 'logins', 'notes']);
+	const [openSections, setOpenSections] = useState(['general', 'address', 'contact', 'logins', 'notes']);
 	const [users, setUsers] = useState<User[]>([]);
 	const [labels, setLabels] = useState<Label[]>([]);
+	const [projectNames, setProjectNames] = useState<string[]>([]);
+	const [showSuggestions, setShowSuggestions] = useState(false);
 
 	/* ---------- STYLES ---------- */
 
@@ -209,12 +213,12 @@ export default function Metadata({ client, onActionsChange }: Props) {
 					: [
 							...(data?.logins?.company ?? []).map((login: any) => ({
 								...login,
-								id: login.id ?? crypto.randomUUID(),
+								id: login.id ?? (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2)),
 								visibleToClient: false,
 							})),
 							...(data?.logins?.client ?? []).map((login: any) => ({
 								...login,
-								id: login.id ?? crypto.randomUUID(),
+								id: login.id ?? (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2)),
 								visibleToClient: true,
 							})),
 						],
@@ -230,6 +234,12 @@ export default function Metadata({ client, onActionsChange }: Props) {
 		fetch('/api/settings/projects')
 			.then((r) => r.json())
 			.then((d) => setLabels(d.labels ?? []));
+		fetch('/api/projects/map')
+			.then((r) => r.json())
+			.then((d) => {
+				const names = d.map((p: any) => p.project).filter((p: any) => p && typeof p === 'string');
+				setProjectNames(Array.from(new Set(names)) as string[]);
+			});
 	}, [client]);
 
 	/* ---------- UI ---------- */
@@ -238,6 +248,61 @@ export default function Metadata({ client, onActionsChange }: Props) {
 
 	return (
 		<section className='space-y-4'>
+			<div className='rounded-3xl p-6 bg-(--foreground)'>
+				<Button onClick={() => toggleSection('general')} className='w-full justify-start' variant='secondary'>
+					<span>General</span>
+
+					{openSections.includes('general') ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+				</Button>
+
+				<AnimatePresence initial={false}>
+					{openSections.includes('general') && (
+						<motion.div {...collapseAnimation} className='pt-4 overflow-hidden'>
+							<div className='relative'>
+								<Input
+									label='Project Group Name'
+									placeholder='e.g. Solar City Phase 1'
+									value={metadata.project ?? ''}
+									onChange={(e) => {
+										setMetadata({ ...metadata, project: e.target.value });
+										setShowSuggestions(true);
+									}}
+									onFocus={() => setShowSuggestions(true)}
+									onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+									disabled={hasWrite}
+								/>
+								
+								<AnimatePresence>
+									{showSuggestions && projectNames.filter(n => n.toLowerCase().includes((metadata.project ?? '').toLowerCase()) && n !== metadata.project).length > 0 && (
+										<motion.div 
+											initial={{ opacity: 0, y: -5 }} 
+											animate={{ opacity: 1, y: 0 }} 
+											exit={{ opacity: 0, y: -5 }} 
+											className='absolute z-10 w-full mt-2 bg-[var(--background)] border border-[var(--border)]/10 rounded-xl shadow-xl max-h-48 overflow-y-auto p-1'
+										>
+											{projectNames
+												.filter(n => n.toLowerCase().includes((metadata.project ?? '').toLowerCase()) && n !== metadata.project)
+												.map((name) => (
+													<div
+														key={name}
+														className='px-3 py-2 hover:bg-[var(--foreground)] rounded-lg cursor-pointer text-sm font-medium transition-colors'
+														onClick={() => {
+															setMetadata({ ...metadata, project: name });
+															setShowSuggestions(false);
+														}}
+													>
+														{name}
+													</div>
+											))}
+										</motion.div>
+									)}
+								</AnimatePresence>
+							</div>
+						</motion.div>
+					)}
+				</AnimatePresence>
+			</div>
+
 			<div className='rounded-3xl p-6 bg-(--foreground)'>
 				<Button onClick={() => toggleSection('address')} className='w-full justify-start' variant='secondary'>
 					<span>Address</span>

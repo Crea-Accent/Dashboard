@@ -2,7 +2,7 @@
 'use client';
 
 import { AnimatePresence, motion } from 'framer-motion';
-import { ClipboardList, Folder, FolderArchive, FolderKanban, Home, House, KeyRound, LogIn, LogOut, Menu, Network, Package, Settings, User } from 'lucide-react';
+import { ClipboardList, Folder, FolderArchive, FolderKanban, Home, House, KeyRound, ListTodo, LogIn, LogOut, Menu, Network, Package, Settings, User } from 'lucide-react';
 import { HEADER_HEIGHT, SIDEBAR_WIDTH } from '@/lib/layout';
 import { signIn, signOut, useSession } from 'next-auth/react';
 
@@ -22,6 +22,7 @@ export default function Sidebar({ type = 'dashboard', items = [] }: any) {
 		type == 'dashboard'
 			? [
 					{ href: '/dashboard', label: 'Home', icon: Home },
+					{ href: '/dashboard/tasks', label: 'Tasks', icon: ListTodo, permission: 'projects.read' },
 					{ href: '/dashboard/projects', label: 'Projects', icon: FolderKanban, permission: 'projects.read' },
 					{ href: '/dashboard/files', label: 'Files', icon: Folder, permission: 'files.read' },
 					{ href: '/dashboard/procedures', label: 'Procedures', icon: ClipboardList, permission: 'projects.read' },

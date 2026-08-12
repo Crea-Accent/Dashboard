@@ -156,13 +156,21 @@ export default function Home() {
 				}
 
 				const res = await fetch(`/api/files?view=${encodeURIComponent(s.path)}`);
-				const data: FileEntry[] = await res.json();
+				const data = await res.json();
 
-				setProjects(data.filter((f) => f.type === 'directory'));
+				if (Array.isArray(data)) {
+					setProjects(data.filter((f: any) => f.type === 'directory'));
+				} else {
+					setProjects([]);
+				}
 
 				const mapData = await fetch('/api/projects/map').then((r) => r.json());
 
-				setMapProjects(mapData.filter((p: any) => p.hasLocation));
+				if (Array.isArray(mapData)) {
+					setMapProjects(mapData.filter((p: any) => p.hasLocation));
+				} else {
+					setMapProjects([]);
+				}
 			} finally {
 				setLoading(false);
 			}

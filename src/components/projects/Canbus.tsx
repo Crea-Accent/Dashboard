@@ -11,15 +11,19 @@ import {
 	CircuitBoard,
 	Lightbulb,
 	ListTree,
+	Minus,
 	Music,
 	Pencil,
 	Plus,
 	Power,
+	Save,
 	Thermometer,
 	ToggleLeft,
 	Trash2,
+	Printer,
+	Loader2
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 
 import Button from '../ui/Button';
 import Card from '../ui/Card';
@@ -99,18 +103,75 @@ export default function Canbus({ client, basePath }: Props) {
 	const [topology, setTopology] = useState<TopologyModule[]>([]);
 
 	const [search, setSearch] = useState('');
-	const [mobileBranch, setMobileBranch] = useState<number>(1);
+	const [searchIndex, setSearchIndex] = useState(0);
+
+	const matches = useMemo(() => {
+		if (!search) return [];
+		const term = search.toLowerCase();
+		const results: string[] = [];
+
+		function traverse(tree: TopologyModule[]) {
+			for (const entry of tree) {
+				const module = availableModules.find((m) => m.id === entry.moduleId);
+				const node = foundModules.find((n) => n.physicalAddress === entry.physicalAddress);
+
+				let isMatch = false;
+
+				if (module && (module.name.toLowerCase().includes(term) || module.id.toLowerCase().includes(term))) {
+					isMatch = true;
+				}
+
+				if (node) {
+					if (node.name.toLowerCase().includes(term)) isMatch = true;
+					if (node.physicalAddress.toLowerCase().includes(term)) isMatch = true;
+					if (node.nodeAddress?.toString().toLowerCase().includes(term)) isMatch = true;
+					if (node.units?.some((u: any) => u.name?.toLowerCase().includes(term) || u.unitTypeName?.toLowerCase().includes(term))) {
+						isMatch = true;
+					}
+				}
+
+				if (isMatch) results.push(entry.instanceId);
+
+				for (const children of Object.values(entry.nodes ?? {})) {
+					if (children) traverse(children);
+				}
+			}
+		}
+
+		traverse(topology);
+		return results;
+	}, [search, topology, availableModules, foundModules]);
+
+	useEffect(() => {
+		setSearchIndex(0);
+	}, [search]);
+
+	const activeMatchId = matches[searchIndex];
+
+	useEffect(() => {
+		if (activeMatchId) {
+			const el = document.getElementById('module-' + activeMatchId);
+			if (el) {
+				el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+			}
+		}
+	}, [activeMatchId]);
 
 	const [addModalOpen, setAddModalOpen] = useState(false);
 	const [editing, setEditing] = useState(false);
 	const [unitModal, setUnitModal] = useState<DetectedNode | null>(null);
+	const [printing, setPrinting] = useState(false);
 
 	const [moduleSelection, setModuleSelection] = useState<ModuleSelection | null>(null);
 
-	const [branchParent, setBranchParent] = useState<{
-		instanceId: string;
-		branch: number;
+	const [insertTarget, setInsertTarget] = useState<{
+		type: 'branch_start' | 'after_node' | 'root_start' | 'end';
+		parentId?: string;
+		branch?: number;
+		targetId?: string;
 	} | null>(null);
+	
+	const [zoom, setZoom] = useState(1);
 
 	const unplacedModules = foundModules.filter((node) => !containsPhysicalAddress(topology, node.physicalAddress));
 
@@ -172,25 +233,47 @@ export default function Canbus({ client, basePath }: Props) {
 		return false;
 	}
 
+	function insertAfter(tree: TopologyModule[], targetId: string, module: TopologyModule): boolean {
+		for (let i = 0; i < tree.length; i++) {
+			if (tree[i].instanceId === targetId) {
+				tree.splice(i + 1, 0, module);
+				return true;
+			}
+			for (const children of Object.values(tree[i].nodes ?? {})) {
+				if (insertAfter(children, targetId, module)) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	async function executeInsertion(module: TopologyModule) {
+		if (!insertTarget || insertTarget.type === 'end') {
+			await saveTopology([...topology, module]);
+		} else if (insertTarget.type === 'root_start') {
+			await saveTopology([module, ...topology]);
+		} else if (insertTarget.type === 'branch_start' && insertTarget.parentId && insertTarget.branch) {
+			const next = structuredClone(topology);
+			insertIntoBranch(next, insertTarget.parentId, insertTarget.branch, module);
+			await saveTopology(next);
+		} else if (insertTarget.type === 'after_node' && insertTarget.targetId) {
+			const next = structuredClone(topology);
+			insertAfter(next, insertTarget.targetId, module);
+			await saveTopology(next);
+		}
+
+		setInsertTarget(null);
+		setAddModalOpen(false);
+	}
+
 	function addManualModule(definition: ModuleDefinition) {
 		const manual: TopologyModule = {
-			instanceId: crypto.randomUUID(),
+			instanceId: (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2)),
 			moduleId: definition.id,
 		};
 
-		if (!branchParent) {
-			saveTopology([...topology, manual]);
-		} else {
-			const next = structuredClone(topology);
-
-			insertIntoBranch(next, branchParent.instanceId, branchParent.branch, manual);
-
-			saveTopology(next);
-
-			setBranchParent(null);
-		}
-
-		setAddModalOpen(false);
+		executeInsertion(manual);
 	}
 
 	function selectDetectedModule(node: DetectedNode) {
@@ -208,23 +291,12 @@ export default function Canbus({ client, basePath }: Props) {
 		}
 
 		const detected: TopologyModule = {
-			instanceId: crypto.randomUUID(),
+			instanceId: (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2)),
 			moduleId: module.id,
 			physicalAddress: moduleSelection.node.physicalAddress,
 		};
 
-		if (!branchParent) {
-			await saveTopology([...topology, detected]);
-		} else {
-			const next = structuredClone(topology);
-
-			insertIntoBranch(next, branchParent.instanceId, branchParent.branch, detected);
-
-			await saveTopology(next);
-
-			setBranchParent(null);
-		}
-
+		executeInsertion(detected);
 		setModuleSelection(null);
 	}
 
@@ -318,7 +390,7 @@ export default function Canbus({ client, basePath }: Props) {
 		setTopology(next);
 
 		try {
-			await fetch('/api/projects/metadata', {
+			await fetch('/api/projects/canbus', {
 				method: 'PATCH',
 				headers: {
 					'Content-Type': 'application/json',
@@ -348,7 +420,10 @@ export default function Canbus({ client, basePath }: Props) {
 		try {
 			setLoading(true);
 
-			const metadata = await fetch(`/api/projects/metadata?client=${client}`).then((r) => r.json());
+			const [metadata, canbusData] = await Promise.all([
+				fetch(`/api/projects/metadata?client=${client}`).then((r) => r.json()).catch(() => null),
+				fetch(`/api/projects/canbus?client=${client}`).then((r) => r.json()).catch(() => null),
+			]);
 
 			const programmationPath = `${basePath}/${client}/Programmation`;
 
@@ -385,7 +460,7 @@ export default function Canbus({ client, basePath }: Props) {
 
 			setMetadata(metadata);
 
-			setTopology(metadata.setup ?? []);
+			setTopology(canbusData?.setup ?? metadata?.setup ?? []);
 
 			setFoundModules(nodeDatabase.nodes ?? []);
 
@@ -398,11 +473,29 @@ export default function Canbus({ client, basePath }: Props) {
 	}
 
 	function beginBranch(parent: TopologyModule, branch: number) {
-		setBranchParent({
-			instanceId: parent.instanceId,
+		setInsertTarget({
+			type: 'branch_start',
+			parentId: parent.instanceId,
 			branch,
 		});
+		setAddModalOpen(true);
+	}
 
+	function beginInsertAfter(target: TopologyModule) {
+		setInsertTarget({
+			type: 'after_node',
+			targetId: target.instanceId,
+		});
+		setAddModalOpen(true);
+	}
+
+	function beginInsertRoot() {
+		setInsertTarget({ type: 'root_start' });
+		setAddModalOpen(true);
+	}
+
+	function beginInsertEnd() {
+		setInsertTarget({ type: 'end' });
 		setAddModalOpen(true);
 	}
 
@@ -512,9 +605,7 @@ export default function Canbus({ client, basePath }: Props) {
 
 				const found = getBranchOfModule(children, id);
 
-				if (found) {
-					return found;
-				}
+				if (found) return found;
 			}
 		}
 
@@ -550,13 +641,10 @@ export default function Canbus({ client, basePath }: Props) {
 
 		const inBranch = getBranchOfModule(topology, entry.instanceId) !== null;
 
-		const canMoveUp = inBranch || lastRootModule;
-
-		const canMoveDown = rootModule ? !beforeSwitch : !lastInBranch;
-
-		const canMoveLeft = inBranch && (firstInBranch || lastInBranch);
-
-		const canMoveRight = inBranch && (firstInBranch || lastInBranch);
+		const canMoveLeft = inBranch || lastRootModule;
+		const canMoveRight = rootModule ? !beforeSwitch : !lastInBranch;
+		const canMoveUp = inBranch && (firstInBranch || lastInBranch);
+		const canMoveDown = inBranch && (firstInBranch || lastInBranch);
 
 		const module = availableModules.find((m) => m.id === entry.moduleId);
 
@@ -564,16 +652,21 @@ export default function Canbus({ client, basePath }: Props) {
 
 		if (!module) return null;
 
-		const branchCount = module.channels ?? 0;
+		const branchCount = module?.channels ?? 0;
+		const isMatch = activeMatchId === entry.instanceId;
 
 		return (
-			<Card key={entry.instanceId}>
+			<Card 
+				id={'module-' + entry.instanceId}
+				key={entry.instanceId} 
+				className={`overflow-hidden flex flex-col justify-between transition-all duration-300 ${editing ? 'min-h-[500px]' : 'min-h-[360px]'} ${isMatch ? 'ring-4 ring-[var(--accent)] shadow-xl scale-105 z-50' : ''}`}
+			>
 				<div className='flex flex-col gap-4'>
-					<div className='rounded-lg p-1 overflow-hidden max-h-70'>
-						<ReactSVG src={`/modules/${module.id}/drawing.svg`} className='h-auto w-100' />
+					<div className='rounded-lg p-1 flex items-center justify-center h-[160px] shrink-0'>
+						<ReactSVG src={`/modules/${module.id}/drawing.svg`} className='w-full h-full [&>svg]:w-full [&>svg]:h-full' />
 					</div>
 
-					<div className='px-3'>
+					<div className='px-3 pt-8'>
 						<h3 className='font-semibold'>{module.name}</h3>
 
 						{node ? (
@@ -603,8 +696,8 @@ export default function Canbus({ client, basePath }: Props) {
 
 						{/* Movement */}
 						{editing && (
-							<div className='flex justify-center'>
-								{branchCount ? (
+							<div className='flex flex-col items-center gap-4'>
+								{branchCount > 0 && (
 									<div className='flex flex-wrap justify-center gap-2'>
 										{Array.from({ length: branchCount }, (_, i) => (
 											<Button key={i} variant='ghost' onClick={() => beginBranch(entry, i + 1)}>
@@ -613,33 +706,25 @@ export default function Canbus({ client, basePath }: Props) {
 											</Button>
 										))}
 									</div>
-								) : (
-									<div className='grid grid-cols-3 gap-1 w-[108px]'>
-										<div />
-
-										<div className='flex justify-center'>{canMoveUp && <Button size='sm' variant='ghost' icon={<ChevronUp size={14} />} onClick={() => moveModule(entry.instanceId, 'up')} />}</div>
-
-										<div />
-
-										<div className='flex justify-center'>
-											{canMoveLeft && <Button size='sm' variant='ghost' icon={<ChevronLeft size={14} />} onClick={() => moveModuleToBranch(entry.instanceId, -1)} />}
-										</div>
-
-										<div />
-
-										<div className='flex justify-center'>
-											{canMoveRight && <Button size='sm' variant='ghost' icon={<ChevronRight size={14} />} onClick={() => moveModuleToBranch(entry.instanceId, 1)} />}
-										</div>
-
-										<div />
-
-										<div className='flex justify-center'>
-											{canMoveDown && <Button size='sm' variant='ghost' icon={<ChevronDown size={14} />} onClick={() => moveModule(entry.instanceId, 'down')} />}
-										</div>
-
-										<div />
-									</div>
 								)}
+
+								<div className='grid grid-cols-3 gap-1 w-[108px]'>
+									<div />
+									<div className='flex justify-center'>{canMoveUp && <Button size='sm' variant='ghost' icon={<ChevronUp size={14} />} onClick={() => moveModuleToBranch(entry.instanceId, -1)} />}</div>
+									<div />
+									<div className='flex justify-center'>
+										{canMoveLeft && <Button size='sm' variant='ghost' icon={<ChevronLeft size={14} />} onClick={() => moveModule(entry.instanceId, 'up')} />}
+									</div>
+									<div />
+									<div className='flex justify-center'>
+										{canMoveRight && <Button size='sm' variant='ghost' icon={<ChevronRight size={14} />} onClick={() => moveModule(entry.instanceId, 'down')} />}
+									</div>
+									<div />
+									<div className='flex justify-center'>
+										{canMoveDown && <Button size='sm' variant='ghost' icon={<ChevronDown size={14} />} onClick={() => moveModuleToBranch(entry.instanceId, 1)} />}
+									</div>
+									<div />
+								</div>
 							</div>
 						)}
 					</div>
@@ -648,126 +733,96 @@ export default function Canbus({ client, basePath }: Props) {
 		);
 	}
 
-	function renderTopology(entry: TopologyModule): React.ReactNode {
-		const module = availableModules.find((m) => m.id === entry.moduleId);
+	function renderSerialLine(line: TopologyModule[] | undefined): React.ReactNode {
+		if (!line || line.length === 0) return null;
 
+		const entry = line[0];
+		const rest = line.slice(1);
+
+		return renderTopologyNode(entry, rest);
+	}
+
+	function renderTopologyNode(entry: TopologyModule, serialRest: TopologyModule[]): React.ReactNode {
+		const module = availableModules.find((m) => m.id === entry.moduleId);
 		const branchCount = module?.channels ?? 0;
+		const branches = Array.from({ length: branchCount }, (_, i) => ({
+			name: `Bus ${i + 1}`,
+			content: renderSerialLine(entry.nodes?.[i + 1]),
+			empty: !entry.nodes?.[i + 1] || entry.nodes[i + 1].length === 0,
+		})).filter((b) => !b.empty);
 
 		return (
-			<div key={entry.instanceId} className='flex flex-col items-center'>
-				{renderModule(entry)}
-
-				{entry.nodes ? (
-					<>
-						{/* Mobile selector */}
-
-						<div className='flex md:hidden items-center justify-between mb-4'>
-							{Array.from({ length: branchCount }, (_, i) => (
-								<Button key={i} variant={mobileBranch === i + 1 ? 'primary' : 'ghost'} onClick={() => setMobileBranch(i + 1)}>
-									Bus {i + 1}
-								</Button>
-							))}
-						</div>
-
-						{/* Desktop */}
-						<div
-							className='hidden md:grid w-full gap-x-20'
-							style={{
-								gridTemplateColumns: `repeat(${branchCount}, minmax(0,1fr))`,
-							}}>
-							{/* Bus occupies the first row */}
-							<div
-								className='relative h-16'
-								style={{
-									gridColumn: `1 / ${branchCount + 1}`,
-								}}>
-								{/* Incoming */}
-								<div
-									className='absolute top-0 h-6 w-0.75 bg-orange-500'
-									style={{
-										left: 'calc(50% - 3px)',
-									}}
-								/>
-
-								<div
-									className='absolute top-0 h-7 w-0.75 bg-orange-200'
-									style={{
-										left: 'calc(50% + 3px)',
-									}}
-								/>
-
-								{/* Horizontal */}
-								<div
-									className='absolute h-0.75 bg-orange-500'
-									style={{
-										top: 22,
-										left: `${100 / branchCount / 2}%`,
-										right: `${100 / branchCount / 2}%`,
-									}}
-								/>
-
-								<div
-									className='absolute h-0.75 bg-orange-200'
-									style={{
-										top: 28,
-										left: `calc(${100 / branchCount / 2}% + 3px)`,
-										right: `calc(${100 / branchCount / 2}% - 3px)`,
-									}}
-								/>
-
-								{/* Branches */}
-								<div
-									className='absolute inset-x-0 top-[22px] grid'
-									style={{
-										gridTemplateColumns: `repeat(${branchCount}, minmax(0,1fr))`,
-									}}>
-									{Array.from({ length: branchCount }, (_, i) => (
-										<div key={i} className='flex justify-center'>
-											<div className='relative h-16 w-3'>
-												<div
-													className='absolute w-0.75 bg-orange-500'
-													style={{
-														left: 'calc(50% - 3px)',
-														top: 0,
-														height: 42,
-													}}
-												/>
-
-												<div
-													className='absolute w-0.75 bg-orange-200'
-													style={{
-														left: 'calc(50% + 3px)',
-														top: 6,
-														height: 36,
-													}}
-												/>
-											</div>
-										</div>
-									))}
-								</div>
-							</div>
-
-							{/* Branch columns */}
-							{Array.from({ length: branchCount }, (_, i) => (
-								<div key={i} className='flex flex-col gap-6'>
-									{entry.nodes?.[i + 1]?.map(renderTopology)}
-								</div>
-							))}
-						</div>
-
-						{/* Mobile */}
-						<div className='md:hidden'>
-							<div className='flex flex-col gap-6'>{entry.nodes?.[mobileBranch]?.map(renderTopology)}</div>
-						</div>
-					</>
-				) : (
-					<div className='flex justify-center'>
-						<div className='relative h-10 w-4'>
-							<div className='absolute left-0 h-16 w-0.75 bg-orange-500' />
-
-							<div className='absolute left-1.5 h-16 w-0.75 bg-orange-200' />
-						</div>
+			<div key={entry.instanceId} className='flex flex-row items-start'>
+				{/* This node and its branches */}
+				<div className='flex flex-col items-start relative'>
+					{/* Module Card */}
+					<div className='flex-shrink-0 z-10 w-[280px]'>
+						{renderModule(entry)}
 					</div>
+
+					{/* Branches Container */}
+					{branches.length > 0 && (
+						<div className='flex flex-col relative w-0 items-start mt-4 overflow-visible'>
+							{branches.map((branch, i) => (
+								<div key={i} className='flex flex-row items-start relative pt-8 pb-4 w-max'>
+									{/* Vertical drop line segment */}
+									<div
+										className='absolute flex flex-row justify-between w-2.5 -translate-x-1/2'
+										style={{
+											left: '140px',
+											top: i === 0 ? '-1rem' : '0',
+											bottom: i === branches.length - 1 ? 'calc(100% - 10rem)' : '0',
+										}}>
+										<div className='w-0.75 h-full bg-orange-500' />
+										<div className='w-0.75 h-full bg-orange-200' />
+									</div>
+
+									{/* Horizontal branch line */}
+									<div className='w-12 absolute flex flex-col justify-between h-2.5 group' style={{ left: '140px', top: '10rem' }}>
+										<div className='h-0.75 w-full bg-orange-500' />
+										<div className='h-0.75 w-full bg-orange-200' />
+										
+										{editing && (
+											<button 
+												onClick={() => beginBranch(entry, i + 1)}
+												className='absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-6 bg-orange-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20 hover:scale-110 shadow-sm'>
+												<Plus size={14} />
+											</button>
+										)}
+									</div>
+
+									{/* Branch content */}
+									<div className='flex flex-row items-start gap-4 relative z-10' style={{ marginLeft: '188px' }}>
+										<div className='px-3 py-1 bg-(--background) rounded-full border border-(--border)/10 text-xs font-medium opacity-50 flex-shrink-0' style={{ marginTop: '9.25rem' }}>
+											{branch.name}
+										</div>
+										<div className='flex-shrink-0'>
+											{branch.content}
+										</div>
+									</div>
+								</div>
+							))}
+						</div>
+					)}
+				</div>
+
+				{/* Serial Continuation */}
+				{(serialRest.length > 0 || editing) && (
+					<>
+						<div className={`w-12 relative flex flex-col justify-between h-2.5 flex-shrink-0 group ${serialRest.length === 0 ? 'opacity-50' : ''}`} style={{ marginTop: '10rem' }}>
+							<div className='h-0.75 w-full bg-orange-500' />
+							<div className='h-0.75 w-full bg-orange-200' />
+
+							{editing && (
+								<button 
+									onClick={() => beginInsertAfter(entry)}
+									className='absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-6 bg-orange-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20 hover:scale-110 shadow-sm'>
+								<Plus size={14} />
+								</button>
+							)}
+						</div>
+						{serialRest.length > 0 && renderSerialLine(serialRest)}
+					</>
 				)}
 			</div>
 		);
@@ -777,19 +832,235 @@ export default function Canbus({ client, basePath }: Props) {
 		load();
 	}, [client, basePath]);
 
+	useEffect(() => {
+		const container = document.getElementById('canbus-topology-container');
+		
+		const handleWheel = (e: WheelEvent) => {
+			if (e.ctrlKey) {
+				e.preventDefault();
+				setZoom((z) => {
+					// Smooth zoom based on delta
+					const newZoom = z - e.deltaY * 0.002;
+					return Math.min(5, Math.max(0.05, newZoom));
+				});
+			}
+		};
+
+		if (container) {
+			container.addEventListener('wheel', handleWheel, { passive: false });
+		}
+
+		return () => {
+			if (container) {
+				container.removeEventListener('wheel', handleWheel);
+			}
+		};
+	}, []);
+
 	if (loading) return <Loading title='Loading Topology' />;
 
 	return (
-		<>
-			<div className='flex items-center gap-2'>
-				<Input placeholder='Search modules...' value={search} onChange={(e) => setSearch(e.target.value)} />
-
-				{has('projects.write') && <Button onClick={() => setEditing(!editing)}>{editing ? 'Save' : 'Edit'}</Button>}
-
-				{has('projects.write') && editing && <Button onClick={() => setAddModalOpen(true)}>Add ({unplacedModules.length})</Button>}
+		<div className='flex flex-col flex-1 w-full'>
+			<div id='canbus-topology-container' className='mt-8 w-full overflow-x-auto pb-64 pl-8 flex-1'>
+				<div className='flex flex-row items-start min-w-max relative' style={{ zoom }}>
+					{/* Root insertion button */}
+					{editing && topology.length > 0 && (
+						<div className='absolute -left-12 top-[10rem] flex flex-col justify-center h-2.5 w-12 group print:hidden'>
+							<div className='h-0.75 w-full bg-orange-500' />
+							<div className='h-0.75 w-full bg-orange-200' />
+							<button 
+								onClick={() => beginInsertRoot()}
+								className='absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-6 bg-orange-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20 hover:scale-110 shadow-sm'>
+								<Plus size={14} />
+							</button>
+						</div>
+					)}
+					
+					{renderSerialLine(topology)}
+				</div>
 			</div>
 
-			<div className='mt-8 flex flex-col gap-6'>{topology.map(renderTopology)}</div>
+			<div className='fixed bottom-4 sm:bottom-8 left-1/2 -translate-x-1/2 flex flex-wrap justify-center items-center gap-2 sm:gap-3 bg-[var(--background)] p-2 sm:p-3 rounded-2xl sm:rounded-3xl shadow-2xl border border-[var(--border)]/20 z-[100] backdrop-blur-md bg-opacity-90 w-[95vw] sm:w-auto sm:max-w-none print:hidden'>
+				<div className='relative flex items-center w-full sm:w-auto min-w-[200px] sm:min-w-[300px]'>
+					<Input placeholder='Search modules...' value={search} onChange={(e) => setSearch(e.target.value)} className='!pr-[120px] bg-[var(--foreground)] border-none shadow-sm w-full' />
+					{search && matches.length > 0 && (
+						<div className='absolute right-2 flex items-center gap-1 text-sm text-[var(--text-muted)] z-10'>
+							<span className='mr-1 font-medium'>{searchIndex + 1}/{matches.length}</span>
+							<Button size='sm' variant='ghost' className='h-8 w-8 p-0 rounded-full hover:bg-[var(--border)]/10 text-[var(--text)]' icon={<ChevronLeft size={20} />} onClick={() => setSearchIndex(i => i > 0 ? i - 1 : matches.length - 1)} />
+							<Button size='sm' variant='ghost' className='h-8 w-8 p-0 rounded-full hover:bg-[var(--border)]/10 text-[var(--text)]' icon={<ChevronRight size={20} />} onClick={() => setSearchIndex(i => i < matches.length - 1 ? i + 1 : 0)} />
+						</div>
+					)}
+					{search && matches.length === 0 && (
+						<div className='absolute right-4 text-sm text-[var(--text-muted)] z-10 font-medium'>0/0</div>
+					)}
+				</div>
+
+				<div className='w-full sm:w-px h-px sm:h-8 bg-[var(--border)]/20 mx-1 hidden sm:block' />
+
+				<div className='flex items-center gap-2 sm:gap-3 justify-center w-full sm:w-auto'>
+					{has('projects.write') && (
+						<Button 
+							onClick={() => setEditing(!editing)} 
+							className='shadow-sm px-3'
+							icon={editing ? <Save size={20} /> : <Pencil size={20} />} 
+						/>
+					)}
+
+					{has('projects.write') && editing && (
+						<Button 
+							onClick={() => beginInsertEnd()} 
+							className='shadow-sm' 
+							icon={<Plus size={20} />}
+						>
+							{unplacedModules.length}
+						</Button>
+					)}
+					
+					<div className='w-px h-8 bg-[var(--border)]/20 mx-1 hidden sm:block' />
+
+					<div className='flex items-center gap-1'>
+						<Button variant='ghost' className='rounded-full h-8 w-8 sm:h-10 sm:w-10 p-0 hover:bg-[var(--foreground)]' icon={<Minus size={18} />} onClick={() => setZoom((z) => Math.max(0.05, z - 0.25))} />
+						<span className='text-xs sm:text-sm font-semibold w-10 sm:w-12 text-center text-[var(--text)]'>{Math.round(zoom * 100)}%</span>
+						<Button variant='ghost' className='rounded-full h-8 w-8 sm:h-10 sm:w-10 p-0 hover:bg-[var(--foreground)]' icon={<Plus size={18} />} onClick={() => setZoom((z) => Math.min(5, z + 0.25))} />
+					</div>
+
+					<div className='w-px h-8 bg-[var(--border)]/20 mx-1 hidden sm:block' />
+
+					<div className='flex items-center gap-1'>
+						<Button 
+							size='sm' 
+							variant='ghost' 
+							className='text-xs'
+							disabled={printing}
+							icon={printing ? <Loader2 size={16} className='animate-spin' /> : <Printer size={16} />} 
+							onClick={async () => {
+								const container = document.getElementById('canbus-topology-container');
+								if (!container) return;
+								
+								const innerContent = container.querySelector('.flex-row.items-start.min-w-max');
+								if (!innerContent) return;
+								
+								setPrinting(true);
+								
+								try {
+									const oldZoom = (innerContent as HTMLElement).style.zoom;
+									(innerContent as HTMLElement).style.zoom = '1';
+									
+									const rect = innerContent.getBoundingClientRect();
+									// Use scrollWidth to capture the ENTIRE tree even if it's off-screen in the scroll container
+									const scrollWidth = innerContent.scrollWidth + 40; 
+									const scrollHeight = innerContent.scrollHeight + 40;
+									
+									(innerContent as HTMLElement).style.zoom = oldZoom;
+
+									// A3 Landscape dimensions (slightly reduced to account for Chrome's physical printer margins)
+									const pageW = 1450; 
+									const pageH = 1040;  
+									
+									const scaleFactor = pageH / scrollHeight;
+									const scaledWidth = scrollWidth * scaleFactor;
+									const numPages = Math.ceil(scaledWidth / pageW);
+
+									const tiler = document.createElement('div');
+									tiler.id = 'print-tiler';
+									tiler.style.cssText = 'position: absolute; top: 0; left: 0; z-index: -100; opacity: 0; pointer-events: none;';
+									
+									for (let i = 0; i < numPages; i++) {
+										const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+										svg.setAttribute("width", `${pageW}`);
+										svg.setAttribute("height", `${pageH}`);
+										svg.style.cssText = `
+											width: ${pageW}px;
+											height: ${pageH}px;
+											${i < numPages - 1 ? 'page-break-after: always; break-after: page;' : ''}
+											display: block;
+											overflow: hidden;
+										`;
+										
+										// The foreignObject MUST be exactly pageW to hide the wide layout from Chrome's print engine
+										const foreignObject = document.createElementNS("http://www.w3.org/2000/svg", "foreignObject");
+										foreignObject.setAttribute("width", `${pageW}`);
+										foreignObject.setAttribute("height", `${pageH}`);
+										foreignObject.setAttribute("x", `0`);
+										foreignObject.setAttribute("y", `0`);
+										
+										const cloneWrapper = document.createElement("div");
+										cloneWrapper.setAttribute("xmlns", "http://www.w3.org/1999/xhtml");
+										
+										// Shift the content horizontally using CSS transform inside the SVG
+										const translateX = -(i * pageW) / scaleFactor;
+										
+										cloneWrapper.style.cssText = `
+											width: ${scrollWidth}px;
+											height: ${scrollHeight}px;
+											padding: 20px;
+											box-sizing: border-box;
+											transform: scale(${scaleFactor}) translateX(${translateX}px);
+											transform-origin: top left;
+											background: white;
+										`;
+										
+										const clone = innerContent.cloneNode(true) as HTMLElement;
+										clone.style.cssText = `
+											width: ${scrollWidth}px !important;
+											margin: 0 !important;
+											display: flex !important;
+											flex-wrap: nowrap !important;
+										`;
+										
+										cloneWrapper.appendChild(clone);
+										foreignObject.appendChild(cloneWrapper);
+										svg.appendChild(foreignObject);
+										tiler.appendChild(svg);
+									}
+									
+									document.body.appendChild(tiler);
+
+									const style = document.createElement('style');
+									style.innerHTML = `
+										@page { size: A3 landscape; margin: 10mm; }
+										@media print {
+											body {
+												margin: 0 !important;
+												padding: 0 !important;
+												background: white !important;
+											}
+											body > *:not(#print-tiler) { display: none !important; }
+											
+											#print-tiler { 
+												display: block !important; 
+												position: static !important; 
+												opacity: 1 !important; 
+												z-index: 10000 !important; 
+											}
+											
+											#print-tiler * {
+												-webkit-print-color-adjust: exact !important;
+												print-color-adjust: exact !important;
+												color-adjust: exact !important;
+											}
+										}
+									`;
+									document.head.appendChild(style);
+									
+									setTimeout(() => {
+										window.print();
+										setTimeout(() => {
+											document.head.removeChild(style);
+											document.body.removeChild(tiler);
+											setPrinting(false);
+										}, 1000);
+									}, 100);
+								} catch (e) {
+									console.error('Print failed', e);
+									setPrinting(false);
+								}
+							}}>
+							{printing ? 'Preparing...' : 'Print'}
+						</Button>
+					</div>
+				</div>
+			</div>
 
 			<Modal size={'xxl'} open={addModalOpen} onClose={() => setAddModalOpen(false)} title='Add Module'>
 				<div className='space-y-8 max-h-[70vh] overflow-y-auto pr-2'>
@@ -894,6 +1165,6 @@ export default function Canbus({ client, basePath }: Props) {
 					</div>
 				</div>
 			</Modal>
-		</>
+		</div>
 	);
 }

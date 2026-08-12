@@ -14,7 +14,21 @@ export async function GET(request: NextRequest) {
 		return NextResponse.json({ error: 'Missing path' }, { status: 400 });
 	}
 
-	const targetPath = decodeURIComponent(rawPath);
+	let targetPath = decodeURIComponent(rawPath);
+
+	if (!path.isAbsolute(targetPath)) {
+		const settingsPath = path.join(process.cwd(), 'data', 'projects.json');
+		if (fs.existsSync(settingsPath)) {
+			try {
+				const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+				if (settings.path) {
+					targetPath = path.join(settings.path, targetPath);
+				}
+			} catch (e) {
+				console.error('Failed to parse projects.json', e);
+			}
+		}
+	}
 
 	if (!fs.existsSync(targetPath)) {
 		return NextResponse.json({ error: 'Not found' }, { status: 404 });

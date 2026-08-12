@@ -71,6 +71,16 @@ export const PERMISSIONS = [
 		label: 'Events - Write',
 		group: 'Events',
 	},
+	{
+		key: 'tasks.read',
+		label: 'Tasks - Read',
+		group: 'Tasks',
+	},
+	{
+		key: 'tasks.write',
+		label: 'Tasks - Write',
+		group: 'Tasks',
+	},
 ] as const;
 
 export function groupPermissions() {

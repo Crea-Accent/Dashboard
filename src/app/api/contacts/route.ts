@@ -1,6 +1,7 @@
 /** @format */
 
-import { Contact, readContacts, writeContacts } from '@/lib/contacts';
+import { Contact, readContacts, writeContact } from '@/lib/contacts';
+import { registerCompanySafely } from '@/lib/companies';
 import { NextRequest, NextResponse } from 'next/server';
 
 import { randomUUID } from 'crypto';
@@ -42,21 +43,21 @@ export async function POST(request: NextRequest) {
 	try {
 		const body = await request.json();
 
-		const contacts = await readContacts();
-
 		const contact: Contact = {
 			id: randomUUID(),
 			name: body.name ?? '',
 			role: body.role ?? '',
+			company: body.company ?? '',
 			phone: body.phone ?? '',
 			email: body.email ?? '',
 			createdAt: new Date().toISOString(),
 			updatedAt: new Date().toISOString(),
 		};
 
-		contacts.push(contact);
-
-		await writeContacts(contacts);
+		await writeContact(contact);
+		if (contact.company) {
+			await registerCompanySafely(contact.company);
+		}
 
 		return NextResponse.json(contact);
 	} catch (error) {

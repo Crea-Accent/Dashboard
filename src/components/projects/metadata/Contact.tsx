@@ -24,6 +24,7 @@ export default function Contact({ contacts: selectedContacts, onChange }: Props)
 	const [newContact, setNewContact] = useState({
 		name: '',
 		role: '',
+		company: '',
 		phone: '',
 		email: '',
 	});
@@ -112,13 +113,19 @@ export default function Contact({ contacts: selectedContacts, onChange }: Props)
 							<div>
 								<div className='font-medium text-(--text)'>{contact.name || 'Unnamed Contact'}</div>
 
-								<div className='text-xs text-(--text-muted)'>{contact.role || ''}</div>
+								<div className='text-xs text-(--text-muted)'>
+									{contact.company && <span>{contact.company}</span>}
+									{contact.company && contact.role && <span> • </span>}
+									{contact.role && <span>{contact.role}</span>}
+								</div>
 							</div>
 						</div>
 
 						{editing === index ? (
 							<div className='flex flex-col gap-3 flex-1'>
 								<Input label='Name' value={contact.name} onChange={(e) => updateContact(index, 'name', e.target.value)} />
+
+								<Input label='Company' value={contact.company || ''} onChange={(e) => updateContact(index, 'company', e.target.value)} />
 
 								<Input label='Role' value={contact.role} onChange={(e) => updateContact(index, 'role', e.target.value)} />
 
@@ -217,6 +224,7 @@ export default function Contact({ contacts: selectedContacts, onChange }: Props)
 								setNewContact({
 									name: '',
 									role: '',
+									company: '',
 									phone: '',
 									email: '',
 								});
@@ -262,12 +270,26 @@ export default function Contact({ contacts: selectedContacts, onChange }: Props)
 										}}>
 										<div className='font-medium'>{contact.name}</div>
 
-										<div className='text-sm text-(--text-muted)'>{contact.email}</div>
+										<div className='text-sm text-(--text-muted)'>
+											{contact.company ? `${contact.company} ` : ''}
+											{contact.email ? `(${contact.email})` : ''}
+										</div>
 									</Button>
 								))}
 							</div>
 						)}
 					</div>
+
+					<Input
+						label='Company'
+						value={newContact.company}
+						onChange={(e) =>
+							setNewContact({
+								...newContact,
+								company: e.target.value,
+							})
+						}
+					/>
 
 					<Input
 						label='Role'

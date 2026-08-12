@@ -64,6 +64,9 @@ export default function Programmation({ basePath, client }: { basePath: string; 
 	const [items, setItems] = useState<FileEntry[]>([]);
 	const [users, setUsers] = useState<User[]>([]);
 
+	const dragCounter = useRef(0);
+	const [dragging, setDragging] = useState(false);
+
 	const [editingFile, setEditingFile] = useState<FileEntry | null>(null);
 	const [editModalOpen, setEditModalOpen] = useState(false);
 	const [loading, setLoading] = useState(true);
@@ -178,13 +181,24 @@ export default function Programmation({ basePath, client }: { basePath: string; 
 	if (loading) return <Loading title='Loading programmation files' />;
 
 	return (
-		<section className='space-y-6'>
+		<section
+			className='space-y-6 relative'
+			onDragEnter={(e) => {
+				if (!hasWrite) return;
+				e.preventDefault();
+				dragCounter.current++;
+				setDragging(true);
+			}}
+			onDragOver={(e) => {
+				if (!hasWrite) return;
+				e.preventDefault();
+			}}>
 			<input ref={inputRef} type='file' accept='.zip,.dnc,.loxone,.nhc2,.lsc' className='hidden' onChange={(e) => e.target.files && upload(e.target.files[0])} />
 
 			<div className='rounded-3xl p-6 space-y-6 bg-(--foreground)'>
-				<AnimatePresence>
+				<AnimatePresence mode='popLayout'>
 					{/* Upload */}
-					<div className='flex justify-end gap-2'>
+					<div key='header' className='flex justify-end gap-2'>
 						<ViewToggle value={view} onChange={setView} />
 
 						{hasWrite && (
@@ -236,7 +250,7 @@ export default function Programmation({ basePath, client }: { basePath: string; 
 
 										<AnimatePresence>
 											{isExpanded && (
-												<motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+												<motion.div key='expanded-grid' initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
 													<FileGrid
 														files={older}
 														users={users}
@@ -274,7 +288,7 @@ export default function Programmation({ basePath, client }: { basePath: string; 
 
 										<AnimatePresence>
 											{isExpanded && (
-												<motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className='overflow-hidden'>
+												<motion.div key='expanded-list' initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className='overflow-hidden'>
 													<FileList
 														files={older}
 														users={users}
@@ -296,7 +310,9 @@ export default function Programmation({ basePath, client }: { basePath: string; 
 
 					{/* Empty */}
 					{!loading && Object.values(grouped).every((arr) => arr.length === 0) && (
-						<EmptyState title='No Programmation Files' description='Upload DuoTecno, Niko, Siemens, DALI or Loxone project files to get started.' />
+						<motion.div key='empty-state' initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+							<EmptyState title='No Programmation Files' description='Upload DuoTecno, Niko, Siemens, DALI or Loxone project files to get started.' />
+						</motion.div>
 					)}
 				</AnimatePresence>
 			</div>
@@ -320,6 +336,44 @@ export default function Programmation({ basePath, client }: { basePath: string; 
 					setEditingFile(null);
 				}}
 			/>
+
+			{dragging && (
+				<motion.div
+					initial={{ opacity: 0 }}
+					animate={{ opacity: 1 }}
+					exit={{ opacity: 0 }}
+					onDragLeave={() => {
+						dragCounter.current--;
+						if (dragCounter.current <= 0) {
+							setDragging(false);
+						}
+					}}
+					onDrop={async (e) => {
+						e.preventDefault();
+						dragCounter.current = 0;
+						setDragging(false);
+
+						const dropped = Array.from(e.dataTransfer.files).filter((file) => {
+							const name = file.name.toLowerCase();
+							return name.endsWith('.zip') || name.endsWith('.dnc') || name.endsWith('.loxone') || name.endsWith('.nhc2') || name.endsWith('.lsc');
+						});
+
+						if (dropped.length === 0) return;
+
+						for (const file of dropped) {
+							await upload(file);
+						}
+					}}
+					className='fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center'>
+					<div className='p-12 text-center bg-(--foreground) rounded-2xl shadow-xl border border-(--border)/10 pointer-events-none'>
+						<div className='space-y-3'>
+							<Upload size={48} className='mx-auto text-(--accent)' />
+							<h2 className='text-xl font-semibold'>Drop programmation files</h2>
+							<p className='text-sm text-(--text-muted)'>Release your files anywhere to upload them.</p>
+						</div>
+					</div>
+				</motion.div>
+			)}
 		</section>
 	);
 }

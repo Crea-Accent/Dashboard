@@ -1,7 +1,11 @@
 /** @format */
 
+export const dynamic = 'force-dynamic';
+
 import { NextRequest, NextResponse } from 'next/server';
 import { Session, getServerSession } from 'next-auth';
+import { getRoles } from '@/lib/roles';
+import { User, getUsers, writeUser, deleteUser } from '@/lib/users';
 
 import { Role } from '@/types/next-auth';
 import bcrypt from 'bcryptjs';
@@ -9,11 +13,7 @@ import fs from 'fs';
 import path from 'path';
 
 const DATA_DIR = path.join(process.cwd(), 'data');
-const USERS_PATH = path.join(DATA_DIR, 'users.json');
-const ROLES_PATH = path.join(DATA_DIR, 'roles.json');
 const PRESENCES_PATH = path.join(DATA_DIR, 'presences.json');
-
-type User = Session['user'];
 
 type Presence = {
 	lastSeen: string;
@@ -28,30 +28,9 @@ function ensureFiles() {
 	if (!fs.existsSync(DATA_DIR)) {
 		fs.mkdirSync(DATA_DIR, { recursive: true });
 	}
-	if (!fs.existsSync(USERS_PATH)) {
-		fs.writeFileSync(USERS_PATH, JSON.stringify([], null, 2));
-	}
-	if (!fs.existsSync(ROLES_PATH)) {
-		fs.writeFileSync(ROLES_PATH, JSON.stringify([], null, 2));
-	}
 	if (!fs.existsSync(PRESENCES_PATH)) {
 		fs.writeFileSync(PRESENCES_PATH, '{}');
 	}
-}
-
-function loadUsers(): User[] {
-	ensureFiles();
-	return JSON.parse(fs.readFileSync(USERS_PATH, 'utf8'));
-}
-
-function saveUsers(users: User[]) {
-	ensureFiles();
-	fs.writeFileSync(USERS_PATH, JSON.stringify(users, null, 2));
-}
-
-function loadRoles(): Role[] {
-	ensureFiles();
-	return JSON.parse(fs.readFileSync(ROLES_PATH, 'utf8'));
 }
 
 function loadPresences(): Presences {
@@ -82,7 +61,7 @@ function getPresenceStatus(presence?: Presence): 'online' | 'idle' | 'offline' {
 
 // ---------- GET ----------
 export async function GET() {
-	const users = loadUsers();
+	const users = await getUsers();
 	const presences = loadPresences();
 
 	const safeUsers = users.map(({ passwordHash, ...user }) => {
@@ -112,8 +91,8 @@ export async function POST(request: NextRequest) {
 		return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
 	}
 
-	const users = loadUsers();
-	const roles = loadRoles();
+	const users = await getUsers();
+	const roles = await getRoles();
 
 	if (users.some((u) => u.email.toLowerCase() === email.toLowerCase())) {
 		return NextResponse.json({ error: 'User with this email already exists' }, { status: 409 });
@@ -141,10 +120,9 @@ export async function POST(request: NextRequest) {
 		},
 	};
 
-	users.push(newUser);
-	saveUsers(users);
+	await writeUser(newUser);
 
-	const safeUsers = users.map(({ passwordHash, ...rest }) => rest);
+	const safeUsers = (await getUsers()).map(({ passwordHash, ...rest }) => rest);
 	return NextResponse.json({ users: safeUsers });
 }
 
@@ -158,8 +136,8 @@ export async function PATCH(request: NextRequest) {
 		return NextResponse.json({ error: 'Missing user id' }, { status: 400 });
 	}
 
-	const users = loadUsers();
-	const roles = loadRoles();
+	const users = await getUsers();
+	const roles = await getRoles();
 
 	const index = users.findIndex((u) => u.id === id);
 
@@ -226,7 +204,7 @@ export async function PATCH(request: NextRequest) {
 		users[index].passwordHash = await bcrypt.hash(password, 12);
 	}
 
-	saveUsers(users);
+	await writeUser(users[index]);
 
 	const safeUsers = users.map(({ passwordHash, ...rest }) => rest);
 
@@ -247,7 +225,7 @@ export async function PUT(request: NextRequest) {
 
 	const { theme, currentPassword, newPassword, preferences } = body || {};
 
-	const users = loadUsers();
+	const users = await getUsers();
 
 	const index = users.findIndex((u) => u.email.toLowerCase() === session.user?.email?.toLowerCase());
 
@@ -280,7 +258,7 @@ export async function PUT(request: NextRequest) {
 		users[index].passwordHash = await bcrypt.hash(newPassword, 12);
 	}
 
-	saveUsers(users);
+	await writeUser(users[index]);
 
 	return NextResponse.json({
 		success: true,
@@ -300,16 +278,16 @@ export async function DELETE(request: NextRequest) {
 		return NextResponse.json({ error: 'Missing user id' }, { status: 400 });
 	}
 
-	const users = loadUsers();
+	const users = await getUsers();
 	const exists = users.some((u) => u.id === id);
 
 	if (!exists) {
 		return NextResponse.json({ error: 'User not found' }, { status: 404 });
 	}
 
-	const nextUsers = users.filter((u) => u.id !== id);
-	saveUsers(nextUsers);
+	await deleteUser(id);
 
+	const nextUsers = await getUsers();
 	const safeUsers = nextUsers.map(({ passwordHash, ...rest }) => rest);
 	return NextResponse.json({ users: safeUsers });
 }

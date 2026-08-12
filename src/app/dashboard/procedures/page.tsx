@@ -35,10 +35,16 @@ export default function ProceduresPage() {
 
 			setLoading(true);
 
-			const res = await fetch(`/api/files?view=${encodeURIComponent(s?.path)}&recursive=1`);
+			if (!s?.path) {
+				setCategories([]);
+				return;
+			}
+
+			const res = await fetch(`/api/files?view=${encodeURIComponent(s.path)}&recursive=1`);
 
 			if (!res.ok) {
-				throw new Error('Failed to load procedures');
+				setCategories([]);
+				return;
 			}
 
 			const data: FileEntry[] = await res.json();

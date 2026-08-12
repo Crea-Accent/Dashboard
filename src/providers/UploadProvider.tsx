@@ -14,7 +14,7 @@ type UploadContextType = {
 	uploading: boolean;
 	progress: number;
 
-	uploadFile: (file: File, client: string, kind: 'picture' | 'schema' | 'programmation' | 'documents', metadata?: UploadMetadata) => Promise<boolean>;
+	uploadFile: (file: File, client: string, kind: 'picture' | 'schema' | 'programmation' | 'documents' | 'tickets', metadata?: UploadMetadata) => Promise<string | null>;
 };
 
 const UploadContext = createContext<UploadContextType | null>(null);
@@ -24,7 +24,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
 	const [progress, setProgress] = useState(0);
 	const [toast, setToast] = useState<Toast>(null);
 
-	async function uploadFile(file: File, client: string, kind: 'picture' | 'schema' | 'programmation' | 'documents', metadata?: UploadMetadata): Promise<boolean> {
+	async function uploadFile(file: File, client: string, kind: 'picture' | 'schema' | 'programmation' | 'documents' | 'tickets', metadata?: UploadMetadata): Promise<string | null> {
 		setUploading(true);
 		setProgress(0);
 
@@ -48,13 +48,18 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
 						type: 'success',
 						message: `${file.name} uploaded successfully.`,
 					});
-					resolve(true);
+					try {
+						const res = JSON.parse(xhr.responseText);
+						resolve(res.savedAs || null);
+					} catch {
+						resolve(null);
+					}
 				} else {
 					setToast({
 						type: 'error',
 						message: 'Upload failed.',
 					});
-					resolve(false);
+					resolve(null);
 				}
 
 				autoClear();
@@ -67,7 +72,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
 					message: 'Upload failed.',
 				});
 				autoClear();
-				resolve(false);
+				resolve(null);
 			};
 
 			const formData = new FormData();

@@ -34,7 +34,7 @@ export default function Login({ value, onChange }: Props) {
 	const [visiblePasswords, setVisiblePasswords] = useState<Record<string, boolean>>({});
 
 	const [newLogin, setNewLogin] = useState<LoginEntry>({
-		id: crypto.randomUUID(),
+		id: (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2)),
 		label: '',
 		link: '',
 		username: '',
@@ -58,12 +58,12 @@ export default function Login({ value, onChange }: Props) {
 			...value,
 			{
 				...newLogin,
-				id: crypto.randomUUID(),
+				id: (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2)),
 			},
 		]);
 
 		setNewLogin({
-			id: crypto.randomUUID(),
+			id: (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2)),
 			label: '',
 			link: '',
 			username: '',

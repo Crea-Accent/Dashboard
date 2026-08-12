@@ -1,7 +1,7 @@
 /** @format */
 'use client';
 
-import { Cable, Check, ClipboardCheck, Code, Eye, File, FileText, Folder, ImageIcon, Save, Settings, Share, Sun } from 'lucide-react';
+import { Cable, Check, ClipboardCheck, Code, Eye, File, FileText, Folder, ImageIcon, Save, Settings, Share, Sun, Ticket } from 'lucide-react';
 import { NotPermitted, usePermissions } from '@/providers/PermissionsProvider';
 import { useEffect, useState } from 'react';
 
@@ -18,9 +18,11 @@ import Schemas from '@/components/projects/Schema';
 import Selector from '@/components/ui/Selector';
 import Solar from '@/components/projects/Solar';
 import Tabs from '@/components/ui/Tabs';
+import Tickets from '@/components/projects/Tickets';
 import { motion } from 'framer-motion';
+import { useRouter } from 'next/navigation';
 
-type Tab = 'info' | 'schemas' | 'documents' | 'programmation' | 'pictures' | 'solar' | 'canbus';
+type Tab = 'info' | 'schemas' | 'documents' | 'programmation' | 'pictures' | 'solar' | 'canbus' | 'tickets';
 
 type Settings = {
 	path: string;
@@ -43,8 +45,10 @@ type MetadataActions = {
 
 export default function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
 	const { has } = usePermissions();
+	const router = useRouter();
 
 	const [settings, setSettings] = useState<Settings | null>(null);
+	const [projects, setProjects] = useState<any[]>([]);
 	const [client, setClient] = useState<string | null>(null);
 	const [metadata, setMetadata] = useState<any>(null);
 	const [tab, setTab] = useState<Tab>('info');
@@ -61,6 +65,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 		{ key: 'programmation', label: 'Programmation', icon: <Code /> },
 		{ key: 'canbus', label: 'Canbus', icon: <Cable /> },
 		{ key: 'pictures', label: 'Pictures', icon: <ImageIcon /> },
+		{ key: 'tickets', label: 'Tickets', icon: <Ticket /> },
 	] as const;
 
 	const isAllowed = has('projects.write');
@@ -70,19 +75,23 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 			const id = decodeURIComponent((await params).id);
 			setClient(id);
 
-			const s = await fetch('/api/settings/projects').then((r) => r.json());
-			const m = await fetch(`/api/projects/metadata?client=${encodeURIComponent(id)}&reveal=true`)
-				.then((r) => r.json())
-				.catch(() => null);
+			const [s, m, p] = await Promise.all([
+				fetch('/api/settings/projects').then((r) => r.json()),
+				fetch(`/api/projects/metadata?client=${encodeURIComponent(id)}&reveal=true`)
+					.then((r) => r.json())
+					.catch(() => null),
+				fetch('/api/projects/map').then((r) => r.json())
+			]);
 
 			const code = new URL(window.location.href).searchParams.get('code');
 
 			if (code) {
-				setShareAccess(m.shareCode === code);
+				setShareAccess(m?.shareCode === code);
 			}
 
 			setSettings(s);
 			setMetadata(m);
+			setProjects(p);
 			setLoading(false);
 		})();
 	}, [params]);
@@ -99,7 +108,12 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 				{/* Header */}
 
 				<div>
-					<h1 className='text-2xl font-semibold tracking-tight'>{client}</h1>
+					<Selector
+						className='min-w-0 w-fit -ml-4 [&>button]:bg-transparent [&>button]:border-transparent [&>button]:shadow-none [&>button:hover]:bg-black/5 [&>button]:!justify-start [&>button]:!text-2xl [&>button]:!font-semibold [&>button]:!tracking-tight [&_svg]:opacity-50 [&_svg]:ml-2'
+						value={client ?? ''}
+						options={projects.map((p) => ({ label: p.name, value: p.name }))}
+						onChange={(val) => router.push(`/dashboard/projects/${encodeURIComponent(val)}`)}
+					/>
 
 					<p className='text-sm mt-1 text-(--text-muted)'>Project dashboard</p>
 				</div>
@@ -173,6 +187,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 					{tab === 'programmation' && <Programmation basePath={settings.path} client={client} />}
 					{tab === 'canbus' && <Canbus basePath={settings.path} client={client} />}
 					{tab === 'pictures' && <Pictures basePath={settings.path} client={client} />}
+					{tab === 'tickets' && <Tickets client={client} />}
 				</motion.div>
 			</div>
 		</NotPermitted>

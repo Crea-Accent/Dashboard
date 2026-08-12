@@ -71,7 +71,12 @@ export function ProjectPromptProvider({ children }: { children: React.ReactNode 
 				const response = await fetch('/api/projects/map');
 				const data = await response.json();
 
-				setProjects(data);
+				if (Array.isArray(data)) {
+					setProjects(data);
+				} else {
+					console.error('Expected array of projects, got:', data);
+					setProjects([]);
+				}
 			} catch (error) {
 				console.error(error);
 			}

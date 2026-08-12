@@ -49,9 +49,14 @@ export default function AppsPage() {
 			}
 
 			const res = await fetch(`/api/files?view=${encodeURIComponent(s.path)}`);
-			const data: FileEntry[] = await res.json();
+			const data = await res.json();
 
-			setFiles(data || []);
+			if (Array.isArray(data)) {
+				setFiles(data);
+			} else {
+				setFiles([]);
+				console.error('Failed to load apps:', data.error);
+			}
 			setLoading(false);
 		})();
 	}, []);

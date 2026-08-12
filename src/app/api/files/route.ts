@@ -320,8 +320,24 @@ export async function POST(request: NextRequest) {
 		return NextResponse.json({ error: 'Forbidden path' }, { status: 403 });
 	}
 
+	const rawRelativePath = formData.get('relativePath') as string | null;
 	const buffer = Buffer.from(await file.arrayBuffer());
-	const target = path.join(dir, file.name);
+
+	let targetDir = dir;
+	let targetFileName = file.name;
+
+	if (rawRelativePath) {
+		const relativeDir = path.dirname(rawRelativePath);
+		
+		targetDir = path.join(dir, relativeDir);
+		targetFileName = path.basename(rawRelativePath);
+
+		if (!fs.existsSync(targetDir)) {
+			fs.mkdirSync(targetDir, { recursive: true });
+		}
+	}
+
+	const target = path.join(targetDir, targetFileName);
 
 	try {
 		fs.writeFileSync(target, buffer);

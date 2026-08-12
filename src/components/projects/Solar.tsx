@@ -30,18 +30,22 @@ export default function Solar({ client }: Props) {
 
 	async function loadMetadata() {
 		try {
-			const data = await fetch(`/api/projects/metadata?client=${encodeURIComponent(client)}`)
-				.then((res) => res.json())
-				.catch(() => setError('Failed to analyze'));
+			const [data, solarData] = await Promise.all([
+				fetch(`/api/projects/metadata?client=${encodeURIComponent(client)}`).then((res) => res.json()).catch(() => null),
+				fetch(`/api/projects/solar?client=${encodeURIComponent(client)}`).then((res) => res.json()).catch(() => null),
+			]);
 
-			if (!data) return;
+			if (data) {
+				setAddress({
+					lat: data?.address?.lat ?? 0,
+					lng: data?.address?.lng ?? 0,
+				});
+			}
 
-			setAddress({
-				lat: data?.address?.lat ?? 0,
-				lng: data?.address?.lng ?? 0,
-			});
-
-			if (data?.solar) {
+			if (solarData) {
+				setSolar(solarData);
+			} else if (data?.solar) {
+				// Fallback to legacy metadata.solar if API fails or doesn't have it, but metadata does
 				setSolar(data.solar);
 			}
 		} finally {
@@ -70,16 +74,14 @@ export default function Solar({ client }: Props) {
 
 			setSolar(data);
 
-			await fetch('/api/projects/metadata', {
+			await fetch('/api/projects/solar', {
 				method: 'PATCH',
 				headers: {
 					'Content-Type': 'application/json',
 				},
 				body: JSON.stringify({
 					client,
-					data: {
-						solar: data,
-					},
+					data,
 				}),
 			});
 		} catch (error) {
