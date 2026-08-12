@@ -20,6 +20,7 @@ type Company = {
 	address: {
 		street: string;
 		number: string;
+		suite?: string;
 		postalCode: string;
 		city: string;
 		country: string;
@@ -42,6 +43,7 @@ const emptyCompany: Omit<Company, 'id' | 'createdAt' | 'updatedAt'> = {
 	address: {
 		street: '',
 		number: '',
+		suite: '',
 		postalCode: '',
 		city: '',
 		country: 'Belgium',

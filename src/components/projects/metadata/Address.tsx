@@ -15,6 +15,7 @@ type AddressValue = {
 	lng?: number;
 	street?: string;
 	number?: string;
+	suite?: string;
 	postalCode?: string;
 	city?: string;
 	country?: string;
@@ -38,6 +39,7 @@ export default function Address({ value, onChange }: Props) {
 	const [address, setAddress] = useState({
 		street: value?.street ?? '',
 		number: value?.number ?? '',
+		suite: value?.suite ?? '',
 		postalCode: value?.postalCode ?? '',
 		city: value?.city ?? '',
 		country: value?.country ?? '',
@@ -72,6 +74,7 @@ export default function Address({ value, onChange }: Props) {
 		const nextAddress = {
 			street: getComponent(components, 'route'),
 			number: getComponent(components, 'street_number'),
+			suite: getComponent(components, 'subpremise') || address.suite || '',
 			postalCode: getComponent(components, 'postal_code'),
 			city: getComponent(components, 'locality'),
 			country: getComponent(components, 'country'),
@@ -146,6 +149,7 @@ export default function Address({ value, onChange }: Props) {
 		setAddress({
 			street: value?.street ?? '',
 			number: value?.number ?? '',
+			suite: value?.suite ?? '',
 			postalCode: value?.postalCode ?? '',
 			city: value?.city ?? '',
 			country: value?.country ?? '',
@@ -188,6 +192,22 @@ export default function Address({ value, onChange }: Props) {
 				<Input label='Street' value={address.street} readOnly />
 
 				<Input label='Number' value={address.number} readOnly />
+
+				<Input 
+					label='Suite' 
+					value={address.suite} 
+					readOnly={!has('projects.write')}
+					onChange={(e) => {
+						const nextSuite = e.target.value;
+						setAddress(prev => ({ ...prev, suite: nextSuite }));
+						onChange({
+							lat: position.lat,
+							lng: position.lng,
+							...address,
+							suite: nextSuite,
+						});
+					}} 
+				/>
 
 				<Input label='Postal Code' value={address.postalCode} readOnly />
 

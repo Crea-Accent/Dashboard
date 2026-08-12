@@ -36,6 +36,7 @@ type Project = {
 	address?: {
 		street?: string;
 		number?: string;
+		suite?: string;
 		postalCode?: string;
 		city?: string;
 		country?: string;
@@ -227,23 +228,29 @@ export default function Page() {
 
 				{/* Search + Filter */}
 
-				<div className='flex flex-wrap items-center gap-3'>
-					{has('projects.write') && (
-						<Button icon={<Plus size={16} />} onClick={() => setCreating(true)}>
-							New Project
-						</Button>
-					)}
+				<div className='flex flex-col xl:flex-row gap-3 xl:items-center'>
+					{/* Level 1: New, Search, Sort, View Toggle */}
+					<div className='flex gap-2 w-full xl:flex-1'>
+						{has('projects.write') && (
+							<Button icon={<Plus size={16} />} onClick={() => setCreating(true)} className='shrink-0'>
+								<span className='hidden sm:inline'>New Project</span>
+								<span className='sm:hidden'>New</span>
+							</Button>
+						)}
 
-					<div className='flex-1 min-w-80'>
-						<Input icon={<Search size={16} />} placeholder='Search projects...' value={query} onChange={(e) => setQuery(e.target.value)} />
+						<div className='flex-1 min-w-0'>
+							<Input icon={<Search size={16} />} placeholder='Search projects...' value={query} onChange={(e) => setQuery(e.target.value)} />
+						</div>
+
+						<Button variant='secondary' icon={sortAsc ? <ArrowUpAZ size={16} /> : <ArrowDownAZ size={16} />} onClick={() => setSortAsc(!sortAsc)} />
+
+						<ViewToggle value={view} onChange={setView} />
 					</div>
 
-					<Button variant='secondary' icon={sortAsc ? <ArrowUpAZ size={16} /> : <ArrowDownAZ size={16} />} onClick={() => setSortAsc(!sortAsc)} />
-
-					<ViewToggle value={view} onChange={setView} />
-
-					<div className='flex flex-wrap gap-2'>
+					{/* Level 2: Filters */}
+					<div className='flex gap-2 w-full xl:w-auto flex-1'>
 						<Selector
+							className='!min-w-0 flex-1'
 							value={sortKey}
 							onChange={(value) => setSortKey(value as SortKey)}
 							options={[
@@ -255,6 +262,7 @@ export default function Page() {
 						/>
 
 						<MultiSelector
+							className='!min-w-0 flex-1'
 							placeholder='All Labels'
 							value={labelFilters}
 							onChange={setLabelFilters}
@@ -306,7 +314,7 @@ export default function Page() {
 										<div className='min-w-0'>
 											<div className='truncate font-medium'>{p.name}</div>
 
-											<div className='truncate text-xs text-(--text-muted) h-4'>{p.address?.city || ''}</div>
+											<div className='truncate text-xs text-(--text-muted) h-4'>{[p.address?.suite, p.address?.street, p.address?.number, p.address?.city].filter(Boolean).join(', ')}</div>
 										</div>
 									</Link>
 
@@ -352,7 +360,7 @@ export default function Page() {
 												<div>
 													<div className='font-semibold'>{p.name || ''}</div>
 
-													<div className='text-sm text-(--text-muted)'>{p.address?.city || ''}</div>
+													<div className='text-sm text-(--text-muted)'>{[p.address?.suite, p.address?.street, p.address?.number, p.address?.city].filter(Boolean).join(', ')}</div>
 												</div>
 
 												{p.label && <Badge color={labelColor(p.label)}>{p.label}</Badge>}

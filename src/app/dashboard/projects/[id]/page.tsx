@@ -1,7 +1,7 @@
 /** @format */
 'use client';
 
-import { Cable, Check, ClipboardCheck, Code, Eye, File, FileText, Folder, ImageIcon, Save, Settings, Share, Sun, Ticket } from 'lucide-react';
+import { Cable, Check, ClipboardCheck, Code, Eye, File, FileText, Folder, ImageIcon, MapPin, Save, Settings, Share, Sun, Ticket } from 'lucide-react';
 import { NotPermitted, usePermissions } from '@/providers/PermissionsProvider';
 import { useEffect, useState } from 'react';
 
@@ -70,6 +70,14 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 
 	const isAllowed = has('projects.write');
 
+	function openMaps() {
+		if (!metadata?.address) return;
+
+		const q = [metadata.address.street, metadata.address.number, metadata.address.postalCode, metadata.address.city, metadata.address.country].filter(Boolean).join(' ');
+
+		window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`, '_blank');
+	}
+
 	useEffect(() => {
 		(async () => {
 			const id = decodeURIComponent((await params).id);
@@ -133,7 +141,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 
 					{/* Actions */}
 
-					<div className='flex flex-wrap gap-2 lg:ml-auto'>
+					<div className='flex gap-2 lg:ml-auto w-full lg:w-auto overflow-x-auto no-scrollbar'>
 						<Button
 							icon={metadataActions?.saved ? <Check size={16} /> : <Save size={16} />}
 							disabled={!metadataActions?.hasChanges || metadataActions?.saving || !isAllowed}
@@ -155,11 +163,17 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 						</Button>
 
 						<Link href={`/portal/${encodeURIComponent(client)}`}>
-							<Button icon={<Eye />}>View</Button>
+							<Button icon={<Eye size={16} />}>
+								<span className='hidden sm:inline'>View</span>
+							</Button>
 						</Link>
 
+						<Button icon={<MapPin size={16} />} onClick={openMaps} disabled={!metadata?.address?.city}>
+							<span className='hidden sm:inline'>Navigate</span>
+						</Button>
+
 						<Selector
-							className='min-w-52'
+							className='min-w-32 flex-1 lg:flex-none lg:w-52'
 							value={metadataActions?.label ?? ''}
 							options={[
 								{

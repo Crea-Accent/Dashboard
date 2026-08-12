@@ -4,7 +4,8 @@
 
 import { AnimatePresence, motion } from 'framer-motion';
 import { Users, X } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
@@ -15,6 +16,11 @@ export default function SidePanel() {
 
 	const [open, setOpen] = useState(false);
 	const [search, setSearch] = useState('');
+	const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
+
+	useEffect(() => {
+		setPortalTarget(document.getElementById('header-user-list'));
+	}, []);
 
 	const filtered = useMemo(() => {
 		const q = search.toLowerCase();
@@ -70,13 +76,19 @@ export default function SidePanel() {
 
 	return (
 		<>
-			{/* Floating Button */}
-
-			<div className='fixed bottom-6 right-6 z-9998'>
-				<Button size='lg' onClick={() => setOpen((x) => !x)} icon={open ? <X size={18} /> : <Users size={18} />}>
+			{/* Floating Button / Portal */}
+			{portalTarget ? createPortal(
+				<Button variant='ghost' onClick={() => setOpen((x) => !x)} icon={open ? <X size={20} strokeWidth={1.8} /> : <Users size={20} strokeWidth={1.8} />} style={{ color: 'var(--text)' }}>
 					{open ? null : online}
-				</Button>
-			</div>
+				</Button>,
+				portalTarget
+			) : (
+				<div className='fixed bottom-6 right-6 z-9998'>
+					<Button size='lg' onClick={() => setOpen((x) => !x)} icon={open ? <X size={18} /> : <Users size={18} />}>
+						{open ? null : online}
+					</Button>
+				</div>
+			)}
 
 			{/* Backdrop */}
 

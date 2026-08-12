@@ -45,6 +45,8 @@ export default function Header() {
 
 				{/* Spacer for desktop alignment */}
 				<div className='hidden md:block flex-1' />
+
+				<div id="header-user-list" className="ml-auto md:ml-0 z-10000 relative" />
 			</div>
 
 			<div

@@ -9,6 +9,7 @@ import { useMapsLibrary } from '@vis.gl/react-google-maps';
 export type Address = {
 	street: string;
 	number: string;
+	suite?: string;
 	postalCode: string;
 	city: string;
 	country: string;
@@ -47,6 +48,7 @@ export default function AddressInput({ value, onChange }: Props) {
 			onChange({
 				street: getComponent(place.address_components, 'route'),
 				number: getComponent(place.address_components, 'street_number'),
+				suite: getComponent(place.address_components, 'subpremise') || value.suite || '',
 				postalCode: getComponent(place.address_components, 'postal_code'),
 				city: getComponent(place.address_components, 'locality'),
 				country: getComponent(place.address_components, 'country'),
@@ -64,12 +66,18 @@ export default function AddressInput({ value, onChange }: Props) {
 
 	return (
 		<div className='space-y-4'>
-			<Input ref={inputRef} label='Address' placeholder='Search address...' defaultValue={[value.street, value.number, value.postalCode, value.city, value.country].filter(Boolean).join(', ')} />
+			<Input ref={inputRef} label='Address' placeholder='Search address...' defaultValue={[value.suite, value.street, value.number, value.postalCode, value.city, value.country].filter(Boolean).join(', ')} />
 
 			<div className='grid md:grid-cols-2 gap-4'>
 				<Input label='Street' value={value.street} readOnly />
 
 				<Input label='Number' value={value.number} readOnly />
+
+				<Input 
+					label='Suite' 
+					value={value.suite} 
+					onChange={(e) => onChange({ ...value, suite: e.target.value })} 
+				/>
 
 				<Input label='Postal Code' value={value.postalCode} readOnly />
 

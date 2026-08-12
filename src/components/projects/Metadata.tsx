@@ -30,6 +30,7 @@ export type MetadataType = {
 		lon?: number;
 		street?: string;
 		number?: string;
+		suite?: string;
 		postalCode?: string;
 		city?: string;
 		country?: string;

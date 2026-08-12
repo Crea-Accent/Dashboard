@@ -21,6 +21,7 @@ type Project = {
 	address: {
 		street: string;
 		number: string;
+		suite?: string;
 		postalCode: string;
 		city: string;
 		country: string;
@@ -90,7 +91,7 @@ export default function Page() {
 		<div className='p-6 space-y-6'>
 			<h1 className='text-2xl font-semibold'>{project.name}</h1>
 
-			<p className='text-(--text-muted)'>{[project.address.street, project.address.number, project.address.postalCode, project.address.city, project.address.country].filter(Boolean).join(', ')}</p>
+			<p className='text-(--text-muted)'>{[project.address.suite, project.address.street, project.address.number, project.address.postalCode, project.address.city, project.address.country].filter(Boolean).join(', ')}</p>
 
 			<Tabs
 				value={view}
@@ -110,7 +111,7 @@ export default function Page() {
 
 						<div className='grid grid-cols-[140px_1fr] gap-y-2 text-sm'>
 							<div className='text-(--text-muted)'>Address</div>
-							<div>{[project.address.street, project.address.number, project.address.postalCode, project.address.city, project.address.country].filter(Boolean).join(', ')}</div>
+							<div>{[project.address.suite, project.address.street, project.address.number, project.address.postalCode, project.address.city, project.address.country].filter(Boolean).join(', ')}</div>
 
 							<div className='text-(--text-muted)'>Status</div>
 							<div>{project.label || '-'}</div>
