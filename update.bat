@@ -9,6 +9,10 @@ call pnpm install --frozen-lockfile
 
 echo [3/4] Compiling fresh production build with Turbopack...
 call pnpm run build
+if %errorlevel% neq 0 (
+    echo [ERROR] Build failed! Aborting restart to keep the current version running.
+    exit /b %errorlevel%
+)
 
 echo [4/4] Update complete! Bouncing Windows Service...
 :: 🔑 FIX: Swapped 'timeout' for 'ping' to create a background-safe 3-second delay.
