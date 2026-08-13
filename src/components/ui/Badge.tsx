@@ -9,7 +9,11 @@ type Props = {
 	dot?: boolean;
 };
 
+import { getContrastYIQ } from '@/lib/color';
+
 export default function Badge({ children, color = 'var(--accent)', dot = false }: Props) {
+	const textColor = color.startsWith('#') ? getContrastYIQ(color) : 'white';
+
 	return (
 		<span
 			className='
@@ -26,9 +30,16 @@ export default function Badge({ children, color = 'var(--accent)', dot = false }
 			'
 			style={{
 				backgroundColor: color,
-				color: 'white',
+				color: textColor,
 			}}>
-			{dot && <span className='size-2 rounded-full bg-white/90 shrink-0' />}
+			{dot && (
+				<span
+					className='size-2 rounded-full shrink-0'
+					style={{
+						backgroundColor: textColor === 'white' ? 'rgba(255, 255, 255, 0.9)' : 'rgba(0, 0, 0, 0.6)',
+					}}
+				/>
+			)}
 
 			{children}
 		</span>

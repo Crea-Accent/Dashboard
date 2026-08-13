@@ -148,9 +148,8 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 				/>
 
 				{/* Floating Actions Dock */}
-				<div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 p-2 rounded-2xl bg-(--foreground) shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-(--border)/20 transition-all ${selectorOpen ? 'w-64 sm:w-auto' : ''}`}>
-					{!selectorOpen && (
-						<>
+				<motion.div layout transition={{ type: 'spring', bounce: 0.25, duration: 0.5 }} className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 p-2 rounded-2xl bg-(--foreground) shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-(--border)/20 transition-all ${selectorOpen ? 'w-64 sm:w-auto' : ''}`}>
+					<div className={`flex items-center gap-2 ${selectorOpen ? 'hidden sm:flex' : ''}`}>
 							<Button
 								icon={metadataActions?.saved ? <Check size={16} /> : <Save size={16} />}
 								disabled={!metadataActions?.hasChanges || metadataActions?.saving || !isAllowed}
@@ -182,8 +181,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 							</Button>
 
 							{tab === 'info' && <div className='w-px h-6 bg-(--border)/20 mx-1 hidden sm:block' />}
-						</>
-					)}
+					</div>
 
 					{tab === 'info' && (
 						<Selector
@@ -206,7 +204,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 							onChange={(value) => metadataActions?.setLabel(value)}
 						/>
 					)}
-				</div>
+				</motion.div>
 
 				{/* Content */}
 

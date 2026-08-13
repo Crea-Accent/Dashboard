@@ -1,7 +1,7 @@
 /** @format */
 'use client';
 
-import { ArrowDownAZ, ArrowUpAZ, Folder, MapPin, Pencil, Plus, Search } from 'lucide-react';
+import { ArrowDownAZ, ArrowUpAZ, Filter, Folder, MapPin, Pencil, Plus, Search } from 'lucide-react';
 import { NotPermitted, usePermissions } from '@/providers/PermissionsProvider';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -16,7 +16,9 @@ import Modal from '@/components/ui/Modal';
 import MultiSelector from '@/components/ui/MultiSelector';
 import PageHeader from '@/components/ui/PageHeader';
 import Selector from '@/components/ui/Selector';
+import Skeleton from '@/components/ui/Skeleton';
 import ViewToggle from '@/components/ui/ViewToggle';
+import { getContrastYIQ } from '@/lib/color';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
@@ -70,6 +72,7 @@ export default function Page() {
 	const [labelFilters, setLabelFilters] = useState<string[]>([]);
 	const [projectFilters, setProjectFilters] = useState<string[]>([]);
 	const [view, setView] = useState<'grid' | 'list'>(session?.user?.preferences?.defaultView ?? 'list');
+	const [showFilters, setShowFilters] = useState(false);
 
 	const [sortKey, setSortKey] = useState<SortKey>('name');
 	const [sortAsc, setSortAsc] = useState(true);
@@ -232,7 +235,41 @@ export default function Page() {
 		load();
 	}, [session]);
 
-	if (loading) return <Loading title='Loading Projects' />;
+	useEffect(() => {
+		function handleKeyDown(e: KeyboardEvent) {
+			if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+			if (e.key === '/') {
+				e.preventDefault();
+				document.getElementById('project-search')?.focus();
+			} else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n' && has('projects.write')) {
+				e.preventDefault();
+				setCreating(true);
+			} else if (e.key.toLowerCase() === 'v') {
+				setView((v) => (v === 'grid' ? 'list' : 'grid'));
+			}
+		}
+
+		window.addEventListener('keydown', handleKeyDown);
+		return () => window.removeEventListener('keydown', handleKeyDown);
+	}, [has]);
+
+	if (loading) {
+		return (
+			<div className='space-y-6'>
+				<PageHeader icon={<Folder size={20} />} title='Projects' description='Browse and manage projects' />
+				<div className='flex gap-2'>
+					<Skeleton className='h-10 w-32' />
+					<Skeleton className='h-10 flex-1' />
+				</div>
+				<div className='grid gap-4 md:grid-cols-2 xl:grid-cols-3'>
+					{Array.from({ length: 6 }).map((_, i) => (
+						<Skeleton key={i} className='h-40 w-full rounded-2xl' />
+					))}
+				</div>
+			</div>
+		);
+	}
 
 	return (
 		<NotPermitted permission='projects.read'>
@@ -247,27 +284,29 @@ export default function Page() {
 					{/* Level 1: New and Search */}
 					<div className='flex gap-2 w-full xl:flex-1'>
 						{has('projects.write') && (
-							<Button icon={<Plus size={16} />} onClick={() => setCreating(true)} className='shrink-0'>
+							<Button icon={<Plus size={16} />} onClick={() => setCreating(true)} className='shrink-0' title='Cmd/Ctrl + N'>
 								<span className='hidden sm:inline'>New Project</span>
 							</Button>
 						)}
 
 						<div className='flex-1 min-w-0'>
-							<Input icon={<Search size={16} />} placeholder='Search projects...' value={query} onChange={(e) => setQuery(e.target.value)} />
+							<Input id='project-search' icon={<Search size={16} />} placeholder='Search projects... (Press /)' value={query} onChange={(e) => setQuery(e.target.value)} />
 						</div>
 					</div>
 
 					{/* Level 2: Actions */}
-					<div className='flex flex-wrap sm:flex-nowrap gap-2 w-full xl:w-auto'>
+					<div className='flex flex-wrap xl:flex-nowrap gap-2 w-full xl:w-auto'>
 						<div className='flex gap-2 shrink-0'>
 							<Button variant='secondary' icon={sortAsc ? <ArrowUpAZ size={16} /> : <ArrowDownAZ size={16} />} onClick={() => setSortAsc(!sortAsc)} />
 
 							<ViewToggle value={view} onChange={setView} />
+
+							<Button variant='secondary' icon={<Filter size={16} />} className='xl:hidden' onClick={() => setShowFilters(!showFilters)} />
 						</div>
 
-						<div className='flex gap-2 flex-1 min-w-0 w-full sm:w-auto'>
+						<div className={`flex gap-2 flex-col sm:flex-row w-full xl:w-auto transition-all ${showFilters ? 'flex' : 'hidden xl:flex'}`}>
 							<Selector
-								className='!min-w-0 w-32 shrink-0'
+								className='!min-w-0 flex-1'
 								value={sortKey}
 								onChange={(value) => setSortKey(value as SortKey)}
 								options={[
@@ -333,13 +372,15 @@ export default function Page() {
 							{filteredProjects.map((p, index) => (
 								<motion.div
 									layout
+									layoutId={`project-${p.path}`}
 									key={p.path}
 									className={`grid grid-cols-[1fr_24px_80px] md:grid-cols-[1fr_120px_24px_80px] xl:grid-cols-[1fr_120px_140px_120px_100px] items-center h-16 px-5 text-sm hover:bg-(--background) transition-colors ${index !== filteredProjects.length - 1 ? 'border-b border-(--border)/10' : ''}`}>
 									<Link href={`/dashboard/projects/${encodeURIComponent(p.name)}`} className='flex items-center gap-3 min-w-0'>
 										<div
-											className='w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-semibold shrink-0'
+											className='w-7 h-7 rounded-lg flex items-center justify-center text-xs font-semibold shrink-0'
 											style={{
 												background: p.label ? labelColor(p.label) : 'var(--accent)',
+												color: p.label ? getContrastYIQ(labelColor(p.label)) : 'white',
 											}}>
 											{p.name.slice(0, 2).toUpperCase()}
 										</div>
@@ -385,7 +426,7 @@ export default function Page() {
 					) : (
 						<div className='grid gap-4 md:grid-cols-2 xl:grid-cols-3'>
 							{filteredProjects.map((p, i) => (
-								<motion.div layout key={p.path} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
+								<motion.div layout layoutId={`project-${p.path}`} key={p.path} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
 									<Link href={`/dashboard/projects/${encodeURIComponent(p.name)}`} key={i}>
 										<Card className='p-5 min-h-40 transition-all hover:-translate-y-0.5 hover:border-(--accent)'>
 											<div className='flex items-start justify-between mb-4'>
