@@ -18,12 +18,19 @@ type Props = {
 	onChange: (value: string) => void;
 	placeholder?: string;
 	className?: string;
+	hideLabelOnMobile?: boolean;
+	onOpenChange?: (open: boolean) => void;
+	direction?: 'up' | 'down';
 };
 
-export default function Selector({ value, options, onChange, placeholder = 'Select', className }: Props) {
+export default function Selector({ value, options, onChange, placeholder = 'Select', className, hideLabelOnMobile, onOpenChange, direction = 'down' }: Props) {
 	const [open, setOpen] = useState(false);
 
 	const ref = useRef<HTMLDivElement>(null);
+
+	useEffect(() => {
+		onOpenChange?.(open);
+	}, [open, onOpenChange]);
 
 	useEffect(() => {
 		function handleClickOutside(event: MouseEvent) {
@@ -39,10 +46,12 @@ export default function Selector({ value, options, onChange, placeholder = 'Sele
 
 	const selected = options.find((x) => x.value === value);
 
+	const isIconOnly = hideLabelOnMobile && selected?.color;
+
 	return (
 		<div ref={ref} className={`relative min-w-60 ${className ?? ''}`}>
-			<Button type='button' variant='secondary' onClick={() => setOpen((v) => !v)} className='w-full justify-between flex'>
-				<div className='flex min-w-0 items-center gap-3'>
+			<Button type='button' variant='secondary' onClick={() => setOpen((v) => !v)} className={`w-full flex ${isIconOnly ? 'justify-center sm:justify-between px-0 sm:px-4' : 'justify-between'}`}>
+				<div className={`flex min-w-0 items-center ${isIconOnly ? 'sm:gap-3' : 'gap-3'}`}>
 					{selected?.color && (
 						<div
 							className='size-3 shrink-0 rounded-full border-2 border-white/80'
@@ -52,14 +61,14 @@ export default function Selector({ value, options, onChange, placeholder = 'Sele
 						/>
 					)}
 
-					<span className='truncate'>{selected?.label ?? placeholder}</span>
+					<span className={`truncate ${isIconOnly ? 'hidden sm:block' : ''}`}>{selected?.label ?? placeholder}</span>
 				</div>
 
-				<ChevronDown size={16} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+				<ChevronDown size={16} className={`transition-transform ${open ? 'rotate-180' : ''} ${isIconOnly ? 'hidden sm:block' : ''}`} />
 			</Button>
 
 			{open && (
-				<div className='absolute z-50 mt-2 w-full overflow-hidden rounded-2xl border border-(--border)/10 bg-(--foreground) shadow-xl'>
+				<div className={`absolute z-50 w-full overflow-hidden rounded-2xl border border-(--border)/10 bg-(--foreground) shadow-xl ${direction === 'up' ? 'bottom-full mb-2' : 'top-full mt-2'}`}>
 					<div className='max-h-72 overflow-y-auto p-2'>
 						{options.map((option) => {
 							const isSelected = option.value === value;

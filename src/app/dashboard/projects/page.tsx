@@ -49,7 +49,7 @@ type Settings = {
 	labels?: LabelSetting[];
 };
 
-type SortKey = 'name' | 'updated' | 'city' | 'label';
+type SortKey = 'name' | 'updated' | 'address' | 'label' | 'project';
 
 export default function Page() {
 	const { data: session } = useSession();
@@ -68,10 +68,16 @@ export default function Page() {
 
 	const [query, setQuery] = useState('');
 	const [labelFilters, setLabelFilters] = useState<string[]>([]);
+	const [projectFilters, setProjectFilters] = useState<string[]>([]);
 	const [view, setView] = useState<'grid' | 'list'>(session?.user?.preferences?.defaultView ?? 'list');
 
 	const [sortKey, setSortKey] = useState<SortKey>('name');
 	const [sortAsc, setSortAsc] = useState(true);
+
+	const uniqueProjects = useMemo(() => {
+		const names = new Set(projects.map((p) => p.project).filter(Boolean) as string[]);
+		return Array.from(names).sort();
+	}, [projects]);
 
 	function toggleSort(key: SortKey) {
 		if (sortKey === key) {
@@ -174,6 +180,9 @@ export default function Page() {
 			if (labelFilters.length > 0 && (!p.label || !labelFilters.includes(p.label))) {
 				return false;
 			}
+			if (projectFilters.length > 0 && (!p.project || !projectFilters.includes(p.project))) {
+				return false;
+			}
 			return true;
 		});
 
@@ -182,8 +191,14 @@ export default function Page() {
 				case 'name':
 					return sortAsc ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name);
 
-				case 'city':
-					return sortAsc ? (a.address?.city ?? '').localeCompare(b.address?.city ?? '') : (b.address?.city ?? '').localeCompare(a.address?.city ?? '');
+				case 'address': {
+					const aAddr = [a.address?.suite, a.address?.street, a.address?.number, a.address?.city].filter(Boolean).join(', ');
+					const bAddr = [b.address?.suite, b.address?.street, b.address?.number, b.address?.city].filter(Boolean).join(', ');
+					return sortAsc ? aAddr.localeCompare(bAddr) : bAddr.localeCompare(aAddr);
+				}
+
+				case 'project':
+					return sortAsc ? (a.project ?? '').localeCompare(b.project ?? '') : (b.project ?? '').localeCompare(a.project ?? '');
 
 				case 'label':
 					return sortAsc ? (a.label ?? '').localeCompare(b.label ?? '') : (b.label ?? '').localeCompare(a.label ?? '');
@@ -202,7 +217,7 @@ export default function Page() {
 		});
 
 		return list;
-	}, [projects, query, labelFilters, sortKey, sortAsc]);
+	}, [projects, query, labelFilters, projectFilters, sortKey, sortAsc]);
 
 	useEffect(() => {
 		async function load() {
@@ -229,51 +244,66 @@ export default function Page() {
 				{/* Search + Filter */}
 
 				<div className='flex flex-col xl:flex-row gap-3 xl:items-center'>
-					{/* Level 1: New, Search, Sort, View Toggle */}
+					{/* Level 1: New and Search */}
 					<div className='flex gap-2 w-full xl:flex-1'>
 						{has('projects.write') && (
 							<Button icon={<Plus size={16} />} onClick={() => setCreating(true)} className='shrink-0'>
 								<span className='hidden sm:inline'>New Project</span>
-								<span className='sm:hidden'>New</span>
 							</Button>
 						)}
 
 						<div className='flex-1 min-w-0'>
 							<Input icon={<Search size={16} />} placeholder='Search projects...' value={query} onChange={(e) => setQuery(e.target.value)} />
 						</div>
-
-						<Button variant='secondary' icon={sortAsc ? <ArrowUpAZ size={16} /> : <ArrowDownAZ size={16} />} onClick={() => setSortAsc(!sortAsc)} />
-
-						<ViewToggle value={view} onChange={setView} />
 					</div>
 
-					{/* Level 2: Filters */}
-					<div className='flex gap-2 w-full xl:w-auto flex-1'>
-						<Selector
-							className='!min-w-0 flex-1'
-							value={sortKey}
-							onChange={(value) => setSortKey(value as SortKey)}
-							options={[
-								{ label: 'Name', value: 'name' },
-								{ label: 'Updated', value: 'updated' },
-								{ label: 'City', value: 'city' },
-								{ label: 'Label', value: 'label' },
-							]}
-						/>
+					{/* Level 2: Actions */}
+					<div className='flex flex-wrap sm:flex-nowrap gap-2 w-full xl:w-auto'>
+						<div className='flex gap-2 shrink-0'>
+							<Button variant='secondary' icon={sortAsc ? <ArrowUpAZ size={16} /> : <ArrowDownAZ size={16} />} onClick={() => setSortAsc(!sortAsc)} />
 
-						<MultiSelector
-							className='!min-w-0 flex-1'
-							placeholder='All Labels'
-							value={labelFilters}
-							onChange={setLabelFilters}
-							options={
-								settings?.labels?.map((label) => ({
-									label: label.name,
-									value: label.name,
-									color: label.color,
-								})) || []
-							}
-						/>
+							<ViewToggle value={view} onChange={setView} />
+						</div>
+
+						<div className='flex gap-2 flex-1 min-w-0 w-full sm:w-auto'>
+							<Selector
+								className='!min-w-0 w-32 shrink-0'
+								value={sortKey}
+								onChange={(value) => setSortKey(value as SortKey)}
+								options={[
+									{ label: 'Name', value: 'name' },
+									{ label: 'Updated', value: 'updated' },
+									{ label: 'Address', value: 'address' },
+									{ label: 'Project', value: 'project' },
+									{ label: 'Label', value: 'label' },
+								]}
+							/>
+
+							<MultiSelector
+								className='!min-w-0 flex-1'
+								placeholder='All Projects'
+								value={projectFilters}
+								onChange={setProjectFilters}
+								options={uniqueProjects.map((p) => ({
+									label: p,
+									value: p,
+								}))}
+							/>
+
+							<MultiSelector
+								className='!min-w-0 flex-1'
+								placeholder='All Labels'
+								value={labelFilters}
+								onChange={setLabelFilters}
+								options={
+									settings?.labels?.map((label) => ({
+										label: label.name,
+										value: label.name,
+										color: label.color,
+									})) || []
+								}
+							/>
+						</div>
 					</div>
 				</div>
 
@@ -286,13 +316,15 @@ export default function Page() {
 						</div>
 					) : view === 'list' ? (
 						<Card className='overflow-hidden'>
-							<div className='grid grid-cols-[1fr_24px_80px] md:grid-cols-[1fr_120px_140px_120px_100px] px-5 h-11 items-center text-xs font-semibold text-(--text-muted) border-b border-(--border)/10'>
+							<div className='grid grid-cols-[1fr_24px_80px] md:grid-cols-[1fr_120px_24px_80px] xl:grid-cols-[1fr_120px_140px_120px_100px] px-5 h-11 items-center text-xs font-semibold text-(--text-muted) border-b border-(--border)/10'>
 								<button onClick={() => toggleSort('name')} className='text-left'>
 									Name
 								</button>
-								<span className='hidden md:block text-left'>Project</span>
-								<span className='text-center md:text-left'>Label</span>
-								<button onClick={() => toggleSort('updated')} className='hidden md:block text-left'>
+								<button onClick={() => toggleSort('project')} className='hidden md:block text-left'>
+									Project
+								</button>
+								<span className='text-center xl:text-left'>Label</span>
+								<button onClick={() => toggleSort('updated')} className='hidden xl:block text-left'>
 									Updated
 								</button>
 								<span className='text-right'>Actions</span>
@@ -302,7 +334,7 @@ export default function Page() {
 								<motion.div
 									layout
 									key={p.path}
-									className={`grid grid-cols-[1fr_24px_80px] md:grid-cols-[1fr_120px_140px_120px_100px] items-center h-16 px-5 text-sm hover:bg-(--background) transition-colors ${index !== filteredProjects.length - 1 ? 'border-b border-(--border)/10' : ''}`}>
+									className={`grid grid-cols-[1fr_24px_80px] md:grid-cols-[1fr_120px_24px_80px] xl:grid-cols-[1fr_120px_140px_120px_100px] items-center h-16 px-5 text-sm hover:bg-(--background) transition-colors ${index !== filteredProjects.length - 1 ? 'border-b border-(--border)/10' : ''}`}>
 									<Link href={`/dashboard/projects/${encodeURIComponent(p.name)}`} className='flex items-center gap-3 min-w-0'>
 										<div
 											className='w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-semibold shrink-0'
@@ -319,28 +351,28 @@ export default function Page() {
 									</Link>
 
 									{/* Key */}
-									<div className='hidden md:block text-sm font-medium text-[var(--text-muted)]'>
-										{p.project || '—'}
+									<div className='hidden md:block text-sm font-medium text-[var(--text-muted)] min-w-0 pr-4'>
+										<div className='truncate'>{p.project || '—'}</div>
 									</div>
 
 									{/* Label */}
-									<div className='flex justify-center md:justify-start'>
+									<div className='flex justify-center xl:justify-start min-w-0 pr-2'>
 										{p.label && (
 											<>
 												<span
-													className='w-2.5 h-2.5 rounded-full md:hidden'
+													className='w-2.5 h-2.5 rounded-full xl:hidden shrink-0'
 													style={{
 														backgroundColor: labelColor(p.label),
 													}}
 												/>
 
-												<div className='hidden md:block'>{p.label}</div>
+												<div className='hidden xl:block truncate'>{p.label}</div>
 											</>
 										)}
 									</div>
 
 									{/* Updated */}
-									<div className='hidden md:block text-xs text-(--text-muted)'>{p.updatedAt ? new Date(p.updatedAt).toLocaleDateString() : '—'}</div>
+									<div className='hidden xl:block text-xs text-(--text-muted) truncate'>{p.updatedAt ? new Date(p.updatedAt).toLocaleDateString() : '—'}</div>
 									{/* Actions */}
 									<div className='flex justify-end gap-1'>
 										{p.address?.city && <Button size='sm' variant='ghost' icon={<MapPin size={16} />} onClick={() => openMaps(p)} />}

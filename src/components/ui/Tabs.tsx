@@ -29,6 +29,8 @@ export default function Tabs<T extends string>({ value, onChange, tabs }: Props<
 	const [indicator, setIndicator] = useState({
 		left: 0,
 		width: 0,
+		top: 0,
+		height: 0,
 	});
 
 	useLayoutEffect(() => {
@@ -39,13 +41,15 @@ export default function Tabs<T extends string>({ value, onChange, tabs }: Props<
 		setIndicator({
 			left: active.offsetLeft,
 			width: active.offsetWidth,
+			top: active.offsetTop,
+			height: active.offsetHeight,
 		});
 	}, [value, tabs]);
 
 	return (
-		<div className={''}>
-			{/* Mobile */}
-			<div className='sm:hidden w-full'>
+		<div className='w-full lg:w-auto'>
+			{/* Mobile / Tablet / Small Desktop */}
+			<div className='xl:hidden w-full'>
 				<Selector
 					className='w-full'
 					value={value}
@@ -58,13 +62,15 @@ export default function Tabs<T extends string>({ value, onChange, tabs }: Props<
 				/>
 			</div>
 
-			{/* Desktop */}
-			<div ref={containerRef} className='hidden sm:inline-flex relative rounded-2xl bg-(--foreground) p-1'>
+			{/* Large Desktop */}
+			<div ref={containerRef} className='hidden xl:flex flex-nowrap relative rounded-2xl bg-(--foreground) p-1 gap-1'>
 				<motion.div
-					className='absolute top-1 bottom-1 rounded-xl bg-(--accent) shadow-lg'
+					className='absolute rounded-xl bg-(--accent) shadow-lg'
 					animate={{
 						left: indicator.left,
 						width: indicator.width,
+						top: indicator.top,
+						height: indicator.height,
 					}}
 					transition={{
 						type: 'spring',

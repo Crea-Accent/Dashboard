@@ -4,6 +4,7 @@
 import { Cable, Check, ClipboardCheck, Code, Eye, File, FileText, Folder, ImageIcon, MapPin, Save, Settings, Share, Sun, Ticket } from 'lucide-react';
 import { NotPermitted, usePermissions } from '@/providers/PermissionsProvider';
 import { useEffect, useState } from 'react';
+import { useToast } from '@/providers/ToastProvider';
 
 import Button from '@/components/ui/Button';
 import Canbus from '@/components/projects/Canbus';
@@ -46,6 +47,7 @@ type MetadataActions = {
 export default function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
 	const { has } = usePermissions();
 	const router = useRouter();
+	const toast = useToast();
 
 	const [settings, setSettings] = useState<Settings | null>(null);
 	const [projects, setProjects] = useState<any[]>([]);
@@ -56,6 +58,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 	const [shareAccess, setShareAccess] = useState(false);
 	const [shared, setShared] = useState(false);
 	const [metadataActions, setMetadataActions] = useState<MetadataActions | null>(null);
+	const [selectorOpen, setSelectorOpen] = useState(false);
 
 	const tabs = [
 		{ key: 'info', label: 'Info', icon: <Folder /> },
@@ -126,54 +129,68 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 					<p className='text-sm mt-1 text-(--text-muted)'>Project dashboard</p>
 				</div>
 
-				{/* Navigation + Actions */}
+				{/* Navigation */}
 
-				<div className='flex flex-col lg:flex-row lg:items-center gap-3 p-2 rounded-3xl bg-(--foreground)'>
-					<Tabs
-						value={tab}
-						onChange={setTab}
-						tabs={tabs.map((t) => ({
-							id: t.key,
-							icon: t.icon,
-							label: t.label,
-						}))}
-					/>
+				<Tabs
+					value={tab}
+					onChange={(newTab) => {
+						if (metadataActions?.hasChanges) {
+							toast('error', 'Please save your changes before switching tabs.');
+							return;
+						}
+						setTab(newTab);
+					}}
+					tabs={tabs.map((t) => ({
+						id: t.key,
+						icon: t.icon,
+						label: t.label,
+					}))}
+				/>
 
-					{/* Actions */}
-
-					<div className='flex gap-2 lg:ml-auto w-full lg:w-auto overflow-x-auto no-scrollbar'>
-						<Button
-							icon={metadataActions?.saved ? <Check size={16} /> : <Save size={16} />}
-							disabled={!metadataActions?.hasChanges || metadataActions?.saving || !isAllowed}
-							onClick={() => metadataActions?.save()}>
-							<span className='hidden sm:inline'>{metadataActions?.saving ? 'Saving...' : metadataActions?.saved ? 'Saved' : 'Save'}</span>
-						</Button>
-
-						<Button
-							icon={shared ? <ClipboardCheck size={16} /> : <Share size={16} />}
-							onClick={() => {
-								metadataActions?.share();
-								setShared(true);
-								setTimeout(() => {
-									setShared(false);
-								}, 1500);
-							}}
-							disabled={shared || !isAllowed}>
-							<span className='hidden sm:inline'>{shared ? 'Copied' : 'Share'}</span>
-						</Button>
-
-						<Link href={`/portal/${encodeURIComponent(client)}`}>
-							<Button icon={<Eye size={16} />}>
-								<span className='hidden sm:inline'>View</span>
+				{/* Floating Actions Dock */}
+				<div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 p-2 rounded-2xl bg-(--foreground) shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-(--border)/20 transition-all ${selectorOpen ? 'w-64 sm:w-auto' : ''}`}>
+					{!selectorOpen && (
+						<>
+							<Button
+								icon={metadataActions?.saved ? <Check size={16} /> : <Save size={16} />}
+								disabled={!metadataActions?.hasChanges || metadataActions?.saving || !isAllowed}
+								onClick={() => metadataActions?.save()}>
+								<span className='hidden sm:inline'>{metadataActions?.saving ? 'Saving...' : metadataActions?.saved ? 'Saved' : 'Save'}</span>
 							</Button>
-						</Link>
 
-						<Button icon={<MapPin size={16} />} onClick={openMaps} disabled={!metadata?.address?.city}>
-							<span className='hidden sm:inline'>Navigate</span>
-						</Button>
+							<Button
+								icon={shared ? <ClipboardCheck size={16} /> : <Share size={16} />}
+								onClick={() => {
+									metadataActions?.share();
+									setShared(true);
+									setTimeout(() => {
+										setShared(false);
+									}, 1500);
+								}}
+								disabled={shared || !isAllowed}>
+								<span className='hidden sm:inline'>{shared ? 'Copied' : 'Share'}</span>
+							</Button>
 
+							<Link href={`/portal/${encodeURIComponent(client)}`}>
+								<Button icon={<Eye size={16} />}>
+									<span className='hidden sm:inline'>View</span>
+								</Button>
+							</Link>
+
+							<Button icon={<MapPin size={16} />} onClick={openMaps} disabled={!metadata?.address?.city}>
+								<span className='hidden sm:inline'>Navigate</span>
+							</Button>
+
+							{tab === 'info' && <div className='w-px h-6 bg-(--border)/20 mx-1 hidden sm:block' />}
+						</>
+					)}
+
+					{tab === 'info' && (
 						<Selector
-							className='min-w-32 flex-1 lg:flex-none lg:w-52'
+							className={`transition-all duration-300 ease-in-out ${selectorOpen ? 'w-full sm:w-64' : 'w-12 sm:w-48'} !min-w-0 !border-transparent hover:!border-(--border)/10 !bg-transparent hover:!bg-(--background)`}
+							hideLabelOnMobile={!selectorOpen}
+							direction='up'
+							onOpenChange={setSelectorOpen}
 							value={metadataActions?.label ?? ''}
 							options={[
 								{
@@ -188,7 +205,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 							]}
 							onChange={(value) => metadataActions?.setLabel(value)}
 						/>
-					</div>
+					)}
 				</div>
 
 				{/* Content */}
