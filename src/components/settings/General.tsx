@@ -170,39 +170,49 @@ export default function GeneralSettings() {
 							</div>
 						</div>
 
-						{info?.upToDate ? (
-							<div className='flex items-center gap-2 text-green-500'>
-								<CheckCircle size={18} />
-								Application is up to date.
-							</div>
-						) : (
-							<>
-								<div className='flex items-center gap-2 text-yellow-500'>
-									<AlertCircle size={18} />
-									Update available.
+						<div className='flex flex-wrap items-center gap-3'>
+							{info?.upToDate ? (
+								<div className='flex items-center gap-2 text-green-500 mr-auto'>
+									<CheckCircle size={18} />
+									Application is up to date.
 								</div>
+							) : (
+								<>
+									<div className='flex items-center gap-2 text-yellow-500'>
+										<AlertCircle size={18} />
+										Update available.
+									</div>
 
-								<Button icon={updating ? <Loader2 size={16} className='animate-spin' /> : <RefreshCw size={16} />} onClick={runUpdate} disabled={updating}>
-									{updating ? 'Updating...' : 'Install Update'}
-								</Button>
+									<Button icon={updating ? <Loader2 size={16} className='animate-spin' /> : <RefreshCw size={16} />} onClick={runUpdate} disabled={updating} className='mr-auto'>
+										{updating ? 'Updating...' : 'Install Update'}
+									</Button>
+								</>
+							)}
 
-								{logs.length > 0 && (
-									<Card className='p-4 space-y-2 bg-(--foreground)'>
-										{logs.map((log, i) => {
-											const meta = messageStyle(log);
-											const Icon = meta.icon;
+							<Button variant='secondary' icon={<RefreshCw size={16} />} onClick={() => fetch('/api/system/restart', { method: 'POST' })}>
+								Restart Service
+							</Button>
 
-											return (
-												<div key={i} className='flex gap-2 text-sm'>
-													<Icon size={16} className={meta.color} />
+							<Button variant='danger' icon={<AlertTriangle size={16} />} onClick={() => { if(confirm('Are you sure you want to reboot the entire machine?')) fetch('/api/system/reboot', { method: 'POST' }); }}>
+								Reboot Machine
+							</Button>
+						</div>
 
-													<span className='font-mono'>{log}</span>
-												</div>
-											);
-										})}
-									</Card>
-								)}
-							</>
+						{logs.length > 0 && (
+							<Card className='p-4 space-y-2 bg-(--foreground)'>
+								{logs.map((log, i) => {
+									const meta = messageStyle(log);
+									const Icon = meta.icon;
+
+									return (
+										<div key={i} className='flex gap-2 text-sm'>
+											<Icon size={16} className={meta.color} />
+
+											<span className='font-mono'>{log}</span>
+										</div>
+									);
+								})}
+							</Card>
 						)}
 					</>
 				)}

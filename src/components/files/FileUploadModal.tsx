@@ -88,11 +88,13 @@ export default function FileUploadModal({ files, open, onClose, onUpload, users 
 		setEntries(
 			files.map((file) => ({
 				file,
-				name: file.name
-					.replace(/\.[^.]+$/, '')
-					.split('__')
-					.slice(0, -2)
-					.join(' '),
+				name: file.name.includes('__')
+					? file.name
+							.replace(/\.[^.]+$/, '')
+							.split('__')
+							.slice(0, -2)
+							.join(' ')
+					: file.name.replace(/\.[^.]+$/, ''),
 				comment: '',
 				collaborators: [],
 			}))
