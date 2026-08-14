@@ -63,6 +63,7 @@ export default function FileIcon({ file, size = 20, height = null, width = null,
 
 		case 'schrack':
 		case 'trik':
+		case 'txt':
 			return <FileText size={size} className='text-blue-500' />;
 
 		default:

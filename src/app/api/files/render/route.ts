@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
 
 	const mimeTypes: Record<string, string> = {
 		'.pdf': 'application/pdf',
-		'.txt': 'application/txt',
+		'.txt': 'text/plain',
 		'.png': 'image/png',
 		'.jpg': 'image/jpeg',
 		'.jpeg': 'image/jpeg',
