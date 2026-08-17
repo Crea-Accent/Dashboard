@@ -1,5 +1,11 @@
 # panel
 
+## 0.2.11
+
+### Patch Changes
+
+- Added a conditional Force Update button to the General Settings view that only renders when a user's session has Debug Mode enabled.
+
 ## 0.2.10
 
 ### Patch Changes

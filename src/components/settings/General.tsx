@@ -13,6 +13,7 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useDebug } from "@/providers/DebugProvider";
 
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
@@ -32,6 +33,7 @@ type FilesSettings = {
 };
 
 export default function GeneralSettings() {
+  const { debugMode } = useDebug();
   const [info, setInfo] = useState<VersionInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
@@ -227,6 +229,23 @@ export default function GeneralSettings() {
               >
                 Restart Service
               </Button>
+
+              {debugMode && (
+                <Button
+                  variant="secondary"
+                  icon={
+                    updating ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      <RefreshCw size={16} />
+                    )
+                  }
+                  onClick={runUpdate}
+                  disabled={updating}
+                >
+                  {updating ? "Updating..." : "Force Update"}
+                </Button>
+              )}
 
               <Button
                 variant="danger"
