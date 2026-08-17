@@ -1,14 +1,49 @@
 /** @format */
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
-import { Activity, CalendarClock, History, Calendar, Clock, MapPin, Users } from 'lucide-react';
+import { Activity, CalendarClock, History, Calendar, Clock, MapPin, Users, Image as ImageIcon, Ribbon } from 'lucide-react';
+import { useToast } from '@/providers/ToastProvider';
 import EventModal from '@/components/events/EventModal';
 
 export default function Page() {
 	const [events, setEvents] = useState<any[]>([]);
 	const [modalOpen, setModalOpen] = useState(false);
+
+	const toast = useToast();
+	const bannerInputRef = useRef<HTMLInputElement>(null);
+	const ribbonInputRef = useRef<HTMLInputElement>(null);
+	const [uploading, setUploading] = useState(false);
+
+	async function handleUploadBranding(e: React.ChangeEvent<HTMLInputElement>, type: 'banner' | 'ribbon') {
+		const file = e.target.files?.[0];
+		if (!file) return;
+
+		try {
+			setUploading(true);
+			const formData = new FormData();
+			formData.append('file', file);
+			formData.append('type', type);
+
+			const res = await fetch('/api/events/branding', {
+				method: 'POST',
+				body: formData,
+			});
+
+			if (res.ok) {
+				toast('success', `${type} updated successfully!`);
+			} else {
+				toast('error', `Failed to update ${type}`);
+			}
+		} catch (err) {
+			toast('error', `An error occurred while uploading ${type}`);
+		} finally {
+			setUploading(false);
+			// Reset input
+			if (e.target) e.target.value = '';
+		}
+	}
 
 	async function loadEvents() {
 		try {
@@ -97,9 +132,31 @@ export default function Page() {
 					<p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Manage group rotations and event invites.</p>
 				</div>
 
-				<button onClick={() => setModalOpen(true)} className="h-10 px-4 rounded-xl bg-(--accent) text-white font-medium hover:bg-(--hover-accent) transition-colors shrink-0">
-					New Event
-				</button>
+				<div className="flex items-center gap-3">
+					<input type="file" accept="image/*" className="hidden" ref={bannerInputRef} onChange={(e) => handleUploadBranding(e, 'banner')} />
+					<input type="file" accept="image/*" className="hidden" ref={ribbonInputRef} onChange={(e) => handleUploadBranding(e, 'ribbon')} />
+
+					<button
+						disabled={uploading}
+						onClick={() => bannerInputRef.current?.click()}
+						className="h-10 px-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 font-medium hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors shrink-0 flex items-center gap-2"
+					>
+						<ImageIcon size={16} />
+						Banner
+					</button>
+					<button
+						disabled={uploading}
+						onClick={() => ribbonInputRef.current?.click()}
+						className="h-10 px-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 font-medium hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors shrink-0 flex items-center gap-2"
+					>
+						<Ribbon size={16} />
+						Ribbon
+					</button>
+
+					<button onClick={() => setModalOpen(true)} className="h-10 px-4 rounded-xl bg-(--accent) text-white font-medium hover:bg-(--hover-accent) transition-colors shrink-0">
+						New Event
+					</button>
+				</div>
 			</div>
 
 			{/* CATEGORIZED LISTS */}

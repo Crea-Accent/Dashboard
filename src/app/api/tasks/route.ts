@@ -24,8 +24,9 @@ function ticketsPath(folder: string) {
 
 export async function GET(req: NextRequest) {
 	const technicianUsername = req.nextUrl.searchParams.get('technician');
+	const all = req.nextUrl.searchParams.get('all') === 'true';
 
-	if (!technicianUsername) {
+	if (!technicianUsername && !all) {
 		return NextResponse.json({ error: 'Missing technician parameter' }, { status: 400 });
 	}
 
@@ -51,7 +52,7 @@ export async function GET(req: NextRequest) {
 			const processTicketPOIs = (ticket: any) => {
 				if (ticket.pois && Array.isArray(ticket.pois)) {
 					for (const poi of ticket.pois) {
-						if (poi.technician === technicianUsername) {
+						if (all || poi.technician === technicianUsername) {
 							allTasks.push({
 								...poi,
 								ticketId: ticket.id,

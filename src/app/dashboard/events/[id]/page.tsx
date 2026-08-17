@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { ChevronLeft, Plus, Mail, Trash2, Mails, Users, MapPin, User, Download, CalendarRange, Edit2, Building2, Calendar, Clock, Play, Square } from 'lucide-react';
@@ -15,12 +14,11 @@ import Selector from '@/components/ui/Selector';
 import { useToast } from '@/providers/ToastProvider';
 import EventModal from '@/components/events/EventModal';
 
-export default function EventDetail() {
-	const params = useParams();
-	const id = params.id as string;
+export default function EventDetail({ params }: { params: Promise<{ id: string }> }) {
 	const toast = useToast();
 	const { data: session } = useSession();
 
+	const [id, setId] = useState<string | null>(null);
 	const [event, setEvent] = useState<any>(null);
 	const [contacts, setContacts] = useState<any[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -61,7 +59,10 @@ export default function EventDetail() {
 
 	async function load() {
 		try {
-			const [eventRes, contactsRes, companiesRes] = await Promise.all([fetch(`/api/events/${id}`), fetch('/api/contacts'), fetch('/api/settings/companies')]);
+			const resolvedId = decodeURIComponent((await params).id);
+			setId(resolvedId);
+
+			const [eventRes, contactsRes, companiesRes] = await Promise.all([fetch(`/api/events/${resolvedId}`), fetch('/api/contacts'), fetch('/api/settings/companies')]);
 
 			if (eventRes.ok) {
 				const eData = await eventRes.json();
@@ -82,7 +83,7 @@ export default function EventDetail() {
 
 	useEffect(() => {
 		load();
-	}, [id]);
+	}, [params]);
 
 	async function handleAddInvite() {
 		try {

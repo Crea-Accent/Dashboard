@@ -1,5 +1,11 @@
 # panel
 
+## 0.2.13
+
+### Patch Changes
+
+- updated mail picture sourcing
+
 ## 0.2.12
 
 ### Patch Changes

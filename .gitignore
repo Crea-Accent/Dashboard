@@ -3,6 +3,8 @@ data
 sim
 public/invites
 public/generated-invites
+public/banner.*
+public/ribbon.*
 
 # dependencies
 /node_modules

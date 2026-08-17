@@ -85,13 +85,14 @@ export default function TasksPage() {
 				.then((res) => res.json())
 				.then((data) => {
 					if (data.users) {
-						setAllUsers(
-							data.users.map((u: any) => ({
+						setAllUsers([
+							{ label: 'Unassigned', value: 'unassigned', color: 'var(--border)' },
+							...data.users.map((u: any) => ({
 								label: u.name || u.email,
 								value: u.name || u.email,
 								color: 'var(--accent)',
-							}))
-						);
+							})),
+						]);
 					}
 				})
 				.finally(() => setLoadingUsers(false));
@@ -153,7 +154,13 @@ export default function TasksPage() {
 	const filteredTasks = tasks.filter((task) => {
 		if (query && !task.description.toLowerCase().includes(query.toLowerCase()) && !task.projectName.toLowerCase().includes(query.toLowerCase())) return false;
 		if (stateFilters.length > 0 && !stateFilters.includes(task.state)) return false;
-		if (seeAllTasks && selectedUsers.length > 0 && !selectedUsers.includes(task.technician)) return false;
+		if (seeAllTasks && selectedUsers.length > 0) {
+			const isUnassigned = !task.technician || task.technician.trim() === '';
+			const matchesUser = selectedUsers.includes(task.technician);
+			const matchesUnassigned = selectedUsers.includes('unassigned') && isUnassigned;
+
+			if (!matchesUser && !matchesUnassigned) return false;
+		}
 		return true;
 	});
 

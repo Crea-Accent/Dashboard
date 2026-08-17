@@ -57,8 +57,21 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
 		const baseUrl = process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : 'https://crea.dummi.me';
 
+		let bannerUrl: string | undefined;
+		let ribbonUrl: string | undefined;
+		try {
+			const publicFiles = await fs.readdir(path.join(process.cwd(), 'public'));
+			const bannerFile = publicFiles.find((f) => f.startsWith('banner.'));
+			if (bannerFile) bannerUrl = `${baseUrl}/${bannerFile}`;
+
+			const ribbonFile = publicFiles.find((f) => f.startsWith('ribbon.'));
+			if (ribbonFile) ribbonUrl = `${baseUrl}/${ribbonFile}`;
+		} catch (e) {
+			console.error('Failed to read public dir for branding files', e);
+		}
+
 		// Generate bulletproof email HTML using react-email
-		const emailHtml = await render(EventInviteEmail({ event, contact, baseUrl }));
+		const emailHtml = await render(EventInviteEmail({ event, contact, baseUrl, bannerUrl, ribbonUrl }));
 
 		// Send email using Postmark
 		const response = await fetch('https://api.postmarkapp.com/email', {

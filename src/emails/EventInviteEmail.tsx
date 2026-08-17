@@ -12,7 +12,7 @@ const Spacer = ({ height }: { height: number }) => (
 	</table>
 );
 
-export default function EventInviteEmail({ event, contact, baseUrl }: { event: any; contact: any; baseUrl: string }) {
+export default function EventInviteEmail({ event, contact, baseUrl, bannerUrl, ribbonUrl }: { event: any; contact: any; baseUrl: string; bannerUrl?: string; ribbonUrl?: string }) {
 	const days = ['ZONDAG', 'MAANDAG', 'DINSDAG', 'WOENSDAG', 'DONDERDAG', 'VRIJDAG', 'ZATERDAG'];
 	const months = ['Januari', 'Februari', 'Maart', 'April', 'Mei', 'Juni', 'Juli', 'Augustus', 'September', 'Oktober', 'November', 'December'];
 
@@ -118,7 +118,7 @@ export default function EventInviteEmail({ event, contact, baseUrl }: { event: a
 										>
 											<tr>
 												<td width="55%" valign="middle" align="left" bgcolor="#F9F7F3" style={{ paddingRight: '40px' }}>
-													<Img src="https://crea.dummi.me/banner.png" alt="Event Banner" width="440" style={styles.imageFull} />
+													<Img src={bannerUrl || `${baseUrl}/banner.png`} alt="Event Banner" width="440" style={styles.imageFull} />
 												</td>
 												<td width="45%" valign="middle" align="left" bgcolor="#F9F7F3">
 													<Text style={styles.programTitle}>PROGRAMMA VAN DE AVOND</Text>
@@ -235,7 +235,7 @@ export default function EventInviteEmail({ event, contact, baseUrl }: { event: a
 										>
 											<tr>
 												<td align="center" bgcolor="#F9F7F3">
-													<Img src="https://crea.dummi.me/ribbon.png" alt="Inspiration Ribbon" width="800" style={styles.imageFull} />
+													<Img src={ribbonUrl || `${baseUrl}/ribbon.png`} alt="Inspiration Ribbon" width="800" style={styles.imageFull} />
 												</td>
 											</tr>
 										</table>
@@ -259,7 +259,7 @@ export default function EventInviteEmail({ event, contact, baseUrl }: { event: a
 														<br />
 														Maak daarnaast kennis met andere interessante contacten uit de sector!
 													</Text>
-													<Img src="https://crea.dummi.me/logo.png" alt="Crea Accent Logo" width="200" style={styles.logo} />
+													<Img src={`${baseUrl}/logo.png`} alt="Crea Accent Logo" width="200" style={styles.logo} />
 												</td>
 											</tr>
 										</table>
@@ -315,16 +315,16 @@ export default function EventInviteEmail({ event, contact, baseUrl }: { event: a
 								<tr>
 									<td align="center" bgcolor="#F9F7F3">
 										<Link href="https://www.crea-accent.be" style={styles.socialLink}>
-											<Img src="https://crea.dummi.me/website.png" width="32" height="32" alt="Website" style={styles.socialIcon} />
+											<Img src={`${baseUrl}/website.png`} width="32" height="32" alt="Website" style={styles.socialIcon} />
 										</Link>
 										<Link href="https://www.instagram.com/crea.accent/" style={styles.socialLink}>
-											<Img src="https://crea.dummi.me/instagram.png" width="32" height="32" alt="Instagram" style={styles.socialIcon} />
+											<Img src={`${baseUrl}/instagram.png`} width="32" height="32" alt="Instagram" style={styles.socialIcon} />
 										</Link>
 										<Link href="https://www.linkedin.com/company/crea-accent" style={styles.socialLink}>
-											<Img src="https://crea.dummi.me/linkedin.png" width="32" height="32" alt="LinkedIn" style={styles.socialIcon} />
+											<Img src={`${baseUrl}/linkedin.png`} width="32" height="32" alt="LinkedIn" style={styles.socialIcon} />
 										</Link>
 										<Link href="https://www.facebook.com/Crea.Accent.Verlichting" style={styles.socialLink}>
-											<Img src="https://crea.dummi.me/facebook.png" width="32" height="32" alt="Facebook" style={styles.socialIcon} />
+											<Img src={`${baseUrl}/facebook.png`} width="32" height="32" alt="Facebook" style={styles.socialIcon} />
 										</Link>
 									</td>
 								</tr>
