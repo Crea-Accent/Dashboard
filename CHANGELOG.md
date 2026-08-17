@@ -1,5 +1,11 @@
 # panel
 
+## 0.2.14
+
+### Patch Changes
+
+- Fixed infinite loop on events page
+
 ## 0.2.13
 
 ### Patch Changes
