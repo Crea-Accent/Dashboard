@@ -2,7 +2,7 @@
 'use client';
 
 import { Image as ImageIcon, Plus, Trash2, X } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
@@ -29,6 +29,15 @@ type POIState = {
 	filePreview: string | null;
 };
 
+type TicketTemplate = {
+	id: string;
+	name: string;
+	pois: {
+		description: string;
+		requiresPicture: boolean;
+	}[];
+};
+
 export default function TicketModal({ open, client, users, existingTicket, onClose }: TicketModalProps) {
 	const { data: session } = useSession();
 	const { uploadFile, uploading } = useUpload();
@@ -36,8 +45,19 @@ export default function TicketModal({ open, client, users, existingTicket, onClo
 	const [name, setName] = useState('');
 	const [activePOIIndex, setActivePOIIndex] = useState<number | null>(null);
 	const [saving, setSaving] = useState(false);
+	const [templates, setTemplates] = useState<TicketTemplate[]>([]);
+	const [selectedTemplate, setSelectedTemplate] = useState('');
 
 	const currentUsername = session?.user?.name || 'Unknown User';
+
+	useEffect(() => {
+		if (open && !existingTicket) {
+			fetch('/api/settings/ticket-templates')
+				.then((res) => res.json())
+				.then((data) => setTemplates(data.templates || []))
+				.catch((err) => console.error('Failed to load templates', err));
+		}
+	}, [open, existingTicket]);
 
 	const [pois, setPOIs] = useState<POIState[]>([
 		{
@@ -147,6 +167,7 @@ export default function TicketModal({ open, client, users, existingTicket, onClo
 
 			// Cleanup
 			setName('');
+			setSelectedTemplate('');
 			setPOIs([
 				{
 					id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2),
@@ -187,8 +208,42 @@ export default function TicketModal({ open, client, users, existingTicket, onClo
 
 				<div className="bg-(--background) p-4 rounded-2xl border border-(--border)/10 text-sm">
 					{!existingTicket && (
-						<div className="mb-4">
-							<Input label="Ticket Name" value={name} onChange={(e) => setName(e.target.value)} placeholder="E.g. Ground floor maintenance..." />
+						<div className="mb-4 space-y-4">
+							<div>
+								<Input label="Ticket Name" value={name} onChange={(e) => setName(e.target.value)} placeholder="E.g. Ground floor maintenance..." />
+							</div>
+
+							{templates.length > 0 && (
+								<div>
+									<label className="text-sm font-medium text-(--text) block mb-2">Ticket Template (Optional)</label>
+									<Selector
+										value={selectedTemplate}
+										onChange={(val) => {
+											setSelectedTemplate(val);
+											const tmpl = templates.find((t) => t.id === val);
+											if (tmpl) {
+												if (!name) setName(tmpl.name);
+												const isDefaultEmpty = pois.length === 1 && !pois[0].description.trim() && !pois[0].file && !pois[0].requiresPicture;
+												const newPois = tmpl.pois.map((p) => ({
+													id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2),
+													description: p.description,
+													technician: '',
+													requiresPicture: p.requiresPicture,
+													file: null,
+													filePreview: null,
+												}));
+
+												if (isDefaultEmpty) {
+													setPOIs(newPois);
+												} else {
+													setPOIs([...pois, ...newPois]);
+												}
+											}
+										}}
+										options={[{ label: 'None', value: '' }, ...templates.map((t) => ({ label: t.name, value: t.id }))]}
+									/>
+								</div>
+							)}
 						</div>
 					)}
 					<p>

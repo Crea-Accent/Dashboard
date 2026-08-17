@@ -1,7 +1,7 @@
 /** @format */
 'use client';
 
-import { Boxes, BriefcaseBusiness, Building2, ClipboardList, FolderOpen, ShieldCheck, SlidersHorizontal, Users } from 'lucide-react';
+import { Boxes, BriefcaseBusiness, Building2, CheckSquare, ClipboardList, FolderOpen, ShieldCheck, SlidersHorizontal, Users } from 'lucide-react';
 
 import { APIProvider } from '@vis.gl/react-google-maps';
 import AppsSettings from '@/components/settings/Apps';
@@ -12,12 +12,13 @@ import ProceduresSettings from '@/components/settings/Procedures';
 import ProjectSettings from '@/components/settings/Projects';
 import RoleSettings from '@/components/settings/Roles';
 import Tabs from '@/components/ui/Tabs';
+import TasksSettings from '@/components/settings/Tasks';
 import UserSettings from '@/components/settings/Users';
 import Workspace from '@/components/settings/Workspace';
 import { motion } from 'framer-motion';
 import { useState } from 'react';
 
-type Tab = 'general' | 'projects' | 'workspace' | 'procedures' | 'apps' | 'users' | 'roles' | 'companies';
+type Tab = 'general' | 'projects' | 'workspace' | 'procedures' | 'tasks' | 'apps' | 'users' | 'roles' | 'companies';
 
 export default function SettingsPage() {
 	const [tab, setTab] = useState<Tab>('general');
@@ -49,6 +50,11 @@ export default function SettingsPage() {
 								id: 'procedures',
 								label: 'Procedures',
 								icon: <ClipboardList size={16} />,
+							},
+							{
+								id: 'tasks',
+								label: 'Tasks',
+								icon: <CheckSquare size={16} />,
 							},
 							{
 								id: 'apps',
@@ -85,6 +91,7 @@ export default function SettingsPage() {
 						{tab === 'projects' && <ProjectSettings />}
 						{tab === 'workspace' && <Workspace />}
 						{tab === 'procedures' && <ProceduresSettings />}
+						{tab === 'tasks' && <TasksSettings />}
 						{tab === 'apps' && <AppsSettings />}
 						{tab === 'users' && <UserSettings />}
 						{tab === 'roles' && <RoleSettings />}

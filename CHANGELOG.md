@@ -1,5 +1,11 @@
 # panel
 
+## 0.3.0
+
+### Minor Changes
+
+- Added Ticket Templates to settings and ticket creation workflow. Admins can now define standard points of interest (POIs) that can be easily applied when creating new tickets.
+
 ## 0.2.14
 
 ### Patch Changes
