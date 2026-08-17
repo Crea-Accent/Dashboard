@@ -207,6 +207,12 @@ export default function Documents({ basePath, client }: { basePath: string; clie
 			/>
 
 			<div className='rounded-3xl p-6 space-y-6 bg-(--foreground)'>
+				<div className='bg-red-500/20 text-red-500 p-4 rounded-xl text-xs font-mono'>
+					DEBUG INFO:<br/>
+					Ext filter: {DOCUMENT_EXTENSIONS.join(', ')}<br/>
+					Total raw files: {files.length}<br/>
+					Files: {files.map(f => f.name).join(', ')}
+				</div>
 				<AnimatePresence mode='popLayout'>
 					<div key='header' className='flex items-center justify-end gap-2'>
 						<ViewToggle value={view ?? 'list'} onChange={setView} />

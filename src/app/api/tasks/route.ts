@@ -44,31 +44,66 @@ export async function GET(req: NextRequest) {
 
 		for (const project of projects) {
 			const projectFolder = path.join(base, project);
-			const file = ticketsPath(projectFolder);
+			const ticketsDir = path.join(projectFolder, 'tickets');
+			const oldFile = ticketsPath(projectFolder);
 
-			if (fs.existsSync(file)) {
+			const processTicketPOIs = (ticket: any) => {
+				if (ticket.pois && Array.isArray(ticket.pois)) {
+					for (const poi of ticket.pois) {
+						if (poi.technician === technicianUsername) {
+							allTasks.push({
+								...poi,
+								ticketId: ticket.id,
+								projectName: project,
+								ticketCreatedAt: ticket.createdAt || ticket.date,
+								ticketOpenedBy: ticket.openedBy || ticket.creator,
+							});
+						}
+					}
+				}
+			};
+
+			// 1. Read from new tickets/ directory structure
+			if (fs.existsSync(ticketsDir)) {
 				try {
-					const data = JSON.parse(fs.readFileSync(file, 'utf8'));
-					
-					if (data.tickets && Array.isArray(data.tickets)) {
-						for (const ticket of data.tickets) {
-							if (ticket.pois && Array.isArray(ticket.pois)) {
-								for (const poi of ticket.pois) {
-									if (poi.technician === technicianUsername) {
-										allTasks.push({
-											...poi,
-											ticketId: ticket.id,
-											projectName: project,
-											ticketCreatedAt: ticket.createdAt,
-											ticketOpenedBy: ticket.openedBy,
-										});
+					const dirs = fs.readdirSync(ticketsDir, { withFileTypes: true });
+					for (const d of dirs) {
+						if (d.isDirectory()) {
+							const ticketFolder = path.join(ticketsDir, d.name);
+							const ticketFile = path.join(ticketFolder, 'ticket.json');
+							
+							if (fs.existsSync(ticketFile)) {
+								const metadata = JSON.parse(fs.readFileSync(ticketFile, 'utf8'));
+								const pois: any[] = [];
+								
+								const files = fs.readdirSync(ticketFolder);
+								for (const f of files) {
+									if (f.startsWith('poi_') && f.endsWith('.json')) {
+										pois.push(JSON.parse(fs.readFileSync(path.join(ticketFolder, f), 'utf8')));
 									}
 								}
+								
+								processTicketPOIs({ ...metadata, pois });
 							}
 						}
 					}
 				} catch (err) {
-					console.error(`Error reading tickets for project ${project}:`, err);
+					console.error(`Error reading tickets directory for project ${project}:`, err);
+				}
+			}
+
+			// 2. Read from legacy tickets.json (if not migrated yet)
+			if (fs.existsSync(oldFile)) {
+				try {
+					const data = JSON.parse(fs.readFileSync(oldFile, 'utf8'));
+					
+					if (data.tickets && Array.isArray(data.tickets)) {
+						for (const ticket of data.tickets) {
+							processTicketPOIs(ticket);
+						}
+					}
+				} catch (err) {
+					console.error(`Error reading tickets.json for project ${project}:`, err);
 				}
 			}
 		}
