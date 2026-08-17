@@ -1,10 +1,10 @@
 {
-  "id": "DT18-PRO",
-  "name": "Met de TCP/IP Pro Server kan er vanop afstand geprogrammeerd worden. Er kan ook geprogrammeerd worden via Wifi en dus na het opzetten van een kleine 4G router.\n\nDe TCP/IP Pro Server is de host voor de gratis DT app en de DT pro app en kan dienst doen als Master.",
-  "description": "pro",
-  "category": "Module",
-  "type": "user",
-  "current": "0.175",
-  "voltage": "24",
-  "detectable": true
+	"id": "DT18-PRO",
+	"name": "Met de TCP/IP Pro Server kan er vanop afstand geprogrammeerd worden. Er kan ook geprogrammeerd worden via Wifi en dus na het opzetten van een kleine 4G router.\n\nDe TCP/IP Pro Server is de host voor de gratis DT app en de DT pro app en kan dienst doen als Master.",
+	"description": "pro",
+	"category": "Module",
+	"type": "user",
+	"current": "0.175",
+	"voltage": "24",
+	"detectable": true
 }

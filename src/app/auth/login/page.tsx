@@ -1,53 +1,53 @@
 /** @format */
-"use client";
+'use client';
 
-import { Eye, EyeOff, LogIn } from "lucide-react";
-import { signIn, useSession } from "next-auth/react";
-import { useEffect, useState } from "react";
+import { Eye, EyeOff, LogIn } from 'lucide-react';
+import { signIn, useSession } from 'next-auth/react';
+import { useEffect, useState } from 'react';
 
-import { motion } from "framer-motion";
-import { redirect } from "next/navigation";
+import { motion } from 'framer-motion';
+import { redirect } from 'next/navigation';
 
 export default function LoginPage() {
-  const { status } = useSession();
+	const { status } = useSession();
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
+	const [email, setEmail] = useState('');
+	const [password, setPassword] = useState('');
+	const [showPassword, setShowPassword] = useState(false);
 
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+	const [loading, setLoading] = useState(false);
+	const [error, setError] = useState('');
 
-  useEffect(() => {
-    if (status === "authenticated") {
-      redirect("/dashboard");
-    }
-  }, [status]);
+	useEffect(() => {
+		if (status === 'authenticated') {
+			redirect('/dashboard');
+		}
+	}, [status]);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
+	async function handleSubmit(e: React.FormEvent) {
+		e.preventDefault();
+		setLoading(true);
+		setError('');
 
-    const res = await signIn("credentials", {
-      email,
-      password,
-      redirect: false,
-    });
+		const res = await signIn('credentials', {
+			email,
+			password,
+			redirect: false,
+		});
 
-    setLoading(false);
+		setLoading(false);
 
-    if (res?.error) {
-      setError("Invalid email or password");
-      return;
-    }
+		if (res?.error) {
+			setError('Invalid email or password');
+			return;
+		}
 
-    redirect("/dashboard");
-  }
+		redirect('/dashboard');
+	}
 
-  return (
-    <div
-      className="
+	return (
+		<div
+			className="
 				min-h-screen
 				flex items-center justify-center
 				bg-gradient-to-br
@@ -55,13 +55,13 @@ export default function LoginPage() {
 				dark:from-zinc-950 dark:via-zinc-950 dark:to-zinc-900
 				p-6
 			"
-    >
-      <motion.form
-        onSubmit={handleSubmit}
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35 }}
-        className="
+		>
+			<motion.form
+				onSubmit={handleSubmit}
+				initial={{ opacity: 0, y: 16 }}
+				animate={{ opacity: 1, y: 0 }}
+				transition={{ duration: 0.35 }}
+				className="
 					w-full max-w-sm
 					bg-white dark:bg-zinc-900
 					border border-zinc-200 dark:border-zinc-800
@@ -70,28 +70,24 @@ export default function LoginPage() {
 					p-7
 					space-y-5
 				"
-      >
-        {/* Header */}
+			>
+				{/* Header */}
 
-        <div className="space-y-1 text-center">
-          <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">
-            Welcome back
-          </h1>
+				<div className="space-y-1 text-center">
+					<h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">Welcome back</h1>
 
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            Sign in to continue
-          </p>
-        </div>
+					<p className="text-sm text-zinc-500 dark:text-zinc-400">Sign in to continue</p>
+				</div>
 
-        {/* Email */}
+				{/* Email */}
 
-        <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-          className="
+				<input
+					type="email"
+					placeholder="Email"
+					value={email}
+					onChange={(e) => setEmail(e.target.value)}
+					required
+					className="
 						w-full h-10 px-3
 						rounded-lg
 						border border-zinc-200 dark:border-zinc-800
@@ -100,18 +96,18 @@ export default function LoginPage() {
 						focus:outline-none
 						focus:ring-2 focus:ring-(--accent)/50
 					"
-        />
+				/>
 
-        {/* Password */}
+				{/* Password */}
 
-        <div className="relative">
-          <input
-            type={showPassword ? "text" : "password"}
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            className="
+				<div className="relative">
+					<input
+						type={showPassword ? 'text' : 'password'}
+						placeholder="Password"
+						value={password}
+						onChange={(e) => setPassword(e.target.value)}
+						required
+						className="
 							w-full h-10 px-3 pr-10
 							rounded-lg
 							border border-zinc-200 dark:border-zinc-800
@@ -120,12 +116,12 @@ export default function LoginPage() {
 							focus:outline-none
 							focus:ring-2 focus:ring-(--accent)/50
 						"
-          />
+					/>
 
-          <button
-            type="button"
-            onClick={() => setShowPassword((v) => !v)}
-            className="
+					<button
+						type="button"
+						onClick={() => setShowPassword((v) => !v)}
+						className="
 							absolute right-2 top-1/2 -translate-y-1/2
 							h-7 w-7
 							flex items-center justify-center
@@ -135,21 +131,21 @@ export default function LoginPage() {
 							hover:bg-zinc-100 dark:hover:bg-zinc-800
 							transition
 						"
-          >
-            {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-          </button>
-        </div>
+					>
+						{showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+					</button>
+				</div>
 
-        {/* Error */}
+				{/* Error */}
 
-        {error && <p className="text-sm text-red-500 text-center">{error}</p>}
+				{error && <p className="text-sm text-red-500 text-center">{error}</p>}
 
-        {/* Submit */}
+				{/* Submit */}
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="
+				<button
+					type="submit"
+					disabled={loading}
+					className="
 						w-full h-10
 						flex items-center justify-center gap-2
 						rounded-lg
@@ -159,11 +155,11 @@ export default function LoginPage() {
 						active:scale-[0.98]
 						transition
 					"
-        >
-          <LogIn size={16} />
-          {loading ? "Signing in…" : "Sign in"}
-        </button>
-      </motion.form>
-    </div>
-  );
+				>
+					<LogIn size={16} />
+					{loading ? 'Signing in…' : 'Sign in'}
+				</button>
+			</motion.form>
+		</div>
+	);
 }

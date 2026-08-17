@@ -1,11 +1,11 @@
 {
-  "id": "DT00-24SW",
-  "name": "2 kan. Can-switch + voeding",
-  "description": "Can-switch: 2 kanalen inclusief geïntegreerde voeding.\nVoeding voor het systeem dat op 24 volt wisselspanning werkt.",
-  "category": "Powersupply",
-  "type": "supplier",
-  "current": "2.5",
-  "voltage": "230",
-  "detectable": false,
-  "channels": 2
+	"id": "DT00-24SW",
+	"name": "2 kan. Can-switch + voeding",
+	"description": "Can-switch: 2 kanalen inclusief geïntegreerde voeding.\nVoeding voor het systeem dat op 24 volt wisselspanning werkt.",
+	"category": "Powersupply",
+	"type": "supplier",
+	"current": "2.5",
+	"voltage": "230",
+	"detectable": false,
+	"channels": 2
 }

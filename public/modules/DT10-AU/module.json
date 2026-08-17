@@ -1,10 +1,10 @@
 {
-  "id": "DT10-AU",
-  "name": "Audio Interface",
-  "description": "Our latest audio interface (DT10-AU) can be used to connect to Bluesound audio over IP. It can also be used to connect to Sonos audio (via the Sonos cloud) over IP.\n\nFurthermore, the interface has 8 infrared outputs for controlling digibox TV, Apple TV etc.",
-  "category": "Module",
-  "type": "user",
-  "current": "0.24",
-  "voltage": "24",
-  "detectable": true
+	"id": "DT10-AU",
+	"name": "Audio Interface",
+	"description": "Our latest audio interface (DT10-AU) can be used to connect to Bluesound audio over IP. It can also be used to connect to Sonos audio (via the Sonos cloud) over IP.\n\nFurthermore, the interface has 8 infrared outputs for controlling digibox TV, Apple TV etc.",
+	"category": "Module",
+	"type": "user",
+	"current": "0.24",
+	"voltage": "24",
+	"detectable": true
 }

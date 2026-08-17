@@ -1,10 +1,10 @@
 {
-  "id": "DT04-03",
-  "name": "3 kan. 16A realis NO up/down module",
-  "description": "Bevat 3 up/down sturingen die volledig onafhankelijk van elkaar kunnen gebruikt worden.\nDeze kan gebruikt worden voor rolluiken, gordijnen , screen, poorten, zwembaden met 3 motoren…",
-  "category": "Module",
-  "type": "user",
-  "current": "0.16",
-  "voltage": "24",
-  "detectable": true
+	"id": "DT04-03",
+	"name": "3 kan. 16A realis NO up/down module",
+	"description": "Bevat 3 up/down sturingen die volledig onafhankelijk van elkaar kunnen gebruikt worden.\nDeze kan gebruikt worden voor rolluiken, gordijnen , screen, poorten, zwembaden met 3 motoren…",
+	"category": "Module",
+	"type": "user",
+	"current": "0.16",
+	"voltage": "24",
+	"detectable": true
 }

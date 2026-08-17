@@ -12,9 +12,9 @@ This repository contains a robust, React-based file management system designed f
 
 - **Automated Versioning & Grouping:** Automatically parses filenames to group related files and sort them by date and revision number. It keeps the workspace clean by hiding older versions behind an expandable toggle.
 - **Module Categorization:** Dedicated modules for different file types:
-  - **Programmation:** Handles automation and smart home project files (DuoTecno, Niko, Siemens, DALI, Loxone).
-  - **Schemas:** Manages technical schematics and diagrams.
-  - **Documents:** Handles general project documentation and spreadsheets.
+    - **Programmation:** Handles automation and smart home project files (DuoTecno, Niko, Siemens, DALI, Loxone).
+    - **Schemas:** Manages technical schematics and diagrams.
+    - **Documents:** Handles general project documentation and spreadsheets.
 - **Role-Based Access Control (RBAC):** Integrates with `next-auth` and a custom permissions provider to ensure only authorized users (e.g., those with `projects.write` permissions) can upload or edit files.
 - **Dynamic UI:** Includes toggleable Grid and List views, smooth animations powered by Framer Motion, and intuitive empty/loading states.
 - **Metadata Management:** Users can edit file metadata (Name, Comments, Collaborators) directly from the UI, which automatically updates the underlying file's naming structure.

@@ -1,5 +1,5 @@
 allowBuilds:
-  "@serialport/bindings-cpp": true
-  core-js: true
-  sharp: true
-  unrs-resolver: true
+    '@serialport/bindings-cpp': true
+    core-js: true
+    sharp: true
+    unrs-resolver: true

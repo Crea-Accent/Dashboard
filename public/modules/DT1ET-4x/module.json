@@ -1,10 +1,10 @@
 {
-  "id": "DT1ET-4x",
-  "name": "Easy touch",
-  "description": "User-friendly touchbutton - The design of the Smarttouch with the intelligence of the Touchbutton",
-  "category": "Button",
-  "type": "user",
-  "current": "0.055",
-  "voltage": "24",
-  "detectable": true
+	"id": "DT1ET-4x",
+	"name": "Easy touch",
+	"description": "User-friendly touchbutton - The design of the Smarttouch with the intelligence of the Touchbutton",
+	"category": "Button",
+	"type": "user",
+	"current": "0.055",
+	"voltage": "24",
+	"detectable": true
 }

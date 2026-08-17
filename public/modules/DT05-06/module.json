@@ -1,10 +1,10 @@
 {
-  "id": "DT05-06",
-  "name": "6 kan. 500W leading-edge fase dimmer module",
-  "description": "Dimming and switching of 6 lighting circuits up to 500W per channel, via phase-cut control.",
-  "category": "Module",
-  "type": "user",
-  "current": "0.1",
-  "voltage": "24",
-  "detectable": true
+	"id": "DT05-06",
+	"name": "6 kan. 500W leading-edge fase dimmer module",
+	"description": "Dimming and switching of 6 lighting circuits up to 500W per channel, via phase-cut control.",
+	"category": "Module",
+	"type": "user",
+	"current": "0.1",
+	"voltage": "24",
+	"detectable": true
 }

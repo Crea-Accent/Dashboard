@@ -1,11 +1,11 @@
 {
-  "id": "DT13-SW",
-  "name": "CAN-switch",
-  "description": "Can-Switch wordt gebruikt om sterverbinding te maken.",
-  "detectable": false,
-  "category": "Module",
-  "type": "user",
-  "current": "0.13",
-  "voltage": "24",
-  "channels": 4
+	"id": "DT13-SW",
+	"name": "CAN-switch",
+	"description": "Can-Switch wordt gebruikt om sterverbinding te maken.",
+	"detectable": false,
+	"category": "Module",
+	"type": "user",
+	"current": "0.13",
+	"voltage": "24",
+	"channels": 4
 }

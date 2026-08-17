@@ -1,8 +1,6 @@
 /** @format */
-"use client";
+'use client';
 
-export default function Skeleton({ className = "" }: { className?: string }) {
-  return (
-    <div className={`animate-pulse bg-(--border)/10 rounded-md ${className}`} />
-  );
+export default function Skeleton({ className = '' }: { className?: string }) {
+	return <div className={`animate-pulse bg-(--border)/10 rounded-md ${className}`} />;
 }

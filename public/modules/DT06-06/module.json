@@ -1,10 +1,10 @@
 {
-  "id": "DT06-06",
-  "name": "6 kan. 5A LED PWM dimmer module",
-  "description": "Dimmen van 6 led's via \"Pulse Width Modulation\" techniek.",
-  "category": "Module",
-  "type": "user",
-  "current": "0.1",
-  "voltage": "24",
-  "detectable": true
+	"id": "DT06-06",
+	"name": "6 kan. 5A LED PWM dimmer module",
+	"description": "Dimmen van 6 led's via \"Pulse Width Modulation\" techniek.",
+	"category": "Module",
+	"type": "user",
+	"current": "0.1",
+	"voltage": "24",
+	"detectable": true
 }

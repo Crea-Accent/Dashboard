@@ -1,10 +1,10 @@
 {
-  "id": "DT1C-4x",
-  "name": "Smarttouch",
-  "description": "Neat design - Limited surface with 48 operational functions - In stand-by mode: a normal switch with 4 functions",
-  "category": "Button",
-  "type": "user",
-  "current": "0.055",
-  "voltage": "24",
-  "detectable": true
+	"id": "DT1C-4x",
+	"name": "Smarttouch",
+	"description": "Neat design - Limited surface with 48 operational functions - In stand-by mode: a normal switch with 4 functions",
+	"category": "Button",
+	"type": "user",
+	"current": "0.055",
+	"voltage": "24",
+	"detectable": true
 }

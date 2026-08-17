@@ -1,11 +1,11 @@
 {
-  "id": "DT0B-ULTRA",
-  "name": "Smartbox+ Ultra",
-  "description": "De Smartbox Ultra is het meest geavanceerde brein binnen de Duotecno Smartbox-familie. In vergelijking met de Smartbox Mini en Smartbox Plus biedt deze nieuwe generatie een ongeziene combinatie van features – en dat in een compact formaat.",
-  "category": "Smartbox",
-  "type": "master",
-  "current": "0.087",
-  "voltage": "230",
-  "detectable": true,
-  "channels": 1
+	"id": "DT0B-ULTRA",
+	"name": "Smartbox+ Ultra",
+	"description": "De Smartbox Ultra is het meest geavanceerde brein binnen de Duotecno Smartbox-familie. In vergelijking met de Smartbox Mini en Smartbox Plus biedt deze nieuwe generatie een ongeziene combinatie van features – en dat in een compact formaat.",
+	"category": "Smartbox",
+	"type": "master",
+	"current": "0.087",
+	"voltage": "230",
+	"detectable": true,
+	"channels": 1
 }

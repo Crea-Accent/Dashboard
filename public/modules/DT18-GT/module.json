@@ -1,10 +1,10 @@
 {
-  "id": "DT18-GT",
-  "name": "Duotecno Gateway",
-  "description": "Duotecno Gateway kan gebruikt worden als bridge tussen het Duotecno open TCP/IP protocol en andere externe IoT-toepassingen",
-  "category": "Module",
-  "type": "user",
-  "current": "0.2",
-  "voltage": "24",
-  "detectable": false
+	"id": "DT18-GT",
+	"name": "Duotecno Gateway",
+	"description": "Duotecno Gateway kan gebruikt worden als bridge tussen het Duotecno open TCP/IP protocol en andere externe IoT-toepassingen",
+	"category": "Module",
+	"type": "user",
+	"current": "0.2",
+	"voltage": "24",
+	"detectable": false
 }

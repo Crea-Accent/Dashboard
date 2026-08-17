@@ -1,11 +1,11 @@
 {
-  "id": "DT0B-MINI",
-  "name": "Smartbox+ Mini",
-  "description": "The module is equipped with a TCP/IP network interface, making it possible to connect up to 5 devices such as smartphones and tablets to the system.\n\nIt is perfectly possible to combine multiple Smartboxes within one project. The Smartbox+ can also be further expanded with other products by adding an additional power supply.",
-  "category": "Smartbox",
-  "type": "master",
-  "power": "9.89",
-  "voltage": "230",
-  "detectable": true,
-  "channels": 1
+	"id": "DT0B-MINI",
+	"name": "Smartbox+ Mini",
+	"description": "The module is equipped with a TCP/IP network interface, making it possible to connect up to 5 devices such as smartphones and tablets to the system.\n\nIt is perfectly possible to combine multiple Smartboxes within one project. The Smartbox+ can also be further expanded with other products by adding an additional power supply.",
+	"category": "Smartbox",
+	"type": "master",
+	"power": "9.89",
+	"voltage": "230",
+	"detectable": true,
+	"channels": 1
 }

@@ -1,10 +1,10 @@
 {
-  "id": "DT13-TC",
-  "name": "RS 232 interface Texecom alarm",
-  "description": "Deze interface kan communiceren met het security systeem Premier 48/88/168 van Texecom.\n\nMet deze interface kan men het alarm bewapenen en uitschakelen via de Touchscreens van Duotecno op voorwaarde dat er nog één origineel codeklavier van het alarm aanwezig is.",
-  "category": "Module",
-  "type": "user",
-  "current": "0.12",
-  "voltage": "24",
-  "detectable": true
+	"id": "DT13-TC",
+	"name": "RS 232 interface Texecom alarm",
+	"description": "Deze interface kan communiceren met het security systeem Premier 48/88/168 van Texecom.\n\nMet deze interface kan men het alarm bewapenen en uitschakelen via de Touchscreens van Duotecno op voorwaarde dat er nog één origineel codeklavier van het alarm aanwezig is.",
+	"category": "Module",
+	"type": "user",
+	"current": "0.12",
+	"voltage": "24",
+	"detectable": true
 }
