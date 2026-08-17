@@ -1,19 +1,19 @@
 /** @format */
 
-import { Metadata } from 'next';
+import { Metadata } from "next";
 
 export const metadata: Metadata = {
-	title: 'Crea-Accent | Account',
-	description: '',
-	icons: {
-		icon: '/favicon.svg',
-	},
+  title: "Crea-Accent | Account",
+  description: "",
+  icons: {
+    icon: "/favicon.svg",
+  },
 };
 
 export default async function AuthLayout({
-	children,
+  children,
 }: Readonly<{
-	children: React.ReactNode;
+  children: React.ReactNode;
 }>) {
-	return children;
+  return children;
 }

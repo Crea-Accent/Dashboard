@@ -1,10 +1,10 @@
 {
-	"id": "DTTL-00",
-	"name": "Twilight Module",
-	"description": "16 inputs for push buttons and/or motions detectors and 2 temperature",
-	"category": "Module",
-	"type": "user",
-	"current": "0.14",
-	"voltage": "24",
-	"detectable": true
+  "id": "DTTL-00",
+  "name": "Twilight Module",
+  "description": "16 inputs for push buttons and/or motions detectors and 2 temperature",
+  "category": "Module",
+  "type": "user",
+  "current": "0.14",
+  "voltage": "24",
+  "detectable": true
 }

@@ -1,10 +1,10 @@
 {
-	"id": "DT13-DAL",
-	"name": "Dali interface 64 kan.",
-	"description": "Interface for controlling DALI lighting.",
-	"category": "Module",
-	"type": "user",
-	"current": "0.06",
-	"voltage": "24",
-	"detectable": true
+  "id": "DT13-DAL",
+  "name": "Dali interface 64 kan.",
+  "description": "Interface for controlling DALI lighting.",
+  "category": "Module",
+  "type": "user",
+  "current": "0.06",
+  "voltage": "24",
+  "detectable": true
 }

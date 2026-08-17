@@ -1,10 +1,10 @@
 {
-	"id": "DT07-16",
-	"name": "16 kan. NO/NC + 2 kan. analog input module",
-	"description": "De Smartbox Ultra is het meest geavanceerde brein binnen de Duotecno Smartbox-familie. In vergelijking met de Smartbox Mini en Smartbox Plus biedt deze nieuwe generatie een ongeziene combinatie van features – en dat in een compact formaat16 inputs for push buttons and/or motion detectors, and 2 temperature sensors..",
-	"category": "Module",
-	"type": "user",
-	"current": "0.14",
-	"voltage": "24",
-	"detectable": true
+  "id": "DT07-16",
+  "name": "16 kan. NO/NC + 2 kan. analog input module",
+  "description": "De Smartbox Ultra is het meest geavanceerde brein binnen de Duotecno Smartbox-familie. In vergelijking met de Smartbox Mini en Smartbox Plus biedt deze nieuwe generatie een ongeziene combinatie van features – en dat in een compact formaat16 inputs for push buttons and/or motion detectors, and 2 temperature sensors..",
+  "category": "Module",
+  "type": "user",
+  "current": "0.14",
+  "voltage": "24",
+  "detectable": true
 }

@@ -1,10 +1,10 @@
 {
-	"id": "DT18-HS",
-	"name": "TCP/IP Homeserver inclusief Home Manager",
-	"description": "Deze module kan 20 IP adressen koppelen met het domoticasysteem.\n\nDit wil zeggen dat u de domotica met uw pc/ laptop en Ipad/iPhone kan bedienen via het thuisnetwerk of internet en dit tot 20 verschillende toestellen. Er is geen nood meer aan een pc die 7/7 in werking is en veel energie verbruikt. Deze kleine energiezuinige module verzorgt alle verkeer tussen domotica en de Home Manager Software. De laatste versie van de Home Manager en de updates worden gratis meegeleverd. Om te werken via de smartphone dient u een applicatie te downloaden.",
-	"category": "Module",
-	"type": "user",
-	"current": "0.15",
-	"voltage": "24",
-	"detectable": true
+  "id": "DT18-HS",
+  "name": "TCP/IP Homeserver inclusief Home Manager",
+  "description": "Deze module kan 20 IP adressen koppelen met het domoticasysteem.\n\nDit wil zeggen dat u de domotica met uw pc/ laptop en Ipad/iPhone kan bedienen via het thuisnetwerk of internet en dit tot 20 verschillende toestellen. Er is geen nood meer aan een pc die 7/7 in werking is en veel energie verbruikt. Deze kleine energiezuinige module verzorgt alle verkeer tussen domotica en de Home Manager Software. De laatste versie van de Home Manager en de updates worden gratis meegeleverd. Om te werken via de smartphone dient u een applicatie te downloaden.",
+  "category": "Module",
+  "type": "user",
+  "current": "0.15",
+  "voltage": "24",
+  "detectable": true
 }

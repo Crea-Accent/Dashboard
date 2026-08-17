@@ -1,10 +1,10 @@
 {
-	"id": "DT0C-10x",
-	"name": "LED-touchscreen 10\"",
-	"description": "Higher resolution, richer colour rendering and a unique design in perfect balance.\nA touchscreen that not only impresses visually, but also stands out for its ease of use and smooth programming.",
-	"category": "Screen",
-	"type": "user",
-	"current": "0.833",
-	"voltage": "24",
-	"detectable": true
+  "id": "DT0C-10x",
+  "name": "LED-touchscreen 10\"",
+  "description": "Higher resolution, richer colour rendering and a unique design in perfect balance.\nA touchscreen that not only impresses visually, but also stands out for its ease of use and smooth programming.",
+  "category": "Screen",
+  "type": "user",
+  "current": "0.833",
+  "voltage": "24",
+  "detectable": true
 }

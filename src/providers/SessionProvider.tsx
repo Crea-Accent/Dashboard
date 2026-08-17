@@ -1,5 +1,5 @@
 /** @format */
 
-'use client';
+"use client";
 
-export { SessionProvider } from 'next-auth/react';
+export { SessionProvider } from "next-auth/react";

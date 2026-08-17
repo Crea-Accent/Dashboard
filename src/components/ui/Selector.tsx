@@ -1,108 +1,204 @@
 /** @format */
-'use client';
+"use client";
 
-import { useEffect, useRef, useState } from 'react';
-
-import Button from './Button';
-import { ChevronDown } from 'lucide-react';
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import Button from "./Button";
+import Input from "./Input";
+import { ChevronDown, Search } from "lucide-react";
 
 type Option = {
-	label: string;
-	value: string;
-	color?: string;
+  label: string;
+  value: string;
+  color?: string;
 };
 
 type Props = {
-	value: string;
-	options: Option[];
-	onChange: (value: string) => void;
-	placeholder?: string;
-	className?: string;
-	hideLabelOnMobile?: boolean;
-	onOpenChange?: (open: boolean) => void;
-	direction?: 'up' | 'down';
+  value: string;
+  options: Option[];
+  onChange: (value: string) => void;
+  placeholder?: string;
+  className?: string;
+  hideLabelOnMobile?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  direction?: "up" | "down";
+  disabled?: boolean;
+  loading?: boolean;
 };
 
-export default function Selector({ value, options, onChange, placeholder = 'Select', className, hideLabelOnMobile, onOpenChange, direction = 'down' }: Props) {
-	const [open, setOpen] = useState(false);
+export default function Selector({
+  value,
+  options,
+  onChange,
+  placeholder = "Select",
+  className,
+  hideLabelOnMobile,
+  onOpenChange,
+  direction = "down",
+  disabled,
+  loading,
+}: Props) {
+  const [open, setOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
+  const [portalNode, setPortalNode] = useState<HTMLElement | null>(null);
 
-	const ref = useRef<HTMLDivElement>(null);
+  const ref = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
-	useEffect(() => {
-		onOpenChange?.(open);
-	}, [open, onOpenChange]);
+  useEffect(() => {
+    setPortalNode(document.body);
+  }, []);
 
-	useEffect(() => {
-		function handleClickOutside(event: MouseEvent) {
-			if (!ref.current?.contains(event.target as Node)) {
-				setOpen(false);
-			}
-		}
+  useEffect(() => {
+    onOpenChange?.(open);
+    if (!open) {
+      setSearchQuery("");
+    }
+  }, [open, onOpenChange]);
 
-		document.addEventListener('mousedown', handleClickOutside);
+  useEffect(() => {
+    if (open && ref.current) {
+      const rect = ref.current.getBoundingClientRect();
+      setDropdownStyle({
+        position: "fixed",
+        top: direction === "up" ? undefined : rect.bottom + 8,
+        bottom:
+          direction === "up" ? window.innerHeight - rect.top + 8 : undefined,
+        left: rect.left,
+        width: rect.width,
+        zIndex: 99999,
+      });
+    }
+  }, [open, direction]);
 
-		return () => document.removeEventListener('mousedown', handleClickOutside);
-	}, []);
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        open &&
+        !ref.current?.contains(event.target as Node) &&
+        !dropdownRef.current?.contains(event.target as Node)
+      ) {
+        setOpen(false);
+      }
+    }
 
-	const selected = options.find((x) => x.value === value);
+    function handleScroll(event: Event) {
+      if (open && !dropdownRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
 
-	const isIconOnly = hideLabelOnMobile && selected?.color;
+    document.addEventListener("mousedown", handleClickOutside);
+    window.addEventListener("scroll", handleScroll, true);
 
-	return (
-		<div ref={ref} className={`relative min-w-60 ${className ?? ''}`}>
-			<Button type='button' variant='secondary' onClick={() => setOpen((v) => !v)} className={`w-full flex ${isIconOnly ? 'justify-center sm:justify-between px-0 sm:px-4' : 'justify-between'}`}>
-				<div className={`flex min-w-0 items-center ${isIconOnly ? 'sm:gap-3' : 'gap-3'}`}>
-					{selected?.color && (
-						<div
-							className='size-3 shrink-0 rounded-full border-2 border-white/80'
-							style={{
-								background: selected.color,
-							}}
-						/>
-					)}
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      window.removeEventListener("scroll", handleScroll, true);
+    };
+  }, [open]);
 
-					<span className={`truncate ${isIconOnly ? 'hidden sm:block' : ''}`}>{selected?.label ?? placeholder}</span>
-				</div>
+  const selected = options.find((x) => x.value === value);
+  const filteredOptions = options.filter((o) =>
+    o.label.toLowerCase().includes(searchQuery.toLowerCase()),
+  );
 
-				<ChevronDown size={16} className={`transition-transform ${open ? 'rotate-180' : ''} ${isIconOnly ? 'hidden sm:block' : ''}`} />
-			</Button>
+  const isIconOnly = hideLabelOnMobile && selected?.color;
 
-			{open && (
-				<div className={`absolute z-50 w-full overflow-hidden rounded-2xl border border-(--border)/10 bg-(--foreground) shadow-xl ${direction === 'up' ? 'bottom-full mb-2' : 'top-full mt-2'}`}>
-					<div className='max-h-72 overflow-y-auto p-2'>
-						{options.map((option) => {
-							const isSelected = option.value === value;
+  return (
+    <div ref={ref} className={`relative min-w-60 ${className ?? ""}`}>
+      <Button
+        type="button"
+        variant="secondary"
+        loading={loading}
+        disabled={disabled}
+        onClick={() => setOpen((v) => !v)}
+        className={`w-full flex ${isIconOnly ? "justify-center sm:justify-between px-0 sm:px-4" : "justify-between"}`}
+      >
+        <div
+          className={`flex min-w-0 items-center ${isIconOnly ? "sm:gap-3" : "gap-3"}`}
+        >
+          {selected?.color && (
+            <div
+              className="size-3 shrink-0 rounded-full border-2 border-white/80"
+              style={{
+                background: selected.color,
+              }}
+            />
+          )}
 
-							return (
-								<Button
-									key={option.value}
-									type='button'
-									variant={isSelected ? 'primary' : 'ghost'}
-									onClick={() => {
-										onChange(option.value);
-										setOpen(false);
-									}}
-									className='mb-1 w-full justify-start'>
-									<div className='flex items-center gap-3'>
-										{option.color && (
-											<div
-												className='size-2.5 rounded-full'
-												style={{
-													background: option.color,
-												}}
-											/>
-										)}
+          <span className={`truncate ${isIconOnly ? "hidden sm:block" : ""}`}>
+            {selected?.label ?? placeholder}
+          </span>
+        </div>
 
-										<span>{option.label}</span>
-									</div>
-								</Button>
-							);
-						})}
+        <ChevronDown
+          size={16}
+          className={`transition-transform ${open ? "rotate-180" : ""} ${isIconOnly ? "hidden sm:block" : ""}`}
+        />
+      </Button>
 
-						{!options.length && <div className='p-3 text-sm text-(--text-muted)'>No options</div>}
-					</div>
-				</div>
-			)}
-		</div>
-	);
+      {open &&
+        portalNode &&
+        createPortal(
+          <div
+            ref={dropdownRef}
+            style={dropdownStyle}
+            className={`overflow-hidden rounded-2xl border border-(--border)/10 bg-(--foreground) shadow-xl flex flex-col max-h-72`}
+          >
+            {options.length > 5 && (
+              <div className="p-2 pb-0 shrink-0">
+                <Input
+                  autoFocus
+                  placeholder="Search..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full !py-1.5"
+                  icon={<Search size={14} className="text-(--text-muted)" />}
+                />
+              </div>
+            )}
+
+            <div className="overflow-y-auto p-2 flex-1 min-h-0">
+              {filteredOptions.map((option) => {
+                const isSelected = option.value === value;
+
+                return (
+                  <Button
+                    key={option.value}
+                    type="button"
+                    variant={isSelected ? "primary" : "ghost"}
+                    onClick={() => {
+                      onChange(option.value);
+                      setOpen(false);
+                    }}
+                    className="mb-1 w-full justify-start"
+                  >
+                    <div className="flex items-center gap-3">
+                      {option.color && (
+                        <div
+                          className="size-2.5 shrink-0 rounded-full"
+                          style={{
+                            background: option.color,
+                          }}
+                        />
+                      )}
+
+                      <span className="truncate">{option.label}</span>
+                    </div>
+                  </Button>
+                );
+              })}
+
+              {!filteredOptions.length && (
+                <div className="p-3 text-sm text-(--text-muted) text-center">
+                  No options found
+                </div>
+              )}
+            </div>
+          </div>,
+          portalNode,
+        )}
+    </div>
+  );
 }

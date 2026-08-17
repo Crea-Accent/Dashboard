@@ -1,11 +1,11 @@
 {
-	"id": "DT0B-01",
-	"name": "Smartbox+",
-	"description": "The smartbox+ is the ideal starters package for Home Automation.\n\nYou can combine perfectly more Smartboxes or standard modules of Duotecno, when requiring more inputs or outputs to meet your demands.",
-	"category": "Smartbox",
-	"type": "master",
-	"current": "0.043",
-	"voltage": "230",
-	"detectable": true,
-	"channels": 1
+  "id": "DT0B-01",
+  "name": "Smartbox+",
+  "description": "The smartbox+ is the ideal starters package for Home Automation.\n\nYou can combine perfectly more Smartboxes or standard modules of Duotecno, when requiring more inputs or outputs to meet your demands.",
+  "category": "Smartbox",
+  "type": "master",
+  "current": "0.043",
+  "voltage": "230",
+  "detectable": true,
+  "channels": 1
 }

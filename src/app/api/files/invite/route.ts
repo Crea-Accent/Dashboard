@@ -1,99 +1,107 @@
 /** @format */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from "next/server";
 
-import fs from 'fs';
-import path from 'path';
+import fs from "fs";
+import path from "path";
 
-const INVITES_DIR = path.join(process.cwd(), 'public', 'invites');
-const GENERATED_DIR = path.join(process.cwd(), 'public', 'generated-invites');
+const INVITES_DIR = path.join(process.cwd(), "public", "invites");
+const GENERATED_DIR = path.join(process.cwd(), "public", "generated-invites");
 
 function ensureDirectories() {
-	fs.mkdirSync(INVITES_DIR, { recursive: true });
-	fs.mkdirSync(GENERATED_DIR, { recursive: true });
+  fs.mkdirSync(INVITES_DIR, { recursive: true });
+  fs.mkdirSync(GENERATED_DIR, { recursive: true });
 }
 
 export async function GET() {
-	try {
-		ensureDirectories();
-		const files = fs.readdirSync(GENERATED_DIR);
+  try {
+    ensureDirectories();
+    const files = fs.readdirSync(GENERATED_DIR);
 
-		const invites = files
-			.filter((f) => f.endsWith('.html'))
-			.map((file) => {
-				const full = path.join(GENERATED_DIR, file);
-				const stats = fs.statSync(full);
-				return {
-					name: file,
-					url: `/generated-invites/${file}`,
-					created: stats.mtime.toISOString(),
-				};
-			})
-			.sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime());
+    const invites = files
+      .filter((f) => f.endsWith(".html"))
+      .map((file) => {
+        const full = path.join(GENERATED_DIR, file);
+        const stats = fs.statSync(full);
+        return {
+          name: file,
+          url: `/generated-invites/${file}`,
+          created: stats.mtime.toISOString(),
+        };
+      })
+      .sort(
+        (a, b) => new Date(b.created).getTime() - new Date(a.created).getTime(),
+      );
 
-		return NextResponse.json({ ok: true, invites });
-	} catch (error) {
-		return NextResponse.json({ error: error instanceof Error ? error.message : 'Unknown error' }, { status: 500 });
-	}
+    return NextResponse.json({ ok: true, invites });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Unknown error" },
+      { status: 500 },
+    );
+  }
 }
 
 export async function DELETE(request: NextRequest) {
-	try {
-		const url = new URL(request.url);
-		const name = url.searchParams.get('name');
+  try {
+    const url = new URL(request.url);
+    const name = url.searchParams.get("name");
 
-		if (!name) {
-			return NextResponse.json({ error: 'Missing name' }, { status: 400 });
-		}
+    if (!name) {
+      return NextResponse.json({ error: "Missing name" }, { status: 400 });
+    }
 
-		const target = path.join(GENERATED_DIR, path.basename(name));
-		if (fs.existsSync(target)) {
-			fs.unlinkSync(target);
-		}
+    const target = path.join(GENERATED_DIR, path.basename(name));
+    if (fs.existsSync(target)) {
+      fs.unlinkSync(target);
+    }
 
-		return NextResponse.json({ ok: true });
-	} catch (error) {
-		return NextResponse.json({ error: error instanceof Error ? error.message : 'Unknown error' }, { status: 500 });
-	}
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Unknown error" },
+      { status: 500 },
+    );
+  }
 }
 
 export async function POST(request: NextRequest) {
-	try {
-		ensureDirectories();
-		const contentType = request.headers.get('content-type') || '';
+  try {
+    ensureDirectories();
+    const contentType = request.headers.get("content-type") || "";
 
-		// ==========================
-		// Upload image track
-		// ==========================
-		if (contentType.includes('multipart/form-data')) {
-			const formData = await request.formData();
-			const file = formData.get('file') as File | null;
+    // ==========================
+    // Upload image track
+    // ==========================
+    if (contentType.includes("multipart/form-data")) {
+      const formData = await request.formData();
+      const file = formData.get("file") as File | null;
 
-			if (!file) {
-				return NextResponse.json({ error: 'No image' }, { status: 400 });
-			}
+      if (!file) {
+        return NextResponse.json({ error: "No image" }, { status: 400 });
+      }
 
-			const filename = `${Date.now()}-${file.name}`;
-			const buffer = Buffer.from(await file.arrayBuffer());
-			await fs.promises.writeFile(path.join(INVITES_DIR, filename), buffer);
+      const filename = `${Date.now()}-${file.name}`;
+      const buffer = Buffer.from(await file.arrayBuffer());
+      await fs.promises.writeFile(path.join(INVITES_DIR, filename), buffer);
 
-			return NextResponse.json({
-				ok: true,
-				imageUrl: `/invites/${filename}`,
-			});
-		}
+      return NextResponse.json({
+        ok: true,
+        imageUrl: `/invites/${filename}`,
+      });
+    }
 
-		// ==========================
-		// Generate HTML invite track
-		// ==========================
-		const body = await request.json();
-		const { imageUrl, formUrl } = body;
+    // ==========================
+    // Generate HTML invite track
+    // ==========================
+    const body = await request.json();
+    const { imageUrl, formUrl } = body;
 
-		if (!imageUrl || !formUrl) {
-			return NextResponse.json({ error: 'Missing data' }, { status: 400 });
-		}
+    if (!imageUrl || !formUrl) {
+      return NextResponse.json({ error: "Missing data" }, { status: 400 });
+    }
 
-		const htmlTemplate = `<!DOCTYPE html>
+    const htmlTemplate = `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
@@ -157,17 +165,26 @@ export async function POST(request: NextRequest) {
 </body>
 </html>`;
 
-		const finalHtml = htmlTemplate.replace(/{{IMAGE_URL}}/g, imageUrl).replace(/{{FORM_URL}}/g, formUrl);
+    const finalHtml = htmlTemplate
+      .replace(/{{IMAGE_URL}}/g, imageUrl)
+      .replace(/{{FORM_URL}}/g, formUrl);
 
-		const filename = `!!! INVOEGEN ALS TEKST!!!-${Date.now()}.html`;
-		await fs.promises.writeFile(path.join(GENERATED_DIR, filename), finalHtml, 'utf8');
+    const filename = `!!! INVOEGEN ALS TEKST!!!-${Date.now()}.html`;
+    await fs.promises.writeFile(
+      path.join(GENERATED_DIR, filename),
+      finalHtml,
+      "utf8",
+    );
 
-		return NextResponse.json({
-			ok: true,
-			url: `/generated-invites/${filename}`,
-			name: filename,
-		});
-	} catch (error) {
-		return NextResponse.json({ error: error instanceof Error ? error.message : 'Unknown error' }, { status: 500 });
-	}
+    return NextResponse.json({
+      ok: true,
+      url: `/generated-invites/${filename}`,
+      name: filename,
+    });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Unknown error" },
+      { status: 500 },
+    );
+  }
 }
