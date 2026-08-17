@@ -31,7 +31,7 @@ export async function ensureMigrated() {
 			const file = await fs.readFile(legacyContactsPath, 'utf8');
 			const contacts = JSON.parse(file) as Contact[];
 			for (const c of contacts) {
-				await writeContact(c);
+				await fs.writeFile(path.join(contactsDir, `${c.id}.json`), JSON.stringify(c, null, 2), 'utf8');
 			}
 			await fs.rename(legacyContactsPath, legacyContactsPath + '.bak');
 		} catch (e) {
