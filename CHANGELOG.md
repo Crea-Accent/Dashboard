@@ -1,5 +1,11 @@
 # panel
 
+## 0.3.3
+
+### Patch Changes
+
+- Added grouping to schemas as well
+
 ## 0.3.2
 
 ### Patch Changes

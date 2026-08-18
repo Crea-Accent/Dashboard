@@ -84,6 +84,7 @@ export default function Documents({ basePath, client }: { basePath: string; clie
 	const [editModalOpen, setEditModalOpen] = useState(false);
 
 	const [expandedGroups, setExpandedGroups] = useState<string[]>([]);
+	const [collapsedGroups, setCollapsedGroups] = useState<string[]>([]);
 
 	const [newGroupOpen, setNewGroupOpen] = useState(false);
 	const [newGroupName, setNewGroupName] = useState('');
@@ -448,7 +449,13 @@ export default function Documents({ basePath, client }: { basePath: string; clie
 							}}
 						>
 							<div className="flex items-center justify-between">
-								<h3 className="font-semibold text-lg">{folderName}</h3>
+								<div
+									className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition"
+									onClick={() => setCollapsedGroups((prev) => (prev.includes(folderName) ? prev.filter((g) => g !== folderName) : [...prev, folderName]))}
+								>
+									{collapsedGroups.includes(folderName) ? <ChevronRight size={18} /> : <ChevronDown size={18} />}
+									<h3 className="font-semibold text-lg">{folderName === 'Ungrouped' ? '' : folderName}</h3>
+								</div>
 
 								<div className="text-sm text-(--text-muted) flex items-center gap-2">
 									<div>
@@ -480,129 +487,137 @@ export default function Documents({ basePath, client }: { basePath: string; clie
 								</div>
 							</div>
 
-							{folderFiles.length === 0 && (
-								<div className="rounded-3xl p-6 min-h-20 flex items-center justify-center border-2 border-dashed border-(--accent)/30 bg-(--background)">
-									<div className="text-center">
-										<div className="text-sm font-medium text-(--text-muted)">No documents</div>
-										<div className="text-xs text-(--text-muted) mt-1 opacity-70">Drag documents here or upload new ones</div>
-									</div>
-								</div>
-							)}
-
-							<div className="space-y-6">
-								{Object.entries(grouped).map(([groupKey, entries], i) => {
-									if (!entries.length) return null;
-
-									const latest = entries[0];
-									const older = entries.slice(1);
-									const uniqueGroupKey = `${folderName}-${groupKey}`;
-									const isExpanded = expandedGroups.includes(uniqueGroupKey);
-
-									return (
-										<div key={uniqueGroupKey + i} className="space-y-3">
-											{view === 'grid' ? (
-												<>
-													<div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-4">
-														<ProjectFile
-															file={latest}
-															users={users}
-															onDownload={() => download(latest)}
-															onEdit={() => {
-																setEditingFile(latest);
-																setEditModalOpen(true);
-															}}
-															onDragStart={setDraggingFile}
-														/>
-
-														{older.length > 0 && (
-															<div
-																onClick={() =>
-																	setExpandedGroups((prev) => (prev.includes(uniqueGroupKey) ? prev.filter((g) => g !== uniqueGroupKey) : [...prev, uniqueGroupKey]))
-																}
-																className="rounded-3xl min-h-45 flex items-center justify-center cursor-pointer bg-(--accent)/10 border-2 border-(--accent)/70 transition hover:opacity-80"
-															>
-																<div className="text-center">
-																	{isExpanded ? <ChevronLeft className="mx-auto w-8 h-8" /> : <ChevronRight className="mx-auto w-8 h-8" />}
-																	<div className="text-xs mt-2 text-zinc-500">{older.length} older</div>
-																</div>
-															</div>
-														)}
-													</div>
-
-													<AnimatePresence>
-														{isExpanded && (
-															<motion.div key="expanded-grid" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-																<FileGrid
-																	files={older}
-																	users={users}
-																	onDownload={download}
-																	onEdit={(file) => {
-																		setEditingFile(file);
-																		setEditModalOpen(true);
-																	}}
-																	onDragStart={setDraggingFile}
-																	permission="projects.write"
-																/>
-															</motion.div>
-														)}
-													</AnimatePresence>
-												</>
-											) : (
-												<>
-													<FileList
-														files={[latest]}
-														users={users}
-														onDownload={download}
-														onEdit={(file) => {
-															setEditingFile(file);
-															setEditModalOpen(true);
-														}}
-														onDragStart={setDraggingFile}
-														permission="projects.write"
-													/>
-
-													{older.length > 0 && (
-														<Button
-															className="w-full"
-															variant="primary-ghost"
-															onClick={() =>
-																setExpandedGroups((prev) => (prev.includes(uniqueGroupKey) ? prev.filter((g) => g !== uniqueGroupKey) : [...prev, uniqueGroupKey]))
-															}
-														>
-															{isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-															<span>{isExpanded ? 'Hide older' : `Show older (${older.length})`}</span>
-														</Button>
-													)}
-
-													<AnimatePresence>
-														{isExpanded && (
-															<motion.div
-																key="expanded-list"
-																initial={{ opacity: 0, height: 0 }}
-																animate={{ opacity: 1, height: 'auto' }}
-																exit={{ opacity: 0, height: 0 }}
-																className="overflow-hidden"
-															>
-																<FileList
-																	files={older}
-																	users={users}
-																	onDownload={download}
-																	onEdit={(file) => {
-																		setEditingFile(file);
-																		setEditModalOpen(true);
-																	}}
-																	onDragStart={setDraggingFile}
-																	permission="projects.write"
-																/>
-															</motion.div>
-														)}
-													</AnimatePresence>
-												</>
-											)}
+							{!collapsedGroups.includes(folderName) && (
+								<>
+									{folderFiles.length === 0 && (
+										<div className="rounded-3xl p-6 min-h-20 flex items-center justify-center border-2 border-dashed border-(--accent)/30 bg-(--background)">
+											<div className="text-center">
+												<div className="text-sm font-medium text-(--text-muted)">No documents</div>
+												<div className="text-xs text-(--text-muted) mt-1 opacity-70">Drag documents here or upload new ones</div>
+											</div>
 										</div>
-									);
-								})}
-							</div>
+									)}
+
+									<div className="space-y-6">
+										{Object.entries(grouped).map(([groupKey, entries], i) => {
+											if (!entries.length) return null;
+
+											const latest = entries[0];
+											const older = entries.slice(1);
+											const uniqueGroupKey = `${folderName}-${groupKey}`;
+											const isExpanded = expandedGroups.includes(uniqueGroupKey);
+
+											return (
+												<div key={uniqueGroupKey + i} className="space-y-3">
+													{view === 'grid' ? (
+														<>
+															<div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-4">
+																<ProjectFile
+																	file={latest}
+																	users={users}
+																	onDownload={() => download(latest)}
+																	onEdit={() => {
+																		setEditingFile(latest);
+																		setEditModalOpen(true);
+																	}}
+																	onDragStart={setDraggingFile}
+																/>
+
+																{older.length > 0 && (
+																	<div
+																		onClick={() =>
+																			setExpandedGroups((prev) =>
+																				prev.includes(uniqueGroupKey) ? prev.filter((g) => g !== uniqueGroupKey) : [...prev, uniqueGroupKey]
+																			)
+																		}
+																		className="rounded-3xl min-h-45 flex items-center justify-center cursor-pointer bg-(--accent)/10 border-2 border-(--accent)/70 transition hover:opacity-80"
+																	>
+																		<div className="text-center">
+																			{isExpanded ? <ChevronLeft className="mx-auto w-8 h-8" /> : <ChevronRight className="mx-auto w-8 h-8" />}
+																			<div className="text-xs mt-2 text-zinc-500">{older.length} older</div>
+																		</div>
+																	</div>
+																)}
+															</div>
+
+															<AnimatePresence>
+																{isExpanded && (
+																	<motion.div key="expanded-grid" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+																		<FileGrid
+																			files={older}
+																			users={users}
+																			onDownload={download}
+																			onEdit={(file) => {
+																				setEditingFile(file);
+																				setEditModalOpen(true);
+																			}}
+																			onDragStart={setDraggingFile}
+																			permission="projects.write"
+																		/>
+																	</motion.div>
+																)}
+															</AnimatePresence>
+														</>
+													) : (
+														<>
+															<FileList
+																files={[latest]}
+																users={users}
+																onDownload={download}
+																onEdit={(file) => {
+																	setEditingFile(file);
+																	setEditModalOpen(true);
+																}}
+																onDragStart={setDraggingFile}
+																permission="projects.write"
+															/>
+
+															{older.length > 0 && (
+																<Button
+																	className="w-full"
+																	variant="primary-ghost"
+																	onClick={() =>
+																		setExpandedGroups((prev) =>
+																			prev.includes(uniqueGroupKey) ? prev.filter((g) => g !== uniqueGroupKey) : [...prev, uniqueGroupKey]
+																		)
+																	}
+																>
+																	{isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+																	<span>{isExpanded ? 'Hide older' : `Show older (${older.length})`}</span>
+																</Button>
+															)}
+
+															<AnimatePresence>
+																{isExpanded && (
+																	<motion.div
+																		key="expanded-list"
+																		initial={{ opacity: 0, height: 0 }}
+																		animate={{ opacity: 1, height: 'auto' }}
+																		exit={{ opacity: 0, height: 0 }}
+																		className="overflow-hidden"
+																	>
+																		<FileList
+																			files={older}
+																			users={users}
+																			onDownload={download}
+																			onEdit={(file) => {
+																				setEditingFile(file);
+																				setEditModalOpen(true);
+																			}}
+																			onDragStart={setDraggingFile}
+																			permission="projects.write"
+																		/>
+																	</motion.div>
+																)}
+															</AnimatePresence>
+														</>
+													)}
+												</div>
+											);
+										})}
+									</div>
+								</>
+							)}
 						</div>
 					);
 				})}
