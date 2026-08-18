@@ -82,7 +82,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 				'X-Postmark-Server-Token': token,
 			},
 			body: JSON.stringify({
-				From: 'crea@dummi.me',
+				From: 'events@crea-accent.be',
 				To: contact.email,
 				Subject: `Uitnodiging: ${event.name}`,
 				TextBody: `Uitnodiging voor ${event.name}. Bevestig uw aanwezigheid via deze link: ${baseUrl}/invite/${event.id}/${contact.id}`,

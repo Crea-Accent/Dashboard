@@ -1,5 +1,11 @@
 # panel
 
+## 0.3.1
+
+### Patch Changes
+
+- Removed obsolete email API route.
+
 ## 0.3.0
 
 ### Minor Changes
