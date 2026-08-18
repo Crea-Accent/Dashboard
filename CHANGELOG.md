@@ -1,5 +1,11 @@
 # panel
 
+## 0.3.2
+
+### Patch Changes
+
+- Reworked Documents to allow folders
+
 ## 0.3.1
 
 ### Patch Changes
