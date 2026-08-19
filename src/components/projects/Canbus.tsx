@@ -23,7 +23,9 @@ import {
 	Printer,
 	Loader2,
 	FileWarning,
+	Cable,
 } from 'lucide-react';
+import { linkNodeUnitsWithBindings } from '@/lib/duotecno';
 import { useEffect, useState, useMemo } from 'react';
 
 import Button from '../ui/Button';
@@ -176,6 +178,8 @@ export default function Canbus({ basePath, client }: Props) {
 	const [addModalOpen, setAddModalOpen] = useState(false);
 	const [editing, setEditing] = useState(false);
 	const [unitModal, setUnitModal] = useState<DetectedNode | null>(null);
+	const [bindingsModal, setBindingsModal] = useState<DetectedNode | null>(null);
+	const [bindingsData, setBindingsData] = useState<any[]>([]);
 	const [printing, setPrinting] = useState(false);
 
 	const [moduleSelection, setModuleSelection] = useState<ModuleSelection | null>(null);
@@ -514,8 +518,17 @@ export default function Canbus({ basePath, client }: Props) {
 				try {
 					const nodeDatabase = await fetch(`/api/files/download?path=${encodeURIComponent(`${latestFolder}/Config/nodedatabase.cache.json`)}`).then((r) => r.json());
 					setFoundModules(nodeDatabase.nodes ?? []);
+
+					try {
+						const bindingTxt = await fetch(`/api/files/download?path=${encodeURIComponent(`${latestFolder}/Config/bindingconfiginfo.txt`)}`).then((r) => r.text());
+						const bindings = linkNodeUnitsWithBindings(JSON.stringify(nodeDatabase), bindingTxt);
+						setBindingsData(bindings);
+					} catch (err) {
+						setBindingsData([]);
+					}
 				} catch (e) {
 					setFoundModules([]);
+					setBindingsData([]);
 				}
 				setTopology(viewMode === 'sim' ? loadedSim : loadedSetup);
 			}
@@ -770,6 +783,7 @@ export default function Canbus({ basePath, client }: Props) {
 						{/* Actions */}
 						<div className="flex flex-wrap justify-end gap-2">
 							{!!node?.units?.length && module.detectable && <Button variant="ghost" icon={<ListTree size={14} />} onClick={() => setUnitModal(node)} />}
+							{!!node?.units?.length && module.detectable && <Button variant="ghost" icon={<Cable size={14} />} onClick={() => setBindingsModal(node)} />}
 
 							<Button variant="ghost" icon={<BookIcon size={14} />} onClick={() => window.open(`/modules/${module.id}/datasheet.pdf`, '_blank')} />
 
@@ -1326,6 +1340,62 @@ export default function Canbus({ basePath, client }: Props) {
 								</Card>
 							);
 						})}
+					</div>
+				</div>
+			</Modal>
+
+			<Modal size="xl" open={bindingsModal !== null} onClose={() => setBindingsModal(null)} title={`${bindingsModal?.name} Input Bindings`}>
+				<div className="max-h-[70vh] overflow-y-auto p-2">
+					<div className="flex flex-col gap-4">
+						{bindingsModal?.units.map((unit: any, index: number) => {
+							const addrKey = `${bindingsModal.nodeAddress};${unit.unitAddress}`;
+
+							const unitBindings = bindingsData.filter((b) => b.inputs.some((i: any) => i.Address?.startsWith(addrKey)));
+
+							if (unitBindings.length === 0) return null;
+
+							return (
+								<Card key={index} className="p-4">
+									<h4 className="font-semibold text-lg border-b pb-2 mb-3">
+										{unit.name} <span className="opacity-50 font-normal text-sm ml-2">(Ch {unit.unitAddress})</span>
+									</h4>
+
+									<div className="space-y-4">
+										{unitBindings.map((b: any, bIdx: number) => {
+											const inputEvent = b.inputs.find((i: any) => i.Address?.startsWith(addrKey))?.Event;
+											let eventLabel = 'Unknown Event';
+											if (inputEvent === '0x01') eventLabel = 'Long Event';
+											else if (inputEvent === '0x03' || inputEvent === '0x02') eventLabel = 'Short Pulse';
+											else if (inputEvent) eventLabel = `Event: ${inputEvent}`;
+
+											return (
+												<div key={bIdx} className="bg-[var(--foreground)] rounded-md p-3">
+													<div className="flex items-center justify-between mb-2">
+														<span className="font-medium text-sm text-[var(--accent)]">{eventLabel}</span>
+														<span className="text-xs opacity-50">{b.BindingStrName}</span>
+													</div>
+
+													<div className="text-sm space-y-1">
+														<div className="font-medium mb-1">Triggers Outputs:</div>
+														{b.outputs.length === 0 && <span className="opacity-50 italic">None</span>}
+														{b.outputs.map((out: any, oIdx: number) => (
+															<div key={oIdx} className="flex items-center gap-2 text-[var(--text-muted)]">
+																<div className="w-1.5 h-1.5 rounded-full bg-[var(--accent)]/50" />
+																<span>{out.unitInfo}</span>
+															</div>
+														))}
+													</div>
+												</div>
+											);
+										})}
+									</div>
+								</Card>
+							);
+						})}
+
+						{bindingsModal?.units.every((unit: any) => !bindingsData.some((b) => b.inputs.some((i: any) => i.Address?.startsWith(`${bindingsModal.nodeAddress};${unit.unitAddress}`)))) && (
+							<div className="text-center py-8 opacity-50">No input bindings found for this node.</div>
+						)}
 					</div>
 				</div>
 			</Modal>

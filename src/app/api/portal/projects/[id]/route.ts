@@ -49,7 +49,21 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
 	try {
 		const metadata: Metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8'));
 
-		const allowed = (metadata.access?.includes(session.user.id) || session.user.permissions?.includes('projects.read')) ?? false;
+		// Inject actual topology from canbus.json since metadata.json setup is obsolete
+		try {
+			const canbusPath = path.join(projectsPath, id, 'canbus.json');
+			if (fs.existsSync(canbusPath)) {
+				const canbus = JSON.parse(fs.readFileSync(canbusPath, 'utf8'));
+				if (canbus.setup) {
+					metadata.setup = canbus.setup;
+				}
+			}
+		} catch (e) {
+			console.error('Failed to parse canbus.json', e);
+		}
+
+		const hasReadAccess = session.user.permissions?.includes('projects.read') || session.user.permissions?.includes('admin.read') || session.user.permissions?.includes('admin.write');
+		const allowed = (metadata.access?.includes(session.user.id) || hasReadAccess) ?? false;
 
 		if (!allowed) {
 			return NextResponse.json(
@@ -63,6 +77,7 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
 		return NextResponse.json({
 			allowed: true,
 			project: metadata,
+			basePath: settings.path,
 		});
 	} catch (err) {
 		console.error(err);

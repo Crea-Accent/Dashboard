@@ -65,8 +65,8 @@ export async function GET() {
 
 		try {
 			const metadata: Metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8'));
-
-			if (metadata.access?.includes(session.user.id)) {
+			const hasReadAccess = session.user.permissions?.includes('projects.read') || session.user.permissions?.includes('admin.read') || session.user.permissions?.includes('admin.write');
+			if (metadata.access?.includes(session.user.id) || hasReadAccess) {
 				projects.push(folder.name);
 			}
 		} catch (err) {

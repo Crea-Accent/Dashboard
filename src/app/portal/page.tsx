@@ -30,21 +30,19 @@ export default function Page() {
 
 			const list = data.projects ?? [];
 
-			if (list.length > 0) {
-				if (session?.user.preferences?.projectPrompts) router.replace(`/portal/${encodeURIComponent(list[0].id ?? list[0])}`);
+			if (list.length === 1 && session?.user.preferences?.projectPrompts) {
+				router.replace(`/portal/${encodeURIComponent(list[0].id ?? list[0])}`);
 				return;
 			}
 
 			setProjects(list);
 			setLoading(false);
 		})();
-	}, [router]);
+	}, [router, session]);
 
 	if (loading) return <Loading title="Loading..." />;
 
 	if (projects.length === 0) return <EmptyState icon={<FolderOpen size={32} />} title="No projects" description="No projects have been assigned to your account." />;
-
-	if (projects.length === 1) return null;
 
 	return (
 		<div className="space-y-6">
