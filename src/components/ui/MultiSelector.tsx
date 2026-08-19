@@ -10,6 +10,7 @@ type Option = {
 	label: string;
 	value: string;
 	color?: string;
+	icon?: React.ReactNode;
 };
 
 type Props = {
@@ -74,10 +75,14 @@ export default function MultiSelector({ value, options, onChange, placeholder = 
 							{value.slice(0, 3).map((selectedValue) => {
 								const option = options.find((x) => x.value === selectedValue);
 
-								return (
+								return option?.icon ? (
+									<div key={selectedValue} className="shrink-0 scale-75">
+										{option.icon}
+									</div>
+								) : (
 									<div
 										key={selectedValue}
-										className="size-3 rounded-full border-2 border-white/80 shrink-0"
+										className="size-3 rounded-full border-2 border-[var(--background)] shrink-0"
 										style={{
 											background: option?.color ?? 'var(--accent)',
 										}}
@@ -102,12 +107,16 @@ export default function MultiSelector({ value, options, onChange, placeholder = 
 							return (
 								<Button key={option.value} type="button" variant={selected ? 'primary' : 'ghost'} onClick={() => toggle(option.value)} className="mb-1 w-full justify-start">
 									<div className="flex items-center gap-3">
-										<div
-											className="size-2.5 rounded-full"
-											style={{
-												background: option.color ?? 'var(--accent)',
-											}}
-										/>
+										{option.icon ? (
+											<div className="shrink-0">{option.icon}</div>
+										) : (
+											<div
+												className="size-2.5 rounded-full shrink-0"
+												style={{
+													background: option.color ?? 'var(--accent)',
+												}}
+											/>
+										)}
 
 										<span>{option.label}</span>
 									</div>

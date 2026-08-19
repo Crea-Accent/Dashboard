@@ -81,6 +81,16 @@ export const PERMISSIONS = [
 		label: 'Tasks - Write',
 		group: 'Tasks',
 	},
+	{
+		key: 'templates.read',
+		label: 'Templates - Read',
+		group: 'Templates',
+	},
+	{
+		key: 'templates.write',
+		label: 'Templates - Write',
+		group: 'Templates',
+	},
 ] as const;
 
 export function groupPermissions() {

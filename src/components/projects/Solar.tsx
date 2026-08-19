@@ -2,7 +2,7 @@
 'use client';
 
 import { APIProvider, AdvancedMarker, Map, MapMouseEvent, useMap } from '@vis.gl/react-google-maps';
-import { PanelTop, Sun, Zap, Trash2, RotateCcw, Settings, Activity, ChevronDown, Save, Grid } from 'lucide-react';
+import { PanelTop, Sun, Zap, Trash2, RotateCcw, Settings, Activity, ChevronDown, Save, Grid, Loader2 } from 'lucide-react';
 import { useEffect, useState, useMemo, useRef, MouseEvent as ReactMouseEvent } from 'react';
 
 import Selector from '@/components/ui/Selector';
@@ -229,6 +229,8 @@ export default function Solar({ client }: Props) {
 	useEffect(() => {
 		if (stationCode) {
 			fetchFusionData();
+			const interval = setInterval(fetchFusionData, 300000); // Poll every 5 minutes
+			return () => clearInterval(interval);
 		}
 	}, [stationCode]);
 
@@ -286,7 +288,8 @@ export default function Solar({ client }: Props) {
 			});
 			const data = await res.json();
 			if (data.success) {
-				setFusionData(data.data[0]); // Usually returns an array of KPI data for the station codes
+				// The API now returns the first object directly rather than an array
+				setFusionData(Array.isArray(data.data) ? data.data[0] : data.data);
 			} else {
 				setFusionError(JSON.stringify(data, null, 2));
 			}
@@ -814,24 +817,82 @@ export default function Solar({ client }: Props) {
 								<div className="flex items-center gap-2 mb-6 text-(--text-muted)">
 									<Activity size={18} />
 									<span className="font-medium">Live System Yield (FusionSolar)</span>
+
+									<AnimatePresence>
+										{loadingFusion && (
+											<motion.div
+												initial={{ opacity: 0, scale: 0.8 }}
+												animate={{ opacity: 1, scale: 1 }}
+												exit={{ opacity: 0, scale: 0.8 }}
+												className="ml-auto text-(--text-muted)"
+											>
+												<Loader2 size={16} className="animate-spin" />
+											</motion.div>
+										)}
+									</AnimatePresence>
 								</div>
-								{loadingFusion ? (
-									<div className="text-sm text-(--text-muted) animate-pulse">Fetching live data from Huawei FusionSolar...</div>
-								) : fusionData ? (
-									<div className="grid grid-cols-3 gap-6">
-										<div>
-											<div className="text-3xl font-bold text-green-500">{fusionData.dataItemMap?.active_power || 0}</div>
-											<div className="text-sm text-(--text-muted) mt-1">Current (kW)</div>
-										</div>
-										<div>
-											<div className="text-3xl font-bold">{fusionData.dataItemMap?.day_power || 0}</div>
-											<div className="text-sm text-(--text-muted) mt-1">Today (kWh)</div>
-										</div>
-										<div>
-											<div className="text-3xl font-bold">{fusionData.dataItemMap?.total_power || 0}</div>
-											<div className="text-sm text-(--text-muted) mt-1">Total (kWh)</div>
-										</div>
+								{!fusionData && loadingFusion ? (
+									<div className="flex items-center gap-2 text-sm text-(--text-muted)">
+										<Loader2 size={14} className="animate-spin" />
+										Fetching live data from Huawei FusionSolar...
 									</div>
+								) : fusionData ? (
+									<>
+										<div className="grid grid-cols-2 md:grid-cols-4 gap-6 gap-y-8">
+											<div>
+												<div className="text-3xl font-bold text-green-500">{Number(fusionData.dataItemMap?.active_power || 0).toLocaleString()}</div>
+												<div className="text-sm text-(--text-muted) mt-1">Current (kW)</div>
+											</div>
+											<div>
+												<div className="text-3xl font-bold">{Number(fusionData.dataItemMap?.day_power || 0).toLocaleString()}</div>
+												<div className="text-sm text-(--text-muted) mt-1">Today (kWh)</div>
+											</div>
+											<div>
+												<div className="text-3xl font-bold">{Number(fusionData.dataItemMap?.month_power || 0).toLocaleString()}</div>
+												<div className="text-sm text-(--text-muted) mt-1">This Month (kWh)</div>
+											</div>
+											<div>
+												<div className="text-3xl font-bold">{Number(fusionData.dataItemMap?.total_power || 0).toLocaleString()}</div>
+												<div className="text-sm text-(--text-muted) mt-1">Lifetime (kWh)</div>
+											</div>
+											<div>
+												<div className="text-3xl font-bold">€{Number(fusionData.dataItemMap?.day_income || 0).toLocaleString()}</div>
+												<div className="text-sm text-(--text-muted) mt-1">Revenue Today</div>
+											</div>
+											<div>
+												<div className="text-3xl font-bold">€{Number(fusionData.dataItemMap?.total_income || 0).toLocaleString()}</div>
+												<div className="text-sm text-(--text-muted) mt-1">Total Revenue</div>
+											</div>
+											<div>
+												<div
+													className={`text-3xl font-bold ${Number(fusionData.dataItemMap?.real_health_state || 0) === 3 ? 'text-green-500' : Number(fusionData.dataItemMap?.real_health_state || 0) === 2 ? 'text-red-500' : Number(fusionData.dataItemMap?.real_health_state || 0) === 1 ? 'text-orange-500' : 'text-(--text-muted)'}`}
+												>
+													{Number(fusionData.dataItemMap?.real_health_state || 0) === 3
+														? 'Healthy'
+														: Number(fusionData.dataItemMap?.real_health_state || 0) === 2
+															? 'Faulty'
+															: Number(fusionData.dataItemMap?.real_health_state || 0) === 1
+																? 'Disconnected'
+																: 'Unknown'}
+												</div>
+												<div className="text-sm text-(--text-muted) mt-1">System Status</div>
+											</div>
+										</div>
+
+										{isUserDebug && (
+											<div className="mt-8 p-4 bg-black/5 rounded-lg border border-(--border)/20 text-xs font-mono text-(--text-muted) overflow-x-auto">
+												<div className="font-bold mb-3 text-orange-500">DEBUG - Huawei Raw dataItemMap Keys:</div>
+												<div className="grid grid-cols-2 gap-2">
+													{Object.keys(fusionData.dataItemMap || {}).map((key) => (
+														<div key={key} className="flex gap-2">
+															<span className="font-semibold text-(--foreground)">{key}:</span>
+															<span>{fusionData.dataItemMap[key]}</span>
+														</div>
+													))}
+												</div>
+											</div>
+										)}
+									</>
 								) : (
 									<div className="text-sm text-red-500/80">
 										{isUserDebug && fusionError ? (
@@ -1066,21 +1127,44 @@ export default function Solar({ client }: Props) {
 												</div>
 											</div>
 
-											{stationCode && loadingFusion && <div className="text-sm text-(--text-muted) py-4">Fetching live data...</div>}
+											{stationCode && !fusionData && loadingFusion && (
+												<div className="flex items-center gap-2 text-sm text-(--text-muted) py-4">
+													<Loader2 size={14} className="animate-spin" />
+													Fetching live data...
+												</div>
+											)}
 
-											{stationCode && fusionData && !loadingFusion && (
+											{stationCode && fusionData && (
 												<div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-(--border)/20">
 													<div>
 														<div className="text-xs text-(--text-muted)">Current Power</div>
-														<div className="text-lg font-semibold text-green-500">{fusionData.dataItemMap?.active_power || 0} kW</div>
+														<div className="text-lg font-semibold text-green-500">{Number(fusionData.dataItemMap?.active_power || 0).toLocaleString()} kW</div>
 													</div>
 													<div>
 														<div className="text-xs text-(--text-muted)">Daily Yield</div>
-														<div className="text-lg font-semibold">{fusionData.dataItemMap?.day_power || 0} kWh</div>
+														<div className="text-lg font-semibold">{Number(fusionData.dataItemMap?.day_power || 0).toLocaleString()} kWh</div>
 													</div>
 													<div>
-														<div className="text-xs text-(--text-muted)">Total Yield</div>
-														<div className="text-lg font-semibold">{fusionData.dataItemMap?.total_power || 0} kWh</div>
+														<div className="text-xs text-(--text-muted)">Monthly Yield</div>
+														<div className="text-lg font-semibold">{Number(fusionData.dataItemMap?.month_power || 0).toLocaleString()} kWh</div>
+													</div>
+													<div>
+														<div className="text-xs text-(--text-muted)">Lifetime Yield</div>
+														<div className="text-lg font-semibold">{Number(fusionData.dataItemMap?.total_power || 0).toLocaleString()} kWh</div>
+													</div>
+													<div>
+														<div className="text-xs text-(--text-muted)">System Status</div>
+														<div
+															className={`text-lg font-semibold ${Number(fusionData.dataItemMap?.real_health_state || 0) === 3 ? 'text-green-500' : Number(fusionData.dataItemMap?.real_health_state || 0) === 2 ? 'text-red-500' : Number(fusionData.dataItemMap?.real_health_state || 0) === 1 ? 'text-orange-500' : 'text-(--text-muted)'}`}
+														>
+															{Number(fusionData.dataItemMap?.real_health_state || 0) === 3
+																? 'Healthy'
+																: Number(fusionData.dataItemMap?.real_health_state || 0) === 2
+																	? 'Faulty'
+																	: Number(fusionData.dataItemMap?.real_health_state || 0) === 1
+																		? 'Disconnected'
+																		: 'Unknown'}
+														</div>
 													</div>
 												</div>
 											)}

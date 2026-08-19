@@ -13,7 +13,7 @@ const listCache: { data: any; timestamp: number } = {
 const LIST_CACHE_EXPIRY = 5 * 60 * 1000; // 5 minutes
 
 const kpiCache: { [stationCode: string]: { data: any; timestamp: number } } = {};
-const KPI_CACHE_EXPIRY = 60 * 1000; // 1 minute
+const KPI_CACHE_EXPIRY = 5 * 60 * 1000; // 5 minutes
 
 export async function POST(request: NextRequest) {
 	try {
@@ -152,6 +152,16 @@ export async function POST(request: NextRequest) {
 			if (kpiData.failCode === 301 || kpiData.failCode === 401) {
 				cachedToken = null;
 			}
+
+			// If rate limited, fallback to expired cache if we have it
+			if (kpiData.failCode === 407 && stationCode && kpiCache[stationCode]) {
+				return NextResponse.json({
+					success: true,
+					data: kpiCache[stationCode].data,
+					stale: true,
+				});
+			}
+
 			return NextResponse.json(
 				{
 					error: kpiData.failCode || 'API returned failure status',

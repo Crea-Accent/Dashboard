@@ -1,7 +1,7 @@
 /** @format */
 'use client';
 
-import { ArrowDownAZ, ArrowUpAZ, Filter, Folder, MapPin, Pencil, Plus, Search } from 'lucide-react';
+import { ArrowDownAZ, ArrowUpAZ, Filter, Folder, MapPin, Pencil, Plus, Search, Sun, Cable, TriangleAlert } from 'lucide-react';
 import { NotPermitted, usePermissions } from '@/providers/PermissionsProvider';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -43,6 +43,9 @@ type Project = {
 		city?: string;
 		country?: string;
 	};
+	hasFusionSolar?: boolean;
+	hasCanbusSetup?: boolean;
+	hasOpenTickets?: boolean;
 };
 
 type Settings = {
@@ -71,6 +74,7 @@ export default function Page() {
 	const [query, setQuery] = useState('');
 	const [labelFilters, setLabelFilters] = useState<string[]>([]);
 	const [projectFilters, setProjectFilters] = useState<string[]>([]);
+	const [statusFilters, setStatusFilters] = useState<string[]>([]);
 	const [view, setView] = useState<'grid' | 'list'>(session?.user?.preferences?.defaultView ?? 'list');
 	const [showFilters, setShowFilters] = useState(false);
 
@@ -186,6 +190,17 @@ export default function Page() {
 			if (projectFilters.length > 0 && (!p.project || !projectFilters.includes(p.project))) {
 				return false;
 			}
+
+			if (statusFilters.length > 0) {
+				const hasMatch = statusFilters.some((status) => {
+					if (status === 'FusionSolar') return p.hasFusionSolar;
+					if (status === 'Canbus') return p.hasCanbusSetup;
+					if (status === 'Open Tickets') return p.hasOpenTickets;
+					return false;
+				});
+				if (!hasMatch) return false;
+			}
+
 			return true;
 		});
 
@@ -220,7 +235,7 @@ export default function Page() {
 		});
 
 		return list;
-	}, [projects, query, labelFilters, projectFilters, sortKey, sortAsc]);
+	}, [projects, query, labelFilters, projectFilters, statusFilters, sortKey, sortAsc]);
 
 	useEffect(() => {
 		async function load() {
@@ -304,9 +319,9 @@ export default function Page() {
 							<Button variant="secondary" icon={<Filter size={16} />} className="xl:hidden" onClick={() => setShowFilters(!showFilters)} />
 						</div>
 
-						<div className={`flex gap-2 flex-col sm:flex-row w-full xl:w-auto transition-all ${showFilters ? 'flex' : 'hidden xl:flex'}`}>
+						<div className={`flex gap-2 flex-col sm:flex-row sm:flex-wrap w-full xl:w-auto transition-all ${showFilters ? 'flex' : 'hidden xl:flex'}`}>
 							<Selector
-								className="!min-w-0 flex-1"
+								className="w-full sm:w-40 xl:w-48"
 								value={sortKey}
 								onChange={(value) => setSortKey(value as SortKey)}
 								options={[
@@ -319,7 +334,7 @@ export default function Page() {
 							/>
 
 							<MultiSelector
-								className="!min-w-0 flex-1"
+								className="w-full sm:w-40 xl:w-48"
 								placeholder="All Projects"
 								value={projectFilters}
 								onChange={setProjectFilters}
@@ -330,7 +345,7 @@ export default function Page() {
 							/>
 
 							<MultiSelector
-								className="!min-w-0 flex-1"
+								className="w-full sm:w-40 xl:w-48"
 								placeholder="All Labels"
 								value={labelFilters}
 								onChange={setLabelFilters}
@@ -341,6 +356,18 @@ export default function Page() {
 										color: label.color,
 									})) || []
 								}
+							/>
+
+							<MultiSelector
+								className="w-full sm:w-40 xl:w-48"
+								placeholder="All Statuses"
+								value={statusFilters}
+								onChange={setStatusFilters}
+								options={[
+									{ label: 'FusionSolar', value: 'FusionSolar', icon: <Sun size={14} className="text-yellow-500" /> },
+									{ label: 'Canbus', value: 'Canbus', icon: <Cable size={14} className="text-blue-500" /> },
+									{ label: 'Open Tickets', value: 'Open Tickets', icon: <TriangleAlert size={14} className="text-red-500" /> },
+								]}
 							/>
 						</div>
 					</div>
@@ -355,7 +382,7 @@ export default function Page() {
 						</div>
 					) : view === 'list' ? (
 						<Card className="overflow-hidden">
-							<div className="grid grid-cols-[1fr_24px_80px] md:grid-cols-[1fr_120px_24px_80px] xl:grid-cols-[1fr_120px_140px_120px_100px] px-5 h-11 items-center text-xs font-semibold text-(--text-muted) border-b border-(--border)/10">
+							<div className="grid grid-cols-[1fr_24px_80px] md:grid-cols-[1fr_120px_24px_100px_80px] xl:grid-cols-[1fr_120px_140px_120px_100px_100px] px-5 h-11 items-center text-xs font-semibold text-(--text-muted) border-b border-(--border)/10">
 								<button onClick={() => toggleSort('name')} className="text-left">
 									Name
 								</button>
@@ -366,6 +393,7 @@ export default function Page() {
 								<button onClick={() => toggleSort('updated')} className="hidden xl:block text-left">
 									Updated
 								</button>
+								<span className="hidden md:block text-left">Status</span>
 								<span className="text-right">Actions</span>
 							</div>
 
@@ -374,7 +402,7 @@ export default function Page() {
 									layout
 									layoutId={`project-${p.path}`}
 									key={p.path}
-									className={`grid grid-cols-[1fr_24px_80px] md:grid-cols-[1fr_120px_24px_80px] xl:grid-cols-[1fr_120px_140px_120px_100px] items-center h-16 px-5 text-sm hover:bg-(--background) transition-colors ${index !== filteredProjects.length - 1 ? 'border-b border-(--border)/10' : ''}`}
+									className={`grid grid-cols-[1fr_24px_80px] md:grid-cols-[1fr_120px_24px_100px_80px] xl:grid-cols-[1fr_120px_140px_120px_100px_100px] items-center h-16 px-5 text-sm hover:bg-(--background) transition-colors ${index !== filteredProjects.length - 1 ? 'border-b border-(--border)/10' : ''}`}
 								>
 									<Link href={`/dashboard/projects/${encodeURIComponent(p.name)}`} className="flex items-center gap-3 min-w-0">
 										<div
@@ -418,6 +446,26 @@ export default function Page() {
 
 									{/* Updated */}
 									<div className="hidden xl:block text-xs text-(--text-muted) truncate">{p.updatedAt ? new Date(p.updatedAt).toLocaleDateString() : '—'}</div>
+
+									{/* Status/Insights */}
+									<div className="hidden md:flex items-center gap-3 min-w-0 pr-4">
+										{p.hasFusionSolar && (
+											<div title="FusionSolar linked">
+												<Sun size={16} className="text-yellow-500" />
+											</div>
+										)}
+										{p.hasCanbusSetup && (
+											<div title="Canbus laid out">
+												<Cable size={16} className="text-blue-500" />
+											</div>
+										)}
+										{p.hasOpenTickets && (
+											<div title="Tasks to do">
+												<TriangleAlert size={16} className="text-red-500" />
+											</div>
+										)}
+									</div>
+
 									{/* Actions */}
 									<div className="flex justify-end gap-1">
 										{p.address?.city && <Button size="sm" variant="ghost" icon={<MapPin size={16} />} onClick={() => openMaps(p)} />}
@@ -447,10 +495,29 @@ export default function Page() {
 
 											<div className="text-xs text-(--text-muted) mb-4">{p.updatedAt ? new Date(p.updatedAt).toLocaleDateString() : 'No updates'}</div>
 
-											<div className="flex gap-2 justify-end">
-												{has('projects.write') && <Button size="sm" variant="ghost" icon={<Pencil size={16} />} onClick={() => renameProject(p.name)} />}
+											<div className="flex justify-between items-center w-full">
+												<div className="hidden md:flex gap-3">
+													{p.hasFusionSolar && (
+														<div title="FusionSolar linked">
+															<Sun size={16} className="text-yellow-500" />
+														</div>
+													)}
+													{p.hasCanbusSetup && (
+														<div title="Canbus laid out">
+															<Cable size={16} className="text-blue-500" />
+														</div>
+													)}
+													{p.hasOpenTickets && (
+														<div title="Tasks to do">
+															<TriangleAlert size={16} className="text-red-500" />
+														</div>
+													)}
+												</div>
+												<div className="flex gap-2 justify-end">
+													{has('projects.write') && <Button size="sm" variant="ghost" icon={<Pencil size={16} />} onClick={() => renameProject(p.name)} />}
 
-												<div className="flex gap-2">{p.address?.city && <Button size="sm" variant="ghost" icon={<MapPin size={14} />} onClick={() => openMaps(p)} />}</div>
+													<div className="flex gap-2">{p.address?.city && <Button size="sm" variant="ghost" icon={<MapPin size={14} />} onClick={() => openMaps(p)} />}</div>
+												</div>
 											</div>
 										</Card>
 									</Link>

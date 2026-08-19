@@ -57,6 +57,67 @@ export async function GET() {
 
 					const label = labels.find((x: any) => x.name === metadata.label);
 
+					// 1. Check FusionSolar
+					const hasFusionSolar = !!solar?.stationCode;
+
+					// 2. Check Canbus setup
+					let hasCanbusSetup = false;
+					const canbusPath = path.join(basePath, folder.name, 'canbus.json');
+					if (fs.existsSync(canbusPath)) {
+						try {
+							const canbusData = JSON.parse(fs.readFileSync(canbusPath, 'utf8'));
+							hasCanbusSetup = Array.isArray(canbusData.setup) && canbusData.setup.length > 0;
+						} catch (e) {}
+					} else if (metadata.setup) {
+						hasCanbusSetup = Array.isArray(metadata.setup) && metadata.setup.length > 0;
+					}
+
+					// 3. Check open tickets
+					let hasOpenTickets = false;
+					const ticketsDir = path.join(basePath, folder.name, 'tickets');
+					if (fs.existsSync(ticketsDir)) {
+						try {
+							const dirs = fs.readdirSync(ticketsDir, { withFileTypes: true });
+							for (const d of dirs) {
+								if (d.isDirectory()) {
+									const ticketFolder = path.join(ticketsDir, d.name);
+									const files = fs.readdirSync(ticketFolder);
+									for (const f of files) {
+										if (f.startsWith('poi_') && f.endsWith('.json')) {
+											const poi = JSON.parse(fs.readFileSync(path.join(ticketFolder, f), 'utf8'));
+											if (poi.state && poi.state !== 'finished') {
+												hasOpenTickets = true;
+												break;
+											}
+										}
+									}
+								}
+								if (hasOpenTickets) break;
+							}
+						} catch (e) {}
+					} else {
+						// Check legacy tickets.json
+						const oldTicketsFile = path.join(basePath, folder.name, 'tickets.json');
+						if (fs.existsSync(oldTicketsFile)) {
+							try {
+								const ticketsData = JSON.parse(fs.readFileSync(oldTicketsFile, 'utf8'));
+								if (ticketsData.tickets && Array.isArray(ticketsData.tickets)) {
+									for (const t of ticketsData.tickets) {
+										if (t.pois && Array.isArray(t.pois)) {
+											for (const p of t.pois) {
+												if (p.state && p.state !== 'finished') {
+													hasOpenTickets = true;
+													break;
+												}
+											}
+										}
+										if (hasOpenTickets) break;
+									}
+								}
+							} catch (e) {}
+						}
+					}
+
 					return {
 						name: folder.name,
 						path: `${settings.path}/${folder.name}`,
@@ -79,6 +140,10 @@ export async function GET() {
 						hasLocation,
 						lat: hasLocation ? lat : null,
 						lng: hasLocation ? lng : null,
+
+						hasFusionSolar,
+						hasCanbusSetup,
+						hasOpenTickets,
 					};
 				} catch (error) {
 					console.error(`Failed to load ${folder.name}`, error);

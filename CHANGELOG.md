@@ -1,5 +1,17 @@
 # panel
 
+## 0.3.4
+
+### Patch Changes
+
+- Added and Fixed some items
+
+    - Added templates page
+    - Added simulation mode in canbus
+    - Added the ability to have multiple buses on a project
+    - Fixed an issue where Solar integration with fusionsolar wasn't working properly
+    - Fixed an issue where tasks permission was not really working
+
 ## 0.3.3
 
 ### Patch Changes

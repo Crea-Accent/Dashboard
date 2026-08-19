@@ -2,7 +2,7 @@
 'use client';
 
 import { APIProvider, AdvancedMarker, ColorScheme, Map, useMap } from '@vis.gl/react-google-maps';
-import { Clock, FolderKanban, MapPin, Search, TrendingUp } from 'lucide-react';
+import { Clock, FolderKanban, ListTodo, Search, TrendingUp, TriangleAlert } from 'lucide-react';
 import { ReactElement, useEffect, useMemo, useRef, useState } from 'react';
 
 import Button from '@/components/ui/Button';
@@ -87,10 +87,14 @@ export default function Home() {
 	const [settings, setSettings] = useState<Settings | null>(null);
 	const [projects, setProjects] = useState<FileEntry[]>([]);
 	const [mapProjects, setMapProjects] = useState<ProjectMapEntry[]>([]);
+	const [projectsWithTasks, setProjectsWithTasks] = useState(0);
 	const [query, setQuery] = useState('');
 	const [loading, setLoading] = useState(true);
 	const [recentOpened, setRecentOpened] = useState<string[]>([]);
 	const [selectedProject, setSelectedProject] = useState<ProjectMapEntry | null>(null);
+
+	const [userTasks, setUserTasks] = useState<any[]>([]);
+	const [tasksLoading, setTasksLoading] = useState(true);
 
 	const userName = session?.user?.name?.split(' ')[0] ?? 'there';
 
@@ -148,6 +152,20 @@ export default function Home() {
 	}, [recentOpened, projects]);
 
 	useEffect(() => {
+		if (session?.user?.name) {
+			fetch('/api/tasks?technician=' + encodeURIComponent(session.user.name))
+				.then((r) => r.json())
+				.then((data) => {
+					if (data.tasks) {
+						setUserTasks(data.tasks);
+					}
+					setTasksLoading(false);
+				})
+				.catch(() => setTasksLoading(false));
+		}
+	}, [session?.user?.name]);
+
+	useEffect(() => {
 		(async () => {
 			try {
 				const s = await fetch('/api/settings/projects').then((r) => r.json());
@@ -171,8 +189,10 @@ export default function Home() {
 
 				if (Array.isArray(mapData)) {
 					setMapProjects(mapData.filter((p: any) => p.hasLocation));
+					setProjectsWithTasks(mapData.filter((p: any) => p.hasOpenTickets).length);
 				} else {
 					setMapProjects([]);
+					setProjectsWithTasks(0);
 				}
 			} finally {
 				setLoading(false);
@@ -353,9 +373,10 @@ export default function Home() {
 				</div>
 			</Card>
 
-			<section className="grid grid-cols-1 md:grid-cols-3 gap-6">
+			<section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
 				<StatCard icon={<FolderKanban size={18} />} label="Total Projects" value={loading ? '—' : projects.length} />
 				<StatCard icon={<TrendingUp size={18} />} label="Updated last 7 days" value={loading ? '—' : updatedLast7Days} />
+				<StatCard icon={<TriangleAlert size={18} />} label="Projects with Tasks" value={loading ? '—' : projectsWithTasks} />
 				<EnergyCard />
 			</section>
 
@@ -495,49 +516,92 @@ export default function Home() {
 				)}
 			</Modal>
 
-			{recentProjectsResolved.length > 0 && (
-				<Card className="p-6 space-y-4">
-					<h2 className="text-base font-semibold flex items-center gap-2">
-						<Clock size={16} className="text-(--accent)" />
-						Recently Opened
-					</h2>
+			<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+				<div className="space-y-6">
+					{recentProjectsResolved.length > 0 && (
+						<Card className="p-6 space-y-4">
+							<h2 className="text-base font-semibold flex items-center gap-2">
+								<Clock size={16} className="text-(--accent)" />
+								Recently Opened
+							</h2>
 
-					<div className="space-y-1">
-						{recentProjectsResolved.map((p) => (
-							<Link
-								key={p.path}
-								href={`/dashboard/projects/${encodeURIComponent(p.name)}`}
-								onClick={() => pushRecent(p.name)}
-								className="flex justify-between items-center px-4 py-3 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800 transition"
-							>
-								<span className="text-sm font-medium">{p.name}</span>
-							</Link>
-						))}
+							<div className="space-y-1">
+								{recentProjectsResolved.map((p) => (
+									<Link
+										key={p.path}
+										href={`/dashboard/projects/${encodeURIComponent(p.name)}`}
+										onClick={() => pushRecent(p.name)}
+										className="flex justify-between items-center px-4 py-3 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800 transition"
+									>
+										<span className="text-sm font-medium">{p.name}</span>
+									</Link>
+								))}
+							</div>
+						</Card>
+					)}
+
+					<Card className="p-6 space-y-4">
+						<h2 className="text-base font-semibold flex items-center gap-2">
+							<Clock size={16} className="text-(--accent)" />
+							Recently Updated
+						</h2>
+
+						<div className="space-y-1">
+							{sortedByRecent.slice(0, 5).map((p) => (
+								<Link
+									key={p.path}
+									href={`/dashboard/projects/${encodeURIComponent(p.name)}`}
+									onClick={() => pushRecent(p.name)}
+									className="flex justify-between items-center px-4 py-3 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800 transition"
+								>
+									<span className="text-sm font-medium">{p.name}</span>
+
+									<span className="text-xs text-zinc-500">{p.modified ? new Date(p.modified).toLocaleDateString() : ''}</span>
+								</Link>
+							))}
+						</div>
+					</Card>
+				</div>
+
+				<Card className="p-6 flex flex-col max-h-[600px] overflow-hidden">
+					<div className="flex items-center justify-between mb-4 shrink-0">
+						<h2 className="text-base font-semibold flex items-center gap-2">
+							<ListTodo size={16} className="text-(--accent)" />
+							My Tasks
+						</h2>
+						<Link href="/dashboard/tasks">
+							<Button variant="secondary">View All</Button>
+						</Link>
+					</div>
+
+					<div className="space-y-2 overflow-y-auto pr-2 pb-2">
+						{tasksLoading ? (
+							<div className="p-4 text-center text-zinc-500">Loading tasks...</div>
+						) : userTasks.length === 0 ? (
+							<div className="p-4 text-center text-zinc-500">No open tasks for you! 🎉</div>
+						) : (
+							userTasks.slice(0, 8).map((task, i) => (
+								<Link
+									key={i}
+									href={`/dashboard/projects/${encodeURIComponent(task.projectName)}?tab=tickets`}
+									className="flex flex-col gap-1.5 p-4 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition border border-(--border)/10 hover:border-(--border)/30 bg-(--foreground)"
+								>
+									<div className="flex justify-between items-start gap-4">
+										<span className="text-sm font-medium leading-snug">{task.name || task.ticketName || 'Unnamed Task'}</span>
+										{task.state === 'unfinished' && <div className="size-2 mt-1.5 rounded-full bg-red-500 shrink-0" />}
+									</div>
+									<div className="flex justify-between items-center text-xs text-zinc-500">
+										<span className="flex items-center gap-1.5">
+											<FolderKanban size={12} /> {task.projectName}
+										</span>
+										{task.ticketCreatedAt && <span>{new Date(task.ticketCreatedAt).toLocaleDateString()}</span>}
+									</div>
+								</Link>
+							))
+						)}
 					</div>
 				</Card>
-			)}
-
-			<Card className="p-6 space-y-4">
-				<h2 className="text-base font-semibold flex items-center gap-2">
-					<Clock size={16} className="text-(--accent)" />
-					Recently Updated
-				</h2>
-
-				<div className="space-y-1">
-					{sortedByRecent.slice(0, 5).map((p) => (
-						<Link
-							key={p.path}
-							href={`/dashboard/projects/${encodeURIComponent(p.name)}`}
-							onClick={() => pushRecent(p.name)}
-							className="flex justify-between items-center px-4 py-3 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800 transition"
-						>
-							<span className="text-sm font-medium">{p.name}</span>
-
-							<span className="text-xs text-zinc-500">{p.modified ? new Date(p.modified).toLocaleDateString() : ''}</span>
-						</Link>
-					))}
-				</div>
-			</Card>
+			</div>
 		</div>
 	);
 }

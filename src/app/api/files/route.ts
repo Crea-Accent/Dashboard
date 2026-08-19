@@ -8,6 +8,7 @@ import path from 'path';
 const DATA_DIR = path.join(process.cwd(), 'data');
 const SETTINGS_PATH = path.join(DATA_DIR, 'files.json');
 const PROJECTS_PATH = path.join(DATA_DIR, 'projects.json');
+const TEMPLATES_PATH = path.join(DATA_DIR, 'templates.json');
 
 type ProjectsConfig = {
 	path: string;
@@ -24,6 +25,11 @@ function loadSettings() {
 	} catch {
 		return { path: '' };
 	}
+}
+
+export function loadTemplates(): { path: string } | null {
+	if (!fs.existsSync(TEMPLATES_PATH)) return null;
+	return JSON.parse(fs.readFileSync(TEMPLATES_PATH, 'utf8'));
 }
 
 export function loadProjects(): ProjectsConfig | null {
@@ -55,12 +61,16 @@ function resolveSafe(targetPath: string, basePath: string) {
 	return resolved;
 }
 
-function resolveAgainstCorrectRoot(target: string, settingsPath: string, projectsPath?: string) {
+function resolveAgainstCorrectRoot(target: string, settingsPath: string, projectsPath?: string, templatesPath?: string) {
 	const decoded = decodeURIComponent(target);
 	const absolute = path.resolve(decoded);
 
 	if (projectsPath && absolute.startsWith(path.resolve(projectsPath))) {
 		return resolveSafe(absolute, projectsPath);
+	}
+
+	if (templatesPath && absolute.startsWith(path.resolve(templatesPath))) {
+		return resolveSafe(absolute, templatesPath);
 	}
 
 	return resolveSafe(absolute, settingsPath);
@@ -69,6 +79,7 @@ function resolveAgainstCorrectRoot(target: string, settingsPath: string, project
 export async function GET(request: NextRequest) {
 	const settings = loadSettings();
 	const projects = loadProjects();
+	const templates = loadTemplates();
 
 	const url = new URL(request.url);
 	const rawView = url.searchParams.get('view');
@@ -90,7 +101,7 @@ export async function GET(request: NextRequest) {
 	let resolved: string;
 
 	try {
-		resolved = resolveAgainstCorrectRoot(rawView, settings.path, projects?.path);
+		resolved = resolveAgainstCorrectRoot(rawView, settings.path, projects?.path, templates?.path);
 	} catch {
 		return NextResponse.json({ error: 'Forbidden path' }, { status: 403 });
 	}
@@ -195,6 +206,7 @@ export async function GET(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
 	const settings = loadSettings();
 	const projects = loadProjects();
+	const templates = loadTemplates();
 
 	const body = await request.json();
 	const { path: rawPath } = body || {};
@@ -206,7 +218,7 @@ export async function DELETE(request: NextRequest) {
 	let resolved: string;
 
 	try {
-		resolved = resolveAgainstCorrectRoot(rawPath, settings.path, projects?.path);
+		resolved = resolveAgainstCorrectRoot(rawPath, settings.path, projects?.path, templates?.path);
 	} catch {
 		return NextResponse.json({ error: 'Forbidden path' }, { status: 403 });
 	}
@@ -229,6 +241,7 @@ export async function DELETE(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
 	const settings = loadSettings();
 	const projects = loadProjects();
+	const templates = loadTemplates();
 
 	const body = await request.json();
 	const { oldPath, newName, newDir } = body || {};
@@ -240,7 +253,7 @@ export async function PATCH(request: NextRequest) {
 	let resolvedOld: string;
 
 	try {
-		resolvedOld = resolveAgainstCorrectRoot(oldPath, settings.path, projects?.path);
+		resolvedOld = resolveAgainstCorrectRoot(oldPath, settings.path, projects?.path, templates?.path);
 	} catch {
 		return NextResponse.json({ error: 'Forbidden path' }, { status: 403 });
 	}
@@ -249,7 +262,7 @@ export async function PATCH(request: NextRequest) {
 
 	try {
 		if (newDir) {
-			const resolvedNewDir = resolveAgainstCorrectRoot(newDir, settings.path, projects?.path);
+			const resolvedNewDir = resolveAgainstCorrectRoot(newDir, settings.path, projects?.path, templates?.path);
 			targetPath = path.join(resolvedNewDir, path.basename(resolvedOld));
 		} else if (newName) {
 			targetPath = path.join(path.dirname(resolvedOld), newName);
@@ -267,6 +280,7 @@ export async function PATCH(request: NextRequest) {
 export async function POST(request: NextRequest) {
 	const settings = loadSettings();
 	const projects = loadProjects();
+	const templates = loadTemplates();
 
 	const contentType = request.headers.get('content-type') || '';
 
@@ -284,7 +298,7 @@ export async function POST(request: NextRequest) {
 		let resolvedDir: string;
 
 		try {
-			resolvedDir = resolveAgainstCorrectRoot(dir, settings.path, projects?.path);
+			resolvedDir = resolveAgainstCorrectRoot(dir, settings.path, projects?.path, templates?.path);
 		} catch {
 			return NextResponse.json({ error: 'Forbidden path' }, { status: 403 });
 		}
@@ -315,7 +329,7 @@ export async function POST(request: NextRequest) {
 	let dir: string;
 
 	try {
-		dir = resolveAgainstCorrectRoot(rawDir, settings.path, projects?.path);
+		dir = resolveAgainstCorrectRoot(rawDir, settings.path, projects?.path, templates?.path);
 	} catch {
 		return NextResponse.json({ error: 'Forbidden path' }, { status: 403 });
 	}

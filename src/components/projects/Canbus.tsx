@@ -60,7 +60,8 @@ export type ModuleDefinition = {
 };
 
 export type Metadata = {
-	setup?: TopologyModule[];
+	setup?: TopologyModule[][];
+	sim?: TopologyModule[][];
 };
 
 export type DetectedNode = {
@@ -110,7 +111,8 @@ export default function Canbus({ basePath, client }: Props) {
 	const [availableModules, setAvailableModules] = useState<ModuleDefinition[]>([]);
 
 	const [foundModules, setFoundModules] = useState<DetectedNode[]>([]);
-	const [topology, setTopology] = useState<TopologyModule[]>([]);
+	const [topology, setTopology] = useState<TopologyModule[][]>([]);
+	const [viewMode, setViewMode] = useState<'setup' | 'sim'>('setup');
 
 	const [search, setSearch] = useState('');
 	const [searchIndex, setSearchIndex] = useState(0);
@@ -148,7 +150,7 @@ export default function Canbus({ basePath, client }: Props) {
 			}
 		}
 
-		traverse(topology);
+		topology.forEach((t) => traverse(t));
 		return results;
 	}, [search, topology, availableModules, foundModules]);
 
@@ -180,6 +182,7 @@ export default function Canbus({ basePath, client }: Props) {
 
 	const [insertTarget, setInsertTarget] = useState<{
 		type: 'branch_start' | 'after_node' | 'root_start' | 'end';
+		lineIndex?: number;
 		parentId?: string;
 		branch?: number;
 		targetId?: string;
@@ -187,7 +190,7 @@ export default function Canbus({ basePath, client }: Props) {
 
 	const [zoom, setZoom] = useState(1);
 
-	const unplacedModules = foundModules.filter((node) => !containsPhysicalAddress(topology, node.physicalAddress));
+	const unplacedModules = viewMode === 'sim' ? [] : foundModules.filter((node) => !containsPhysicalAddress(topology.flat(), node.physicalAddress));
 
 	const detectableModules = availableModules.filter((m) => m.detectable);
 
@@ -263,17 +266,26 @@ export default function Canbus({ basePath, client }: Props) {
 	}
 
 	async function executeInsertion(module: TopologyModule) {
+		const next = structuredClone(topology);
 		if (!insertTarget || insertTarget.type === 'end') {
-			await saveTopology([...topology, module]);
+			const lineIndex = insertTarget?.lineIndex ?? next.length;
+			if (!next[lineIndex]) next[lineIndex] = [];
+			next[lineIndex].push(module);
+			await saveTopology(next);
 		} else if (insertTarget.type === 'root_start') {
-			await saveTopology([module, ...topology]);
+			const lineIndex = insertTarget?.lineIndex ?? 0;
+			if (!next[lineIndex]) next[lineIndex] = [];
+			next[lineIndex].unshift(module);
+			await saveTopology(next);
 		} else if (insertTarget.type === 'branch_start' && insertTarget.parentId && insertTarget.branch) {
-			const next = structuredClone(topology);
-			insertIntoBranch(next, insertTarget.parentId, insertTarget.branch, module);
+			for (const line of next) {
+				if (insertIntoBranch(line, insertTarget.parentId, insertTarget.branch, module)) break;
+			}
 			await saveTopology(next);
 		} else if (insertTarget.type === 'after_node' && insertTarget.targetId) {
-			const next = structuredClone(topology);
-			insertAfter(next, insertTarget.targetId, module);
+			for (const line of next) {
+				if (insertAfter(line, insertTarget.targetId, module)) break;
+			}
 			await saveTopology(next);
 		}
 
@@ -285,6 +297,13 @@ export default function Canbus({ basePath, client }: Props) {
 		const manual: TopologyModule = {
 			instanceId: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2),
 			moduleId: definition.id,
+			physicalAddress:
+				viewMode === 'sim' && definition.detectable
+					? '0x' +
+						Math.floor(Math.random() * 16777215)
+							.toString(16)
+							.padStart(6, '0')
+					: undefined,
 		};
 
 		executeInsertion(manual);
@@ -324,7 +343,7 @@ export default function Canbus({ basePath, client }: Props) {
 	}
 
 	function removeModule(instanceId: string) {
-		saveTopology(removeRecursive(topology, instanceId));
+		saveTopology(topology.map((line) => removeRecursive(line, instanceId)));
 	}
 
 	function editModule(topology: TopologyModule) {
@@ -385,7 +404,9 @@ export default function Canbus({ basePath, client }: Props) {
 	async function moveModule(instanceId: string, direction: 'up' | 'down') {
 		const next = structuredClone(topology);
 
-		moveRecursive(next, instanceId, direction);
+		for (const line of next) {
+			if (moveRecursive(line, instanceId, direction)) break;
+		}
 
 		await saveTopology(next);
 	}
@@ -393,14 +414,14 @@ export default function Canbus({ basePath, client }: Props) {
 	async function changeModuleType(module: ModuleDefinition) {
 		if (!moduleSelection || moduleSelection.mode !== 'edit') return;
 
-		const next = updateRecursive(topology, moduleSelection.topology.instanceId, module.id);
+		const next = topology.map((line) => updateRecursive(line, moduleSelection.topology.instanceId, module.id));
 
 		await saveTopology(next);
 
 		setModuleSelection(null);
 	}
 
-	async function saveTopology(next: TopologyModule[]) {
+	async function saveTopology(next: TopologyModule[][]) {
 		setTopology(next);
 
 		try {
@@ -412,7 +433,7 @@ export default function Canbus({ basePath, client }: Props) {
 				body: JSON.stringify({
 					client,
 					data: {
-						setup: next,
+						[viewMode]: next,
 					},
 				}),
 			});
@@ -421,7 +442,7 @@ export default function Canbus({ basePath, client }: Props) {
 				current
 					? {
 							...current,
-							setup: next,
+							[viewMode]: next,
 						}
 					: current
 			);
@@ -480,7 +501,19 @@ export default function Canbus({ basePath, client }: Props) {
 
 			setMetadata(metadata);
 
-			setTopology(canbusData?.setup ?? metadata?.setup ?? []);
+			let loadedSetup = canbusData?.setup ?? metadata?.setup ?? [];
+			if (loadedSetup.length > 0 && !Array.isArray(loadedSetup[0])) {
+				loadedSetup = [loadedSetup];
+			}
+			let loadedSim = canbusData?.sim ?? metadata?.sim ?? [];
+			if (loadedSim.length > 0 && !Array.isArray(loadedSim[0])) {
+				loadedSim = [loadedSim];
+			}
+			if (metadata) {
+				metadata.setup = loadedSetup;
+				metadata.sim = loadedSim;
+			}
+			setTopology(viewMode === 'sim' ? loadedSim : loadedSetup);
 
 			setFoundModules(nodeDatabase.nodes ?? []);
 
@@ -509,13 +542,18 @@ export default function Canbus({ basePath, client }: Props) {
 		setAddModalOpen(true);
 	}
 
-	function beginInsertRoot() {
-		setInsertTarget({ type: 'root_start' });
+	function beginInsertRoot(lineIndex: number) {
+		setInsertTarget({ type: 'root_start', lineIndex });
 		setAddModalOpen(true);
 	}
 
-	function beginInsertEnd() {
-		setInsertTarget({ type: 'end' });
+	function beginInsertEnd(lineIndex: number) {
+		setInsertTarget({ type: 'end', lineIndex });
+		setAddModalOpen(true);
+	}
+
+	function beginInsertNewBusLine() {
+		setInsertTarget({ type: 'end', lineIndex: topology.length });
 		setAddModalOpen(true);
 	}
 
@@ -540,12 +578,26 @@ export default function Canbus({ basePath, client }: Props) {
 		return null;
 	}
 
+	function getLineOfModule(id: string) {
+		return topology.findIndex((line) => {
+			let found = false;
+			function check(t: TopologyModule) {
+				if (t.instanceId === id) found = true;
+				for (const branch of Object.values(t.nodes ?? {})) {
+					branch.forEach(check);
+				}
+			}
+			line.forEach(check);
+			return found;
+		});
+	}
+
 	function isRootModule(id: string) {
-		return topology[0]?.instanceId === id;
+		return topology.some((line) => line[0]?.instanceId === id);
 	}
 
 	function isLastRootModule(id: string) {
-		return topology[topology.length - 1]?.instanceId === id;
+		return topology.some((line) => line[line.length - 1]?.instanceId === id);
 	}
 
 	function isBeforeSwitch(tree: TopologyModule[], id: string): boolean {
@@ -583,16 +635,24 @@ export default function Canbus({ basePath, client }: Props) {
 	async function moveModuleToBranch(instanceId: string, direction: -1 | 1) {
 		const next = structuredClone(topology);
 
-		const location = getBranchOfModule(next, instanceId);
+		const location = getBranchOfModule(next.flat(), instanceId);
 
 		if (!location) {
 			// Module is on the main line
 
-			const moving = extractModule(next, instanceId);
+			let moving: TopologyModule | null = null;
+			let lineIndex = -1;
+			for (let i = 0; i < next.length; i++) {
+				moving = extractModule(next[i], instanceId);
+				if (moving) {
+					lineIndex = i;
+					break;
+				}
+			}
 
-			if (!moving) return;
+			if (!moving || lineIndex === -1) return;
 
-			const targetSwitch = findNextSwitch(next, instanceId);
+			const targetSwitch = findNextSwitch(next[lineIndex], instanceId);
 
 			if (!targetSwitch) return;
 
@@ -649,7 +709,10 @@ export default function Canbus({ basePath, client }: Props) {
 	}
 
 	function renderModule(entry: TopologyModule) {
-		const position = getBranchPosition(topology, entry.instanceId);
+		const currentLineIndex = getLineOfModule(entry.instanceId);
+		const currentLine = currentLineIndex !== -1 ? topology[currentLineIndex] : [];
+
+		const position = getBranchPosition(currentLine, entry.instanceId);
 
 		const firstInBranch = position?.first ?? false;
 		const lastInBranch = position?.last ?? false;
@@ -657,9 +720,9 @@ export default function Canbus({ basePath, client }: Props) {
 		const rootModule = isRootModule(entry.instanceId);
 		const lastRootModule = isLastRootModule(entry.instanceId);
 
-		const beforeSwitch = isBeforeSwitch(topology, entry.instanceId);
+		const beforeSwitch = isBeforeSwitch(currentLine, entry.instanceId);
 
-		const inBranch = getBranchOfModule(topology, entry.instanceId) !== null;
+		const inBranch = getBranchOfModule(currentLine, entry.instanceId) !== null;
 
 		const canMoveLeft = inBranch || lastRootModule;
 		const canMoveRight = rootModule ? !beforeSwitch : !lastInBranch;
@@ -857,6 +920,12 @@ export default function Canbus({ basePath, client }: Props) {
 	}, [client, basePath]);
 
 	useEffect(() => {
+		if (metadata) {
+			setTopology(viewMode === 'sim' ? (metadata.sim ?? []) : (metadata.setup ?? []));
+		}
+	}, [viewMode, metadata]);
+
+	useEffect(() => {
 		const container = document.getElementById('canbus-topology-container');
 
 		const handleWheel = (e: WheelEvent) => {
@@ -883,7 +952,7 @@ export default function Canbus({ basePath, client }: Props) {
 
 	if (loading) return <Loading title="Loading Topology" />;
 
-	if (noProgrammation) {
+	if (noProgrammation && viewMode === 'setup') {
 		return (
 			<div className="flex flex-col flex-1 w-full items-center justify-center min-h-[400px]">
 				<EmptyState
@@ -897,24 +966,33 @@ export default function Canbus({ basePath, client }: Props) {
 
 	return (
 		<div className="flex flex-col flex-1 w-full">
-			<div id="canbus-topology-container" className="mt-8 w-full overflow-x-auto pb-64 pl-8 flex-1">
-				<div className="flex flex-row items-start min-w-max relative" style={{ zoom }}>
-					{/* Root insertion button */}
-					{editing && topology.length > 0 && (
-						<div className="absolute -left-12 top-[10rem] flex flex-col justify-center h-2.5 w-12 group print:hidden">
-							<div className="h-0.75 w-full bg-orange-500" />
-							<div className="h-0.75 w-full bg-orange-200" />
-							<button
-								onClick={() => beginInsertRoot()}
-								className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-6 bg-orange-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20 hover:scale-110 shadow-sm"
-							>
-								<Plus size={14} />
-							</button>
-						</div>
-					)}
+			<div id="canbus-topology-container" className="mt-8 w-full overflow-x-auto pb-64 pl-8 flex-1 flex flex-col gap-12">
+				{topology.length === 0 && editing && (
+					<div className="p-8">
+						<Button onClick={() => beginInsertNewBusLine()} icon={<Plus size={20} />}>
+							Add First Bus Line
+						</Button>
+					</div>
+				)}
+				{topology.map((busLine, index) => (
+					<div key={index} className="flex flex-row items-start min-w-max relative" style={{ zoom }}>
+						{/* Root insertion button */}
+						{editing && busLine.length > 0 && (
+							<div className="absolute -left-12 top-[10rem] flex flex-col justify-center h-2.5 w-12 group print:hidden">
+								<div className="h-0.75 w-full bg-orange-500" />
+								<div className="h-0.75 w-full bg-orange-200" />
+								<button
+									onClick={() => beginInsertRoot(index)}
+									className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-6 bg-orange-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20 hover:scale-110 shadow-sm"
+								>
+									<Plus size={14} />
+								</button>
+							</div>
+						)}
 
-					{renderSerialLine(topology)}
-				</div>
+						{renderSerialLine(busLine)}
+					</div>
+				))}
 			</div>
 
 			{dockNode &&
@@ -954,11 +1032,17 @@ export default function Canbus({ basePath, client }: Props) {
 						<div className="w-px h-6 bg-[var(--border)]/20 mx-1 hidden sm:block" />
 
 						<div className="flex items-center gap-2 sm:gap-3 justify-center w-full sm:w-auto">
+							<Button variant="secondary" onClick={() => setViewMode((v) => (v === 'setup' ? 'sim' : 'setup'))}>
+								{viewMode === 'setup' ? 'Setup' : 'Simulation'}
+							</Button>
+
+							<div className="w-px h-8 bg-[var(--border)]/20 mx-1 hidden sm:block" />
+
 							{has('projects.write') && <Button onClick={() => setEditing(!editing)} className="shadow-sm px-3" icon={editing ? <Save size={16} /> : <Pencil size={16} />} />}
 
 							{has('projects.write') && editing && (
-								<Button onClick={() => beginInsertEnd()} className="shadow-sm" icon={<Plus size={20} />}>
-									{unplacedModules.length}
+								<Button onClick={() => beginInsertNewBusLine()} className="shadow-sm" icon={<Plus size={20} />}>
+									{viewMode === 'setup' ? unplacedModules.length : 'Add Bus Line'}
 								</Button>
 							)}
 
@@ -1123,49 +1207,75 @@ export default function Canbus({ basePath, client }: Props) {
 
 			<Modal size={'xxl'} open={addModalOpen} onClose={() => setAddModalOpen(false)} title="Add Module">
 				<div className="space-y-8 max-h-[70vh] overflow-y-auto pr-2">
-					<div>
-						<h3 className="mb-4 text-lg font-semibold">Detected Modules ({unplacedModules.length})</h3>
+					{viewMode === 'setup' ? (
+						<>
+							<div>
+								<h3 className="mb-4 text-lg font-semibold">Detected Modules ({unplacedModules.length})</h3>
 
-						<div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-							{unplacedModules.map((node) => (
-								<Card key={node.physicalAddress} onClick={() => selectDetectedModule(node)} className="cursor-pointer transition hover:scale-[1.02]">
-									<div className="flex flex-col gap-4 p-2">
-										<div>
-											<h4 className="font-semibold">{node.name}</h4>
+								<div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+									{unplacedModules.map((node) => (
+										<Card key={node.physicalAddress} onClick={() => selectDetectedModule(node)} className="cursor-pointer transition hover:scale-[1.02]">
+											<div className="flex flex-col gap-4 p-2">
+												<div>
+													<h4 className="font-semibold">{node.name}</h4>
 
-											<p className="text-sm opacity-70">
-												{node.physicalAddress} - {node.nodeAddress}
-											</p>
+													<p className="text-sm opacity-70">
+														{node.physicalAddress} - {node.nodeAddress}
+													</p>
 
-											<p className="text-sm opacity-70">{node.numberOfUnits} units</p>
+													<p className="text-sm opacity-70">{node.numberOfUnits} units</p>
+												</div>
+											</div>
+										</Card>
+									))}
+								</div>
+							</div>
+
+							<div>
+								<h3 className="mb-4 text-lg font-semibold">Infrastructure</h3>
+
+								<div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+									{manualModules.map((module, i) => (
+										<Card key={i} onClick={() => addManualModule(module)} className="cursor-pointer transition hover:scale-[1.02]">
+											<div className="flex flex-col gap-4 p-2">
+												<div className="rounded-lg p-1 overflow-hidden max-h-70">
+													<ReactSVG src={`/modules/${module.id}/drawing.svg`} className="h-100 w-auto" />
+												</div>
+
+												<div>
+													<h4 className="font-semibold">{module.name}</h4>
+
+													<p className="text-sm opacity-70 line-clamp-3">{module.description}</p>
+												</div>
+											</div>
+										</Card>
+									))}
+								</div>
+							</div>
+						</>
+					) : (
+						<div>
+							<h3 className="mb-4 text-lg font-semibold">Simulated Modules</h3>
+
+							<div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+								{availableModules.map((module, i) => (
+									<Card key={i} onClick={() => addManualModule(module)} className="cursor-pointer transition hover:scale-[1.02]">
+										<div className="flex flex-col gap-4 p-2">
+											<div className="rounded-lg p-1 overflow-hidden max-h-70">
+												<ReactSVG src={`/modules/${module.id}/drawing.svg`} className="h-100 w-auto" />
+											</div>
+
+											<div>
+												<h4 className="font-semibold">{module.name}</h4>
+
+												<p className="text-sm opacity-70 line-clamp-3">{module.description}</p>
+											</div>
 										</div>
-									</div>
-								</Card>
-							))}
+									</Card>
+								))}
+							</div>
 						</div>
-					</div>
-
-					<div>
-						<h3 className="mb-4 text-lg font-semibold">Infrastructure</h3>
-
-						<div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-							{manualModules.map((module, i) => (
-								<Card key={i} onClick={() => addManualModule(module)} className="cursor-pointer transition hover:scale-[1.02]">
-									<div className="flex flex-col gap-4 p-2">
-										<div className="rounded-lg p-1 overflow-hidden max-h-70">
-											<ReactSVG src={`/modules/${module.id}/drawing.svg`} className="h-100 w-auto" />
-										</div>
-
-										<div>
-											<h4 className="font-semibold">{module.name}</h4>
-
-											<p className="text-sm opacity-70 line-clamp-3">{module.description}</p>
-										</div>
-									</div>
-								</Card>
-							))}
-						</div>
-					</div>
+					)}
 				</div>
 			</Modal>
 
