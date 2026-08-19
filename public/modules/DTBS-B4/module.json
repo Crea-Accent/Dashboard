@@ -1,0 +1,10 @@
+{
+	"id": "DTBS-B4",
+	"name": "Serenity schakelaar - 4 drukknoppen",
+	"description": "Een robuuste, stijlvolle schakelaar die verfijnd design combineert met duurzame kwaliteit. Dankzij zijn tijdloze vormgeving gaat de Serenity naadloos op in elke leefomgeving, van strak modern tot warm en klassiek.",
+	"category": "Button",
+	"type": "user",
+	"current": "0.02",
+	"voltage": "24",
+	"detectable": true
+}

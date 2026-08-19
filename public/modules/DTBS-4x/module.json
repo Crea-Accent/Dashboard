@@ -4,7 +4,7 @@
 	"description": "The intensity aluminium range oozes modern design and fits in every contemporary interior. These are all handmade products which make every switch unique.",
 	"category": "Button",
 	"type": "user",
-	"current": "0.0.5",
+	"current": "0.05",
 	"voltage": "24",
 	"detectable": true
 }

@@ -1,5 +1,11 @@
 # panel
 
+## 0.3.8
+
+### Patch Changes
+
+- Added serenity modules
+
 ## 0.3.7
 
 ### Patch Changes
