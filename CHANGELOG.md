@@ -1,5 +1,11 @@
 # panel
 
+## 0.3.5
+
+### Patch Changes
+
+- Updated Canbus and overview
+
 ## 0.3.4
 
 ### Patch Changes

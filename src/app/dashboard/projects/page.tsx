@@ -45,6 +45,7 @@ type Project = {
 	};
 	hasFusionSolar?: boolean;
 	hasCanbusSetup?: boolean;
+	hasCanbusSim?: boolean;
 	hasOpenTickets?: boolean;
 };
 
@@ -194,7 +195,7 @@ export default function Page() {
 			if (statusFilters.length > 0) {
 				const hasMatch = statusFilters.some((status) => {
 					if (status === 'FusionSolar') return p.hasFusionSolar;
-					if (status === 'Canbus') return p.hasCanbusSetup;
+					if (status === 'Canbus') return p.hasCanbusSetup || p.hasCanbusSim;
 					if (status === 'Open Tickets') return p.hasOpenTickets;
 					return false;
 				});
@@ -454,11 +455,15 @@ export default function Page() {
 												<Sun size={16} className="text-yellow-500" />
 											</div>
 										)}
-										{p.hasCanbusSetup && (
-											<div title="Canbus laid out">
+										{p.hasCanbusSetup ? (
+											<div title="Canbus laid out (Real)">
+												<Cable size={16} className="text-orange-500" />
+											</div>
+										) : p.hasCanbusSim ? (
+											<div title="Canbus laid out (Simulated)">
 												<Cable size={16} className="text-blue-500" />
 											</div>
-										)}
+										) : null}
 										{p.hasOpenTickets && (
 											<div title="Tasks to do">
 												<TriangleAlert size={16} className="text-red-500" />
@@ -502,11 +507,15 @@ export default function Page() {
 															<Sun size={16} className="text-yellow-500" />
 														</div>
 													)}
-													{p.hasCanbusSetup && (
-														<div title="Canbus laid out">
+													{p.hasCanbusSetup ? (
+														<div title="Canbus laid out (Real)">
+															<Cable size={16} className="text-orange-500" />
+														</div>
+													) : p.hasCanbusSim ? (
+														<div title="Canbus laid out (Simulated)">
 															<Cable size={16} className="text-blue-500" />
 														</div>
-													)}
+													) : null}
 													{p.hasOpenTickets && (
 														<div title="Tasks to do">
 															<TriangleAlert size={16} className="text-red-500" />

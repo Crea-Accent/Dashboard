@@ -62,14 +62,17 @@ export async function GET() {
 
 					// 2. Check Canbus setup
 					let hasCanbusSetup = false;
+					let hasCanbusSim = false;
 					const canbusPath = path.join(basePath, folder.name, 'canbus.json');
 					if (fs.existsSync(canbusPath)) {
 						try {
 							const canbusData = JSON.parse(fs.readFileSync(canbusPath, 'utf8'));
 							hasCanbusSetup = Array.isArray(canbusData.setup) && canbusData.setup.length > 0;
+							hasCanbusSim = Array.isArray(canbusData.sim) && canbusData.sim.length > 0;
 						} catch (e) {}
-					} else if (metadata.setup) {
+					} else if (metadata.setup || metadata.sim) {
 						hasCanbusSetup = Array.isArray(metadata.setup) && metadata.setup.length > 0;
+						hasCanbusSim = Array.isArray(metadata.sim) && metadata.sim.length > 0;
 					}
 
 					// 3. Check open tickets
@@ -143,6 +146,7 @@ export async function GET() {
 
 						hasFusionSolar,
 						hasCanbusSetup,
+						hasCanbusSim,
 						hasOpenTickets,
 					};
 				} catch (error) {
