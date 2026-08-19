@@ -92,6 +92,7 @@ export async function POST(request: NextRequest) {
 					},
 					body: JSON.stringify({
 						pageNo: pageNo,
+						pageSize: 100,
 					}),
 				});
 
@@ -101,10 +102,12 @@ export async function POST(request: NextRequest) {
 				}
 
 				const listData = await listRes.json();
+				console.log('HUAWEI RESPONSE PAGE', pageNo, 'DATA KEYS:', Object.keys(listData.data || {}));
+				if (listData.data?.pageCount) console.log('HUAWEI PAGECOUNT:', listData.data.pageCount);
 
 				if (!listData.success) {
 					console.error('FusionSolar Station List Failed on page', pageNo, listData);
-					if (listData.failCode === 301 || listData.failCode === 401) {
+					if (listData.failCode === 301 || listData.failCode === 401 || listData.failCode === 305) {
 						cachedToken = null;
 					}
 					if (pageNo === 1) {
@@ -166,7 +169,7 @@ export async function POST(request: NextRequest) {
 		if (!kpiData.success) {
 			console.error('FusionSolar KPI Failed:', kpiData);
 			// If token invalid, clear it (but NOT on 407 which is just a rate limit)
-			if (kpiData.failCode === 301 || kpiData.failCode === 401) {
+			if (kpiData.failCode === 301 || kpiData.failCode === 401 || kpiData.failCode === 305) {
 				cachedToken = null;
 			}
 

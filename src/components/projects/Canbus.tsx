@@ -486,18 +486,8 @@ export default function Canbus({ basePath, client }: Props) {
 				})
 				.sort((a, b) => b.date.localeCompare(a.date))[0]?.folder;
 
-			if (!latestFolder) {
-				setFoundModules([]);
-				setAvailableModules([]);
-				setMetadata(metadata);
-				setNoProgrammation(true);
-				return;
-			}
-			setNoProgrammation(false);
-
-			const nodeDatabase = await fetch(`/api/files/download?path=${encodeURIComponent(`${latestFolder}/Config/nodedatabase.cache.json`)}`).then((r) => r.json());
-
 			const moduleDefinitions = await fetch('/api/projects/modules').then((r) => r.json());
+			setAvailableModules(moduleDefinitions.modules ?? []);
 
 			setMetadata(metadata);
 
@@ -513,11 +503,22 @@ export default function Canbus({ basePath, client }: Props) {
 				metadata.setup = loadedSetup;
 				metadata.sim = loadedSim;
 			}
-			setTopology(viewMode === 'sim' ? loadedSim : loadedSetup);
 
-			setFoundModules(nodeDatabase.nodes ?? []);
-
-			setAvailableModules(moduleDefinitions.modules ?? []);
+			if (!latestFolder) {
+				setFoundModules([]);
+				setNoProgrammation(true);
+				setViewMode('sim');
+				setTopology(loadedSim);
+			} else {
+				setNoProgrammation(false);
+				try {
+					const nodeDatabase = await fetch(`/api/files/download?path=${encodeURIComponent(`${latestFolder}/Config/nodedatabase.cache.json`)}`).then((r) => r.json());
+					setFoundModules(nodeDatabase.nodes ?? []);
+				} catch (e) {
+					setFoundModules([]);
+				}
+				setTopology(viewMode === 'sim' ? loadedSim : loadedSetup);
+			}
 		} catch (error) {
 			console.error(error);
 		} finally {
@@ -952,18 +953,6 @@ export default function Canbus({ basePath, client }: Props) {
 
 	if (loading) return <Loading title="Loading Topology" />;
 
-	if (noProgrammation && viewMode === 'setup') {
-		return (
-			<div className="flex flex-col flex-1 w-full items-center justify-center min-h-[400px]">
-				<EmptyState
-					icon={<FileWarning size={48} />}
-					title="No Programmation File Found"
-					description="Please upload a valid programmation file for this project before viewing the Canbus topology."
-				/>
-			</div>
-		);
-	}
-
 	return (
 		<div className="flex flex-col flex-1 w-full">
 			<div id="canbus-topology-container" className="mt-8 w-full overflow-x-auto pb-64 pl-8 flex-1 flex flex-col gap-12">
@@ -1032,7 +1021,7 @@ export default function Canbus({ basePath, client }: Props) {
 						<div className="w-px h-6 bg-[var(--border)]/20 mx-1 hidden sm:block" />
 
 						<div className="flex items-center gap-2 sm:gap-3 justify-center w-full sm:w-auto">
-							<Button variant="secondary" onClick={() => setViewMode((v) => (v === 'setup' ? 'sim' : 'setup'))}>
+							<Button disabled={noProgrammation} variant="secondary" onClick={() => setViewMode((v) => (v === 'setup' ? 'sim' : 'setup'))}>
 								{viewMode === 'setup' ? 'Setup' : 'Simulation'}
 							</Button>
 

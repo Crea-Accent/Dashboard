@@ -7,5 +7,6 @@
 	"current": "2.5",
 	"voltage": "230",
 	"detectable": false,
-	"channels": 2
+	"channels": 2,
+	"draw": "1.85"
 }

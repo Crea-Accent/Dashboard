@@ -134,6 +134,7 @@ export default function Solar({ client }: Props) {
 	const [fusionError, setFusionError] = useState<string | null>(null);
 	const [plants, setPlants] = useState<{ value: string; label: string }[]>([]);
 	const [loadingPlants, setLoadingPlants] = useState(false);
+	const [plantsError, setPlantsError] = useState<any>(null);
 
 	useEffect(() => {
 		setDockNode(document.getElementById('project-dock-actions'));
@@ -303,6 +304,7 @@ export default function Solar({ client }: Props) {
 
 	async function fetchPlants() {
 		setLoadingPlants(true);
+		setPlantsError(null);
 		try {
 			const res = await fetch('/api/projects/fusionsolar', {
 				method: 'POST',
@@ -317,9 +319,12 @@ export default function Solar({ client }: Props) {
 						label: p.stationName,
 					}))
 				);
+			} else {
+				setPlantsError(data);
 			}
 		} catch (e) {
 			console.error(e);
+			setPlantsError(e);
 		} finally {
 			setLoadingPlants(false);
 		}
@@ -1125,6 +1130,21 @@ export default function Solar({ client }: Props) {
 														Link
 													</Button>
 												</div>
+												{plantsError && isUserDebug && (
+													<div className="mt-2 text-xs text-red-500 bg-red-500/10 p-2 rounded whitespace-pre-wrap font-mono">{JSON.stringify(plantsError, null, 2)}</div>
+												)}
+												{isUserDebug && (
+													<div className="mt-3 flex flex-col gap-1">
+														<label className="text-xs text-(--text-muted) font-mono">DEBUG: Override Station Code</label>
+														<input
+															type="text"
+															value={stationCode}
+															onChange={(e) => setStationCode(e.target.value)}
+															placeholder="e.g. NE=..."
+															className="bg-(--background) border border-(--border)/50 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-(--accent)"
+														/>
+													</div>
+												)}
 											</div>
 
 											{stationCode && !fusionData && loadingFusion && (
