@@ -296,81 +296,81 @@ export default function Page() {
 
 				{/* Search + Filter */}
 
-				<div className="flex flex-col xl:flex-row gap-3 xl:items-center">
-					{/* Level 1: New and Search */}
-					<div className="flex gap-2 w-full xl:flex-1">
-						{has('projects.write') && (
-							<Button icon={<Plus size={16} />} onClick={() => setCreating(true)} className="shrink-0" title="Cmd/Ctrl + N">
-								<span className="hidden sm:inline">New Project</span>
-							</Button>
-						)}
+				<div className="flex flex-col gap-3">
+					{/* Level 1: New, Search, Actions */}
+					<div className="flex flex-col xl:flex-row gap-3 xl:items-center">
+						<div className="flex gap-2 w-full xl:flex-1">
+							{has('projects.write') && (
+								<Button icon={<Plus size={16} />} onClick={() => setCreating(true)} className="shrink-0" title="Cmd/Ctrl + N">
+									<span className="hidden sm:inline">New Project</span>
+								</Button>
+							)}
 
-						<div className="flex-1 min-w-0">
-							<Input id="project-search" icon={<Search size={16} />} placeholder="Search projects... (Press /)" value={query} onChange={(e) => setQuery(e.target.value)} />
+							<div className="flex-1 min-w-0">
+								<Input id="project-search" icon={<Search size={16} />} placeholder="Search projects... (Press /)" value={query} onChange={(e) => setQuery(e.target.value)} />
+							</div>
 						</div>
-					</div>
 
-					{/* Level 2: Actions */}
-					<div className="flex flex-wrap xl:flex-nowrap gap-2 w-full xl:w-auto">
 						<div className="flex gap-2 shrink-0">
 							<Button variant="secondary" icon={sortAsc ? <ArrowUpAZ size={16} /> : <ArrowDownAZ size={16} />} onClick={() => setSortAsc(!sortAsc)} />
 
 							<ViewToggle value={view} onChange={setView} />
 
-							<Button variant="secondary" icon={<Filter size={16} />} className="xl:hidden" onClick={() => setShowFilters(!showFilters)} />
+							<Button variant="secondary" icon={<Filter size={16} />} onClick={() => setShowFilters(!showFilters)} />
 						</div>
+					</div>
 
-						<div className={`flex gap-2 flex-col sm:flex-row sm:flex-wrap w-full xl:w-auto transition-all ${showFilters ? 'flex' : 'hidden xl:flex'}`}>
-							<Selector
-								className="w-full sm:w-40 xl:w-48"
-								value={sortKey}
-								onChange={(value) => setSortKey(value as SortKey)}
-								options={[
-									{ label: 'Name', value: 'name' },
-									{ label: 'Updated', value: 'updated' },
-									{ label: 'Address', value: 'address' },
-									{ label: 'Project', value: 'project' },
-									{ label: 'Label', value: 'label' },
-								]}
-							/>
+					{/* Level 2: Filters */}
+					<div className={`flex gap-2 flex-row flex-wrap w-full transition-all ${showFilters ? 'flex' : 'hidden'}`}>
+						<Selector
+							className="flex-1 min-w-[140px] sm:w-40 sm:flex-none xl:w-48"
+							value={sortKey}
+							onChange={(value) => setSortKey(value as SortKey)}
+							options={[
+								{ label: 'Name', value: 'name' },
+								{ label: 'Updated', value: 'updated' },
+								{ label: 'Address', value: 'address' },
+								{ label: 'Project', value: 'project' },
+								{ label: 'Label', value: 'label' },
+							]}
+						/>
 
-							<MultiSelector
-								className="w-full sm:w-40 xl:w-48"
-								placeholder="All Projects"
-								value={projectFilters}
-								onChange={setProjectFilters}
-								options={uniqueProjects.map((p) => ({
-									label: p,
-									value: p,
-								}))}
-							/>
+						<MultiSelector
+							className="flex-1 min-w-[140px] sm:w-40 sm:flex-none xl:w-48"
+							placeholder="All Projects"
+							value={projectFilters}
+							onChange={setProjectFilters}
+							options={uniqueProjects.map((p) => ({
+								label: p,
+								value: p,
+							}))}
+						/>
 
-							<MultiSelector
-								className="w-full sm:w-40 xl:w-48"
-								placeholder="All Labels"
-								value={labelFilters}
-								onChange={setLabelFilters}
-								options={
-									settings?.labels?.map((label) => ({
-										label: label.name,
-										value: label.name,
-										color: label.color,
-									})) || []
-								}
-							/>
+						<MultiSelector
+							className="flex-1 min-w-[140px] sm:w-40 sm:flex-none xl:w-48"
+							placeholder="All Labels"
+							value={labelFilters}
+							onChange={setLabelFilters}
+							options={
+								settings?.labels?.map((label) => ({
+									label: label.name,
+									value: label.name,
+									color: label.color,
+								})) || []
+							}
+						/>
 
-							<MultiSelector
-								className="w-full sm:w-40 xl:w-48"
-								placeholder="All Statuses"
-								value={statusFilters}
-								onChange={setStatusFilters}
-								options={[
-									{ label: 'FusionSolar', value: 'FusionSolar', icon: <Sun size={14} className="text-yellow-500" /> },
-									{ label: 'Canbus', value: 'Canbus', icon: <Cable size={14} className="text-blue-500" /> },
-									{ label: 'Open Tickets', value: 'Open Tickets', icon: <TriangleAlert size={14} className="text-red-500" /> },
-								]}
-							/>
-						</div>
+						<MultiSelector
+							className="flex-1 min-w-[140px] sm:w-40 sm:flex-none xl:w-48"
+							placeholder="All Statuses"
+							value={statusFilters}
+							onChange={setStatusFilters}
+							options={[
+								{ label: 'FusionSolar', value: 'FusionSolar', icon: <Sun size={14} className="text-yellow-500" /> },
+								{ label: 'Canbus', value: 'Canbus', icon: <Cable size={14} className="text-blue-500" /> },
+								{ label: 'Open Tickets', value: 'Open Tickets', icon: <TriangleAlert size={14} className="text-red-500" /> },
+							]}
+						/>
 					</div>
 				</div>
 

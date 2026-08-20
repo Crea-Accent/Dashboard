@@ -1,5 +1,11 @@
 # panel
 
+## 0.3.10
+
+### Patch Changes
+
+- Fixed search in /projects, added names to simulation nodes in canbus, fixed dock on projects for mobile
+
 ## 0.3.9
 
 ### Patch Changes

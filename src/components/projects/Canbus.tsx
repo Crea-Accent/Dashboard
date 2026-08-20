@@ -17,6 +17,8 @@ import {
 	Plus,
 	Power,
 	Save,
+	Settings,
+	Activity,
 	Thermometer,
 	ToggleLeft,
 	Trash2,
@@ -57,8 +59,10 @@ export type ModuleDefinition = {
 	id: string;
 	name: string;
 	description?: string;
+	category?: string;
 	detectable: boolean;
 	channels?: number;
+	units?: any[];
 };
 
 export type Metadata = {
@@ -78,11 +82,9 @@ export type DetectedNode = {
 
 export type TopologyModule = {
 	instanceId: string;
-
 	moduleId: string;
-
 	physicalAddress?: string;
-
+	customName?: string;
 	nodes?: Record<number, TopologyModule[]>;
 };
 
@@ -182,6 +184,9 @@ export default function Canbus({ basePath, client }: Props) {
 	const [bindingsData, setBindingsData] = useState<any[]>([]);
 	const [printing, setPrinting] = useState(false);
 
+	const [simulatedModuleNaming, setSimulatedModuleNaming] = useState<ModuleDefinition | null>(null);
+	const [simulatedModuleName, setSimulatedModuleName] = useState('');
+
 	const [moduleSelection, setModuleSelection] = useState<ModuleSelection | null>(null);
 
 	const [insertTarget, setInsertTarget] = useState<{
@@ -199,6 +204,36 @@ export default function Canbus({ basePath, client }: Props) {
 	const detectableModules = availableModules.filter((m) => m.detectable);
 
 	const manualModules = availableModules.filter((m) => !m.detectable);
+
+	const groupedDetectableModules = useMemo(() => {
+		const groups: Record<string, ModuleDefinition[]> = {};
+		detectableModules.forEach((m) => {
+			const cat = m.category || 'Other';
+			if (!groups[cat]) groups[cat] = [];
+			groups[cat].push(m);
+		});
+		return Object.entries(groups).sort((a, b) => a[0].localeCompare(b[0]));
+	}, [detectableModules]);
+
+	const groupedManualModules = useMemo(() => {
+		const groups: Record<string, ModuleDefinition[]> = {};
+		manualModules.forEach((m) => {
+			const cat = m.category || 'Other';
+			if (!groups[cat]) groups[cat] = [];
+			groups[cat].push(m);
+		});
+		return Object.entries(groups).sort((a, b) => a[0].localeCompare(b[0]));
+	}, [manualModules]);
+
+	const groupedAvailableModules = useMemo(() => {
+		const groups: Record<string, ModuleDefinition[]> = {};
+		availableModules.forEach((m) => {
+			const cat = m.category || 'Other';
+			if (!groups[cat]) groups[cat] = [];
+			groups[cat].push(m);
+		});
+		return Object.entries(groups).sort((a, b) => a[0].localeCompare(b[0]));
+	}, [availableModules]);
 
 	function findNextSwitch(tree: TopologyModule[], instanceId: string): TopologyModule | null {
 		for (let i = 0; i < tree.length; i++) {
@@ -298,19 +333,53 @@ export default function Canbus({ basePath, client }: Props) {
 	}
 
 	function addManualModule(definition: ModuleDefinition) {
+		if (viewMode === 'sim' && definition.detectable) {
+			setSimulatedModuleNaming(definition);
+			setSimulatedModuleName(definition.name);
+			return;
+		}
+
 		const manual: TopologyModule = {
 			instanceId: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2),
 			moduleId: definition.id,
-			physicalAddress:
-				viewMode === 'sim' && definition.detectable
-					? '0x' +
-						Math.floor(Math.random() * 16777215)
-							.toString(16)
-							.padStart(6, '0')
-					: undefined,
+			physicalAddress: undefined,
 		};
-
 		executeInsertion(manual);
+		setAddModalOpen(false);
+	}
+
+	function confirmSimulatedModule() {
+		if (!simulatedModuleNaming) return;
+		const definition = simulatedModuleNaming;
+		const customName = simulatedModuleName;
+
+		const simulatedAddress =
+			'0x' +
+			Math.floor(Math.random() * 16777215)
+				.toString(16)
+				.padStart(6, '0');
+
+		const fakeNode: DetectedNode = {
+			name: customName || definition.name,
+			physicalAddress: simulatedAddress,
+			nodeAddress: Math.floor(Math.random() * 255).toString(),
+			softwareVersion: '1.0.0',
+			numberOfUnits: definition.channels ? Math.ceil(definition.channels / 4) : 0,
+			nodeType: 0,
+			units: [],
+		};
+		setFoundModules((prev) => [...prev, fakeNode]);
+
+		const manual: TopologyModule = {
+			instanceId: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2),
+			moduleId: definition.id,
+			physicalAddress: simulatedAddress,
+			customName: customName || definition.name,
+		};
+		executeInsertion(manual);
+
+		setSimulatedModuleNaming(null);
+		setAddModalOpen(false);
 	}
 
 	function selectDetectedModule(node: DetectedNode) {
@@ -775,7 +844,7 @@ export default function Canbus({ basePath, client }: Props) {
 								<p className="text-sm opacity-70"></p>
 							</>
 						) : (
-							<p className="text-sm opacity-70">Infrastructure module</p>
+							<p className="text-sm opacity-70">{entry.customName || 'Infrastructure module'}</p>
 						)}
 					</div>
 
@@ -1001,7 +1070,7 @@ export default function Canbus({ basePath, client }: Props) {
 			{dockNode &&
 				createPortal(
 					<>
-						<div className="relative flex items-center w-full sm:w-auto min-w-[200px] sm:min-w-[300px]">
+						<div className="relative flex items-center w-[150px] sm:w-auto sm:min-w-[300px]">
 							<Input
 								placeholder="Search modules..."
 								value={search}
@@ -1010,7 +1079,7 @@ export default function Canbus({ basePath, client }: Props) {
 							/>
 							{search && matches.length > 0 && (
 								<div className="absolute right-2 flex items-center gap-1 text-sm text-[var(--text-muted)] z-10">
-									<span className="mr-1 font-medium">
+									<span className="mr-1 font-medium hidden sm:inline">
 										{searchIndex + 1}/{matches.length}
 									</span>
 									<Button
@@ -1029,14 +1098,19 @@ export default function Canbus({ basePath, client }: Props) {
 									/>
 								</div>
 							)}
-							{search && matches.length === 0 && <div className="absolute right-4 text-sm text-[var(--text-muted)] z-10 font-medium">0/0</div>}
+							{search && matches.length === 0 && <div className="absolute right-4 text-sm text-[var(--text-muted)] z-10 font-medium hidden sm:block">0/0</div>}
 						</div>
 
 						<div className="w-px h-6 bg-[var(--border)]/20 mx-1 hidden sm:block" />
 
-						<div className="flex items-center gap-2 sm:gap-3 justify-center w-full sm:w-auto">
-							<Button disabled={noProgrammation} variant="secondary" onClick={() => setViewMode((v) => (v === 'setup' ? 'sim' : 'setup'))}>
-								{viewMode === 'setup' ? 'Setup' : 'Simulation'}
+						<div className="flex items-center gap-2 sm:gap-3 justify-center">
+							<Button
+								disabled={noProgrammation}
+								variant="secondary"
+								onClick={() => setViewMode((v) => (v === 'setup' ? 'sim' : 'setup'))}
+								icon={viewMode === 'setup' ? <Settings size={16} /> : <Activity size={16} />}
+							>
+								<span className="hidden sm:inline">{viewMode === 'setup' ? 'Setup' : 'Simulation'}</span>
 							</Button>
 
 							<div className="w-px h-8 bg-[var(--border)]/20 mx-1 hidden sm:block" />
@@ -1237,21 +1311,28 @@ export default function Canbus({ basePath, client }: Props) {
 							<div>
 								<h3 className="mb-4 text-lg font-semibold">Infrastructure</h3>
 
-								<div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-									{manualModules.map((module, i) => (
-										<Card key={i} onClick={() => addManualModule(module)} className="cursor-pointer transition hover:scale-[1.02]">
-											<div className="flex flex-col gap-4 p-2">
-												<div className="rounded-lg p-1 overflow-hidden max-h-70">
-													<ReactSVG src={`/modules/${module.id}/drawing.svg`} className="h-100 w-auto" />
-												</div>
+								<div className="space-y-6">
+									{groupedManualModules.map(([category, modules]) => (
+										<div key={category}>
+											<h4 className="mb-3 font-medium opacity-80 capitalize">{category}</h4>
+											<div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+												{modules.map((module, i) => (
+													<Card key={i} onClick={() => addManualModule(module)} className="cursor-pointer transition hover:scale-[1.02]">
+														<div className="flex flex-col gap-4 p-2">
+															<div className="rounded-lg p-1 overflow-hidden max-h-70">
+																<ReactSVG src={`/modules/${module.id}/drawing.svg`} className="h-100 w-auto" />
+															</div>
 
-												<div>
-													<h4 className="font-semibold">{module.name}</h4>
+															<div>
+																<h4 className="font-semibold">{module.name}</h4>
 
-													<p className="text-sm opacity-70 line-clamp-3">{module.description}</p>
-												</div>
+																<p className="text-sm opacity-70 line-clamp-3">{module.description}</p>
+															</div>
+														</div>
+													</Card>
+												))}
 											</div>
-										</Card>
+										</div>
 									))}
 								</div>
 							</div>
@@ -1260,21 +1341,28 @@ export default function Canbus({ basePath, client }: Props) {
 						<div>
 							<h3 className="mb-4 text-lg font-semibold">Simulated Modules</h3>
 
-							<div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-								{availableModules.map((module, i) => (
-									<Card key={i} onClick={() => addManualModule(module)} className="cursor-pointer transition hover:scale-[1.02]">
-										<div className="flex flex-col gap-4 p-2">
-											<div className="rounded-lg p-1 overflow-hidden max-h-70">
-												<ReactSVG src={`/modules/${module.id}/drawing.svg`} className="h-100 w-auto" />
-											</div>
+							<div className="space-y-6">
+								{groupedAvailableModules.map(([category, modules]) => (
+									<div key={category}>
+										<h4 className="mb-3 font-medium opacity-80 capitalize">{category}</h4>
+										<div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+											{modules.map((module, i) => (
+												<Card key={i} onClick={() => addManualModule(module)} className="cursor-pointer transition hover:scale-[1.02]">
+													<div className="flex flex-col gap-4 p-2">
+														<div className="rounded-lg p-1 overflow-hidden max-h-70">
+															<ReactSVG src={`/modules/${module.id}/drawing.svg`} className="h-100 w-auto" />
+														</div>
 
-											<div>
-												<h4 className="font-semibold">{module.name}</h4>
+														<div>
+															<h4 className="font-semibold">{module.name}</h4>
 
-												<p className="text-sm opacity-70 line-clamp-3">{module.description}</p>
-											</div>
+															<p className="text-sm opacity-70 line-clamp-3">{module.description}</p>
+														</div>
+													</div>
+												</Card>
+											))}
 										</div>
-									</Card>
+									</div>
 								))}
 							</div>
 						</div>
@@ -1296,25 +1384,32 @@ export default function Canbus({ basePath, client }: Props) {
 						</p>
 					</div>
 
-					<div className="grid grid-cols-1 gap-4 max-h-[70vh] overflow-y-auto pr-2 lg:grid-cols-3">
-						{detectableModules.map((module, i) => (
-							<Card
-								key={i}
-								onClick={() => (moduleSelection?.mode === 'add' ? addDetectedModule(module) : changeModuleType(module))}
-								className="cursor-pointer transition hover:scale-[1.02]"
-							>
-								<div className="flex flex-col gap-4 p-2">
-									<div className="rounded-lg p-1 overflow-hidden max-h-70">
-										<ReactSVG src={`/modules/${module.id}/drawing.svg`} className="h-100 w-auto" />
-									</div>
+					<div className="space-y-6 max-h-[70vh] overflow-y-auto pr-2">
+						{groupedDetectableModules.map(([category, modules]) => (
+							<div key={category}>
+								<h4 className="mb-3 font-medium opacity-80 capitalize">{category}</h4>
+								<div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+									{modules.map((module, i) => (
+										<Card
+											key={i}
+											onClick={() => (moduleSelection?.mode === 'add' ? addDetectedModule(module) : changeModuleType(module))}
+											className="cursor-pointer transition hover:scale-[1.02]"
+										>
+											<div className="flex flex-col gap-4 p-2">
+												<div className="rounded-lg p-1 overflow-hidden max-h-70">
+													<ReactSVG src={`/modules/${module.id}/drawing.svg`} className="h-100 w-auto" />
+												</div>
 
-									<div>
-										<h4 className="font-semibold">{module.name}</h4>
+												<div>
+													<h4 className="font-semibold">{module.name}</h4>
 
-										<p className="text-sm opacity-70 line-clamp-3">{module.description}</p>
-									</div>
+													<p className="text-sm opacity-70 line-clamp-3">{module.description}</p>
+												</div>
+											</div>
+										</Card>
+									))}
 								</div>
-							</Card>
+							</div>
 						))}
 					</div>
 				</div>
@@ -1396,6 +1491,26 @@ export default function Canbus({ basePath, client }: Props) {
 						{bindingsModal?.units.every((unit: any) => !bindingsData.some((b) => b.inputs.some((i: any) => i.Address?.startsWith(`${bindingsModal.nodeAddress};${unit.unitAddress}`)))) && (
 							<div className="text-center py-8 opacity-50">No input bindings found for this node.</div>
 						)}
+					</div>
+				</div>
+			</Modal>
+
+			<Modal open={simulatedModuleNaming !== null} onClose={() => setSimulatedModuleNaming(null)} title="Name Simulated Module">
+				<div className="space-y-4">
+					<p className="text-sm">Enter a name for this simulated {simulatedModuleNaming?.name}:</p>
+					<Input
+						value={simulatedModuleName}
+						onChange={(e) => setSimulatedModuleName(e.target.value)}
+						onKeyDown={(e) => {
+							if (e.key === 'Enter') confirmSimulatedModule();
+						}}
+						autoFocus
+					/>
+					<div className="flex justify-end gap-2 mt-4">
+						<Button variant="secondary" onClick={() => setSimulatedModuleNaming(null)}>
+							Cancel
+						</Button>
+						<Button onClick={confirmSimulatedModule}>Add Module</Button>
 					</div>
 				</div>
 			</Modal>
