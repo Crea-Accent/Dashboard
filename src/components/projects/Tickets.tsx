@@ -1,7 +1,7 @@
 /** @format */
 'use client';
 
-import { CheckCircle2, ChevronDown, Circle, Clock, Plus, Download, Ticket as TicketIcon, Loader2, FileText as FileIcon, GripVertical, Edit3, Package, PackageCheck } from 'lucide-react';
+import { CheckCircle2, ChevronDown, Circle, Clock, Plus, Download, Ticket as TicketIcon, Loader2, FileText as FileIcon, GripVertical, Edit3, Package, PackageCheck, Ban } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core';
@@ -30,7 +30,7 @@ type POI = {
 	technician: string;
 	importance: number;
 	requiresPicture?: boolean;
-	state: 'unfinished' | 'finished';
+	state: 'unfinished' | 'finished' | 'canceled';
 	imagePath?: string;
 	finishedImagePath?: string;
 	completedBy?: string;
@@ -38,6 +38,7 @@ type POI = {
 	requiresMaterials?: boolean;
 	materialAssignee?: string;
 	materialState?: 'needs_ordering' | 'ordered' | 'in_stock';
+	cancelReason?: string;
 	materialOrderedBy?: string;
 	materialStockedBy?: string;
 };
@@ -303,18 +304,6 @@ export default function Tickets({ client }: { client: string }) {
 			doc.setFont('helvetica', 'bold');
 			doc.text(`${ticket.name || 'Ticket Summary'}`, 14, startY);
 
-			doc.setFontSize(10);
-			doc.setFont('helvetica', 'normal');
-			doc.setTextColor(lightText[0], lightText[1], lightText[2]);
-
-			doc.text(`Project: ${client}`, pageWidth - 14, startY - 8, {
-				align: 'right',
-			});
-			doc.text(`Generated: ${new Date().toLocaleDateString()}`, pageWidth - 14, startY - 3, { align: 'right' });
-			doc.text(`Opened by: ${ticket.openedBy}`, pageWidth - 14, startY + 2, {
-				align: 'right',
-			});
-
 			// Divider line
 			doc.setDrawColor(230, 230, 230);
 			doc.setLineWidth(0.5);
@@ -338,16 +327,19 @@ export default function Tickets({ client }: { client: string }) {
 				doc.text(title, 14, currentY);
 				currentY += 4;
 
-				const tableData = pois.map((poi: any) => [
-					(ticket.pois.findIndex((p: any) => p.id === poi.id) + 1).toString(),
-					poi.description,
-					poi.state === 'finished' ? poi.completedBy || poi.technician || 'Unknown' : poi.technician || 'Unassigned',
-					poi.proofDescription || '-',
-				]);
+				const tableData = pois.map((poi: any) => {
+					return [
+						(ticket.pois.findIndex((p: any) => p.id === poi.id) + 1).toString(),
+						'',
+						poi.description,
+						poi.state === 'finished' ? poi.completedBy || poi.technician || 'Unknown' : poi.technician || 'Unassigned',
+						poi.state === 'canceled' ? poi.cancelReason || '-' : poi.proofDescription || '-',
+					];
+				});
 
 				autoTable(doc, {
 					startY: currentY,
-					head: [['#', 'Description', title === 'Completed Tasks' ? 'Completed By' : 'Assignee', 'Notes']],
+					head: [['#', 'Status', 'Description', 'Assignee', 'Notes']],
 					body: tableData,
 					theme: 'plain',
 					headStyles: {
@@ -372,20 +364,41 @@ export default function Tickets({ client }: { client: string }) {
 					},
 					columnStyles: {
 						0: { cellWidth: 15 },
-						1: { cellWidth: 70 },
-						2: { cellWidth: 50 },
-						3: { cellWidth: 47 },
+						1: { cellWidth: 20 },
+						2: { cellWidth: 'auto' },
+						3: { cellWidth: 35 },
+						4: { cellWidth: 40 },
+					},
+					didDrawCell: (data: any) => {
+						if (data.section === 'body' && data.column.index === 1) {
+							const poi = pois[data.row.index];
+							const { x, y, width, height } = data.cell;
+							const centerX = x + width / 2;
+							const centerY = y + height / 2;
+
+							doc.setLineWidth(0.5);
+
+							if (poi.state === 'finished') {
+								doc.setDrawColor(34, 197, 94); // green-500
+								doc.circle(centerX, centerY, 2.5);
+								doc.line(centerX - 1, centerY, centerX - 0.3, centerY + 1);
+								doc.line(centerX - 0.3, centerY + 1, centerX + 1.4, centerY - 1);
+							} else if (poi.state === 'canceled') {
+								doc.setDrawColor(239, 68, 68); // red-500
+								doc.circle(centerX, centerY, 2.5);
+								doc.line(centerX - 1.5, centerY - 1.5, centerX + 1.5, centerY + 1.5);
+							} else {
+								doc.setDrawColor(156, 163, 175); // gray-400
+								doc.circle(centerX, centerY, 2.5);
+							}
+						}
 					},
 				});
 
-				currentY = (doc as any).lastAutoTable.finalY + 12;
+				currentY = (doc as any).lastAutoTable.finalY + 10;
 			};
 
-			const unfinishedPOIs = ticket.pois.filter((p: any) => p.state !== 'finished');
-			const finishedPOIs = ticket.pois.filter((p: any) => p.state === 'finished');
-
-			renderTable(unfinishedPOIs, 'Pending Tasks');
-			renderTable(finishedPOIs, 'Completed Tasks');
+			renderTable(ticket.pois, 'Tasks Summary');
 
 			const poisWithImages = ticket.pois.filter((poi: any) => poi.imagePath || poi.finishedImagePath);
 
@@ -565,18 +578,6 @@ export default function Tickets({ client }: { client: string }) {
 			doc.setFont('helvetica', 'bold');
 			doc.text(`Project Summary`, 14, startY);
 
-			doc.setFontSize(10);
-			doc.setFont('helvetica', 'normal');
-			doc.setTextColor(lightText[0], lightText[1], lightText[2]);
-
-			doc.text(`Project: ${client}`, pageWidth - 14, startY - 8, {
-				align: 'right',
-			});
-			doc.text(`Generated: ${new Date().toLocaleDateString()}`, pageWidth - 14, startY - 3, { align: 'right' });
-			doc.text(`Total Tickets: ${tickets.length}`, pageWidth - 14, startY + 2, {
-				align: 'right',
-			});
-
 			// Divider line
 			doc.setDrawColor(230, 230, 230);
 			doc.setLineWidth(0.5);
@@ -599,12 +600,7 @@ export default function Tickets({ client }: { client: string }) {
 				doc.setTextColor(darkText[0], darkText[1], darkText[2]);
 				doc.text(ticket.name || 'Untitled Ticket', 14, currentY);
 
-				doc.setFontSize(10);
-				doc.setFont('helvetica', 'normal');
-				doc.setTextColor(lightText[0], lightText[1], lightText[2]);
-				doc.text(`Opened by: ${ticket.openedBy || 'Unknown'} - ${new Date(ticket.createdAt).toLocaleDateString()}`, 14, currentY + 6);
-
-				currentY += 12;
+				currentY += 8;
 
 				const renderTable = (pois: any[], title: string) => {
 					if (pois.length === 0) return;
@@ -622,16 +618,19 @@ export default function Tickets({ client }: { client: string }) {
 					doc.text(title, 14, currentY);
 					currentY += 4;
 
-					const tableData = pois.map((poi: any) => [
-						(ticket.pois.findIndex((p: any) => p.id === poi.id) + 1).toString(),
-						poi.description,
-						poi.state === 'finished' ? poi.completedBy || poi.technician || 'Unknown' : poi.technician || 'Unassigned',
-						poi.proofDescription || '-',
-					]);
+					const tableData = pois.map((poi: any) => {
+						return [
+							(ticket.pois.findIndex((p: any) => p.id === poi.id) + 1).toString(),
+							'',
+							poi.description,
+							poi.state === 'finished' ? poi.completedBy || poi.technician || 'Unknown' : poi.technician || 'Unassigned',
+							poi.state === 'canceled' ? poi.cancelReason || '-' : poi.proofDescription || '-',
+						];
+					});
 
 					autoTable(doc, {
 						startY: currentY,
-						head: [['#', 'Description', title === 'Completed Tasks' ? 'Completed By' : 'Assignee', 'Notes']],
+						head: [['#', 'Status', 'Description', 'Assignee', 'Notes']],
 						body: tableData,
 						theme: 'plain',
 						headStyles: {
@@ -656,20 +655,41 @@ export default function Tickets({ client }: { client: string }) {
 						},
 						columnStyles: {
 							0: { cellWidth: 15 },
-							1: { cellWidth: 70 },
-							2: { cellWidth: 50 },
-							3: { cellWidth: 47 },
+							1: { cellWidth: 20 },
+							2: { cellWidth: 'auto' },
+							3: { cellWidth: 35 },
+							4: { cellWidth: 40 },
+						},
+						didDrawCell: (data: any) => {
+							if (data.section === 'body' && data.column.index === 1) {
+								const poi = pois[data.row.index];
+								const { x, y, width, height } = data.cell;
+								const centerX = x + width / 2;
+								const centerY = y + height / 2;
+
+								doc.setLineWidth(0.5);
+
+								if (poi.state === 'finished') {
+									doc.setDrawColor(34, 197, 94); // green-500
+									doc.circle(centerX, centerY, 2.5);
+									doc.line(centerX - 1, centerY, centerX - 0.3, centerY + 1);
+									doc.line(centerX - 0.3, centerY + 1, centerX + 1.4, centerY - 1);
+								} else if (poi.state === 'canceled') {
+									doc.setDrawColor(239, 68, 68); // red-500
+									doc.circle(centerX, centerY, 2.5);
+									doc.line(centerX - 1.5, centerY - 1.5, centerX + 1.5, centerY + 1.5);
+								} else {
+									doc.setDrawColor(156, 163, 175); // gray-400
+									doc.circle(centerX, centerY, 2.5);
+								}
+							}
 						},
 					});
 
-					currentY = (doc as any).lastAutoTable.finalY + 12;
+					currentY = (doc as any).lastAutoTable.finalY + 10;
 				};
 
-				const unfinishedPOIs = ticket.pois.filter((p: any) => p.state !== 'finished');
-				const finishedPOIs = ticket.pois.filter((p: any) => p.state === 'finished');
-
-				renderTable(unfinishedPOIs, 'Pending Tasks');
-				renderTable(finishedPOIs, 'Completed Tasks');
+				renderTable(ticket.pois, 'Tasks Summary');
 
 				const poisWithImages = ticket.pois.filter((poi: any) => poi.imagePath || poi.finishedImagePath);
 
@@ -1064,7 +1084,7 @@ function SortablePOI({
 							<Edit3 size={16} />
 						</button>
 					)}
-					{poi.requiresMaterials && poi.state !== 'finished' && (!poi.materialState || poi.materialState === 'needs_ordering') ? (
+					{poi.requiresMaterials && poi.state !== 'finished' && poi.state !== 'canceled' && (!poi.materialState || poi.materialState === 'needs_ordering') ? (
 						<button
 							disabled={!(currentUsername === poi.materialAssignee || isAllowed)}
 							onClick={() => setMaterialStateConfirm({ ticketId: ticket.id, poiId: poi.id, newState: 'ordered' })}
@@ -1073,7 +1093,7 @@ function SortablePOI({
 						>
 							<Package size={20} />
 						</button>
-					) : poi.requiresMaterials && poi.state !== 'finished' && poi.materialState === 'ordered' ? (
+					) : poi.requiresMaterials && poi.state !== 'finished' && poi.state !== 'canceled' && poi.materialState === 'ordered' ? (
 						<button
 							disabled={!(currentUsername === poi.materialAssignee || isAllowed)}
 							onClick={() => setMaterialStateConfirm({ ticketId: ticket.id, poiId: poi.id, newState: 'in_stock' })}
@@ -1084,7 +1104,11 @@ function SortablePOI({
 						</button>
 					) : (
 						<button
-							disabled={poi.state === 'finished' || (poi.technician !== currentUsername && !isAllowed) || (poi.requiresMaterials && poi.materialState !== 'in_stock')}
+							disabled={
+								poi.state === 'canceled'
+									? true
+									: poi.state === 'finished' || (poi.technician !== currentUsername && !isAllowed) || (poi.requiresMaterials && poi.materialState !== 'in_stock')
+							}
 							onClick={() =>
 								setPoiToComplete({
 									ticketId: ticket.id,
@@ -1092,18 +1116,22 @@ function SortablePOI({
 									requiresPicture: poi.requiresPicture,
 								})
 							}
-							className={`${poi.state === 'finished' ? 'text-green-500' : 'text-[var(--text-muted)] hover:text-[var(--accent)]'} transition-colors disabled:opacity-50 disabled:cursor-not-allowed p-1`}
-							title={poi.requiresMaterials && poi.materialState !== 'in_stock' ? 'Materials are not in stock yet.' : ''}
+							className={`${poi.state === 'finished' ? 'text-green-500' : poi.state === 'canceled' ? 'text-red-500' : 'text-[var(--text-muted)] hover:text-[var(--accent)]'} transition-colors disabled:opacity-50 disabled:cursor-not-allowed p-1`}
+							title={poi.state === 'canceled' ? 'Task marked as Not Needed' : poi.requiresMaterials && poi.materialState !== 'in_stock' ? 'Materials are not in stock yet.' : ''}
 						>
-							{poi.state === 'finished' ? <CheckCircle2 size={20} /> : <Circle size={20} />}
+							{poi.state === 'finished' ? <CheckCircle2 size={20} /> : poi.state === 'canceled' ? <Ban size={20} /> : <Circle size={20} />}
 						</button>
 					)}
 				</div>
 				<div className="flex-1 min-w-0">
-					<p className={`text-sm break-words whitespace-normal ${poi.state === 'finished' ? 'line-through text-(--text-muted)' : ''}`}>{poi.description}</p>
+					<p className={`text-sm break-words whitespace-normal ${poi.state === 'finished' || poi.state === 'canceled' ? 'line-through text-(--text-muted)' : ''}`}>{poi.description}</p>
 					<div className="flex flex-wrap items-center gap-2 mt-2 text-xs min-w-0">
 						{poi.state === 'finished' && poi.completedBy ? (
 							<span className="px-2 py-0.5 rounded-full bg-(--background) border border-green-500/20 text-green-500 truncate max-w-full">Completed by: {poi.completedBy}</span>
+						) : poi.state === 'canceled' ? (
+							<span className="px-2 py-0.5 rounded-full bg-red-500/10 border border-red-500/20 text-red-500 truncate max-w-full">
+								Not Needed: {poi.cancelReason || 'No reason provided'}
+							</span>
 						) : (
 							<span className="px-2 py-0.5 rounded-full bg-(--background) border border-(--border)/10 text-(--text-muted) truncate max-w-full">{poi.technician || 'Unassigned'}</span>
 						)}

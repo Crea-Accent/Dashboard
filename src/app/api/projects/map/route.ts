@@ -75,8 +75,26 @@ export async function GET() {
 						hasCanbusSim = Array.isArray(metadata.sim) && metadata.sim.length > 0;
 					}
 
-					// 3. Check open tickets
+					// 3. Check open tickets and materials
 					let hasOpenTickets = false;
+					let hasNeedsOrdering = false;
+					let hasOrdered = false;
+					let hasInStock = false;
+
+					const processPOI = (poi: any) => {
+						if (poi.state === 'canceled') return;
+
+						if (poi.state && poi.state !== 'finished') {
+							hasOpenTickets = true;
+						}
+						if (poi.requiresMaterials) {
+							const mState = poi.materialState || 'needs_ordering';
+							if (mState === 'needs_ordering') hasNeedsOrdering = true;
+							if (mState === 'ordered') hasOrdered = true;
+							if (mState === 'in_stock') hasInStock = true;
+						}
+					};
+
 					const ticketsDir = path.join(basePath, folder.name, 'tickets');
 					if (fs.existsSync(ticketsDir)) {
 						try {
@@ -88,14 +106,10 @@ export async function GET() {
 									for (const f of files) {
 										if (f.startsWith('poi_') && f.endsWith('.json')) {
 											const poi = JSON.parse(fs.readFileSync(path.join(ticketFolder, f), 'utf8'));
-											if (poi.state && poi.state !== 'finished') {
-												hasOpenTickets = true;
-												break;
-											}
+											processPOI(poi);
 										}
 									}
 								}
-								if (hasOpenTickets) break;
 							}
 						} catch (e) {}
 					} else {
@@ -108,13 +122,9 @@ export async function GET() {
 									for (const t of ticketsData.tickets) {
 										if (t.pois && Array.isArray(t.pois)) {
 											for (const p of t.pois) {
-												if (p.state && p.state !== 'finished') {
-													hasOpenTickets = true;
-													break;
-												}
+												processPOI(p);
 											}
 										}
-										if (hasOpenTickets) break;
 									}
 								}
 							} catch (e) {}
@@ -148,6 +158,8 @@ export async function GET() {
 						hasCanbusSetup,
 						hasCanbusSim,
 						hasOpenTickets,
+						hasNeedsOrdering,
+						hasMaterialsReady: hasOrdered || hasInStock,
 					};
 				} catch (error) {
 					console.error(`Failed to load ${folder.name}`, error);

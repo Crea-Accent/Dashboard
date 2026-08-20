@@ -34,6 +34,9 @@ export default function EditTaskModal({ open, task, onClose, onSave }: EditTaskM
 	const [materialAssignee, setMaterialAssignee] = useState(task.materialAssignee || '');
 	const [materialState, setMaterialState] = useState(task.materialState || 'needs_ordering');
 
+	const [cancelReason, setCancelReason] = useState(task.cancelReason || '');
+	const [isCanceling, setIsCanceling] = useState(false);
+
 	const [users, setUsers] = useState<any[]>([]);
 	const [saving, setSaving] = useState(false);
 
@@ -45,7 +48,7 @@ export default function EditTaskModal({ open, task, onClose, onSave }: EditTaskM
 			});
 	}, []);
 
-	const handleSave = async () => {
+	const handleSave = async (stateOverride?: string) => {
 		try {
 			setSaving(true);
 
@@ -66,6 +69,8 @@ export default function EditTaskModal({ open, task, onClose, onSave }: EditTaskM
 							requiresMaterials,
 							materialAssignee,
 							materialState,
+							state: stateOverride || poi.state,
+							cancelReason: stateOverride === 'canceled' || (poi.state === 'canceled' && !stateOverride) ? cancelReason : undefined,
 						}
 					: poi
 			);
@@ -86,11 +91,37 @@ export default function EditTaskModal({ open, task, onClose, onSave }: EditTaskM
 			await onSave();
 			onClose();
 		} catch (error) {
-			console.error('Failed to update task', error);
+			console.error('Failed to save task:', error);
 		} finally {
 			setSaving(false);
 		}
 	};
+
+	if (isCanceling) {
+		return (
+			<Modal
+				open={open}
+				title="Cancel Task"
+				size="2xl"
+				onClose={() => setIsCanceling(false)}
+				footer={
+					<>
+						<Button variant="secondary" onClick={() => setIsCanceling(false)} disabled={saving}>
+							Back
+						</Button>
+						<Button onClick={() => handleSave('canceled')} disabled={saving || !cancelReason.trim()} className="bg-red-500 hover:bg-red-600 text-white border-transparent">
+							Confirm Cancellation
+						</Button>
+					</>
+				}
+			>
+				<div className="space-y-4">
+					<p className="text-sm text-[var(--text-muted)]">Please provide a reason why this task is not needed anymore.</p>
+					<Input label="Reason" value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} autoFocus />
+				</div>
+			</Modal>
+		);
+	}
 
 	return (
 		<Modal
@@ -100,10 +131,24 @@ export default function EditTaskModal({ open, task, onClose, onSave }: EditTaskM
 			onClose={onClose}
 			footer={
 				<>
+					{task.state !== 'canceled' && (
+						<div className="flex-1">
+							<Button variant="ghost" className="text-red-500 hover:text-red-600 hover:bg-red-500/10" onClick={() => setIsCanceling(true)} disabled={saving}>
+								Mark as Not Needed
+							</Button>
+						</div>
+					)}
+					{task.state === 'canceled' && (
+						<div className="flex-1">
+							<Button variant="ghost" className="text-blue-500 hover:text-blue-600 hover:bg-blue-500/10" onClick={() => handleSave('unfinished')} disabled={saving}>
+								Re-open Task
+							</Button>
+						</div>
+					)}
 					<Button variant="secondary" onClick={onClose} disabled={saving}>
 						Cancel
 					</Button>
-					<Button onClick={handleSave} disabled={saving}>
+					<Button onClick={() => handleSave()} disabled={saving}>
 						Save Changes
 					</Button>
 				</>

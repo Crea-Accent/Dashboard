@@ -1,7 +1,7 @@
 /** @format */
 'use client';
 
-import { CheckCircle2, Circle, ClipboardList, Clock, Edit3, FolderOpen, Search, Package, Filter } from 'lucide-react';
+import { CheckCircle2, Circle, ClipboardList, Clock, Edit3, FolderOpen, Search, Package, Filter, Ban } from 'lucide-react';
 import { NotPermitted, usePermissions } from '@/providers/PermissionsProvider';
 import { useEffect, useState } from 'react';
 
@@ -27,7 +27,7 @@ type Task = {
 	technician: string;
 	importance: number;
 	requiresPicture?: boolean;
-	state: 'unfinished' | 'finished';
+	state: 'unfinished' | 'finished' | 'canceled';
 	imagePath?: string;
 	finishedImagePath?: string;
 	completedBy?: string;
@@ -42,6 +42,7 @@ type Task = {
 	materialState?: 'needs_ordering' | 'ordered' | 'in_stock';
 	materialOrderedBy?: string;
 	materialStockedBy?: string;
+	cancelReason?: string;
 };
 
 export default function TasksPage() {
@@ -295,8 +296,9 @@ export default function TasksPage() {
 										</div>
 
 										<div className={`text-sm wrap-break-word whitespace-normal space-y-1`}>
-											<p className={`${task.state === 'finished' ? 'line-through text-(--text-muted)' : ''}`}>{task.description}</p>
+											<p className={`${task.state === 'finished' || task.state === 'canceled' ? 'line-through text-(--text-muted)' : ''}`}>{task.description}</p>
 											{task.state === 'finished' && task.completedBy && <p className="text-xs font-medium text-green-500">Completed by: {task.completedBy}</p>}
+											{task.state === 'canceled' && <p className="text-xs font-medium text-red-500">Not Needed: {task.cancelReason || 'No reason provided'}</p>}
 										</div>
 
 										{task.imagePath && (
@@ -360,7 +362,7 @@ export default function TasksPage() {
 															? `In Stock (received by ${task.materialStockedBy || task.materialAssignee || 'Unassigned'})`
 															: `Needs Ordering (assigned to ${task.materialAssignee || 'Unassigned'})`}
 												</span>
-												{task.state !== 'finished' && (!task.materialState || task.materialState === 'needs_ordering') ? (
+												{task.state !== 'finished' && task.state !== 'canceled' && (!task.materialState || task.materialState === 'needs_ordering') ? (
 													<Button
 														size="sm"
 														variant="secondary"
@@ -370,7 +372,7 @@ export default function TasksPage() {
 													>
 														Mark as Ordered
 													</Button>
-												) : task.state !== 'finished' && task.materialState === 'ordered' ? (
+												) : task.state !== 'finished' && task.state !== 'canceled' && task.materialState === 'ordered' ? (
 													<Button
 														size="sm"
 														variant="secondary"
@@ -387,7 +389,9 @@ export default function TasksPage() {
 
 									<div className="p-3 border-t border-[var(--border)]/10 bg-[var(--background)] flex items-center justify-between min-w-0 gap-2">
 										<div className="flex items-center gap-2">
-											<div className="text-xs font-medium text-[var(--text-muted)]">{task.state === 'finished' ? 'Completed' : 'Pending'}</div>
+											<div className="text-xs font-medium text-[var(--text-muted)]">
+												{task.state === 'finished' ? 'Completed' : task.state === 'canceled' ? 'Not Needed' : 'Pending'}
+											</div>
 											{has('tasks.write') && (
 												<button onClick={() => setTaskToEdit(task)} className="text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors p-1" title="Edit Task">
 													<Edit3 size={14} />
@@ -396,13 +400,27 @@ export default function TasksPage() {
 										</div>
 										<Button
 											size="sm"
-											variant={task.state === 'finished' ? 'ghost' : 'primary'}
-											disabled={task.state === 'finished' || (task.requiresMaterials && task.materialState !== 'in_stock')}
+											variant={task.state === 'finished' || task.state === 'canceled' ? 'ghost' : 'primary'}
+											disabled={task.state === 'finished' || task.state === 'canceled' || (task.requiresMaterials && task.materialState !== 'in_stock')}
 											onClick={() => setTaskToComplete(task)}
-											icon={task.state === 'finished' ? <CheckCircle2 size={16} className="text-green-500" /> : <Circle size={16} />}
-											title={task.requiresMaterials && task.materialState !== 'in_stock' ? 'Materials are not in stock yet.' : ''}
+											icon={
+												task.state === 'finished' ? (
+													<CheckCircle2 size={16} className="text-green-500" />
+												) : task.state === 'canceled' ? (
+													<Ban size={16} className="text-red-500" />
+												) : (
+													<Circle size={16} />
+												)
+											}
+											title={
+												task.state === 'canceled'
+													? 'Task marked as Not Needed'
+													: task.requiresMaterials && task.materialState !== 'in_stock'
+														? 'Materials are not in stock yet.'
+														: ''
+											}
 										>
-											{task.state === 'finished' ? 'Done' : 'Mark as Done'}
+											{task.state === 'finished' ? 'Done' : task.state === 'canceled' ? 'Disregarded' : 'Mark as Done'}
 										</Button>
 									</div>
 								</Card>

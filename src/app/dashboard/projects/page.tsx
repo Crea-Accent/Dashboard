@@ -1,7 +1,7 @@
 /** @format */
 'use client';
 
-import { ArrowDownAZ, ArrowUpAZ, Filter, Folder, MapPin, Pencil, Plus, Search, Sun, Cable, TriangleAlert } from 'lucide-react';
+import { ArrowDownAZ, ArrowUpAZ, Filter, Folder, MapPin, Pencil, Plus, Search, Sun, Cable, TriangleAlert, Package, PackageCheck } from 'lucide-react';
 import { NotPermitted, usePermissions } from '@/providers/PermissionsProvider';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -47,6 +47,8 @@ type Project = {
 	hasCanbusSetup?: boolean;
 	hasCanbusSim?: boolean;
 	hasOpenTickets?: boolean;
+	hasNeedsOrdering?: boolean;
+	hasMaterialsReady?: boolean;
 };
 
 type Settings = {
@@ -197,6 +199,8 @@ export default function Page() {
 					if (status === 'FusionSolar') return p.hasFusionSolar;
 					if (status === 'Canbus') return p.hasCanbusSetup || p.hasCanbusSim;
 					if (status === 'Open Tickets') return p.hasOpenTickets;
+					if (status === 'Needs Materials') return p.hasNeedsOrdering;
+					if (status === 'Materials Ready') return p.hasMaterialsReady;
 					return false;
 				});
 				if (!hasMatch) return false;
@@ -369,6 +373,8 @@ export default function Page() {
 								{ label: 'FusionSolar', value: 'FusionSolar', icon: <Sun size={14} className="text-yellow-500" /> },
 								{ label: 'Canbus', value: 'Canbus', icon: <Cable size={14} className="text-blue-500" /> },
 								{ label: 'Open Tickets', value: 'Open Tickets', icon: <TriangleAlert size={14} className="text-red-500" /> },
+								{ label: 'Needs Materials', value: 'Needs Materials', icon: <Package size={14} className="text-orange-500" /> },
+								{ label: 'Materials Ready', value: 'Materials Ready', icon: <PackageCheck size={14} className="text-blue-500" /> },
 							]}
 						/>
 					</div>
@@ -469,6 +475,16 @@ export default function Page() {
 												<TriangleAlert size={16} className="text-red-500" />
 											</div>
 										)}
+										{p.hasNeedsOrdering && (
+											<div title="Materials need ordering">
+												<Package size={16} className="text-orange-500" />
+											</div>
+										)}
+										{p.hasMaterialsReady && (
+											<div title="Materials ordered/in stock">
+												<PackageCheck size={16} className="text-blue-500" />
+											</div>
+										)}
 									</div>
 
 									{/* Actions */}
@@ -519,6 +535,16 @@ export default function Page() {
 													{p.hasOpenTickets && (
 														<div title="Tasks to do">
 															<TriangleAlert size={16} className="text-red-500" />
+														</div>
+													)}
+													{p.hasNeedsOrdering && (
+														<div title="Materials need ordering">
+															<Package size={16} className="text-orange-500" />
+														</div>
+													)}
+													{p.hasMaterialsReady && (
+														<div title="Materials ordered/in stock">
+															<PackageCheck size={16} className="text-blue-500" />
 														</div>
 													)}
 												</div>
