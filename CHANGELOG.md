@@ -1,5 +1,11 @@
 # panel
 
+## 0.3.9
+
+### Patch Changes
+
+- Fix viewbox of the serenity buttons
+
 ## 0.3.8
 
 ### Patch Changes
