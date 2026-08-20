@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
 			const processTicketPOIs = (ticket: any) => {
 				if (ticket.pois && Array.isArray(ticket.pois)) {
 					for (const poi of ticket.pois) {
-						if (all || poi.technician === technicianUsername) {
+						if (all || poi.technician === technicianUsername || (poi.requiresMaterials && poi.materialAssignee === technicianUsername)) {
 							allTasks.push({
 								...poi,
 								ticketId: ticket.id,

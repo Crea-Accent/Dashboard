@@ -1,7 +1,7 @@
 /** @format */
 'use client';
 
-import { CheckCircle2, ChevronDown, Circle, Clock, Plus, Download, Ticket as TicketIcon, Loader2, FileText as FileIcon, GripVertical, Edit3 } from 'lucide-react';
+import { CheckCircle2, ChevronDown, Circle, Clock, Plus, Download, Ticket as TicketIcon, Loader2, FileText as FileIcon, GripVertical, Edit3, Package, PackageCheck } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core';
@@ -11,11 +11,12 @@ import { CSS } from '@dnd-kit/utilities';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-import Button from '../ui/Button';
-import Card from '../ui/Card';
+import Button from '@/components/ui/Button';
+import Card from '@/components/ui/Card';
 import CompleteTaskModal from './tickets/CompleteTaskModal';
-import EmptyState from '../ui/EmptyState';
-import File from '../files/File';
+import EmptyState from '@/components/ui/EmptyState';
+import Modal from '@/components/ui/Modal';
+import File from '@/components/files/File';
 import Loading from '../ui/Loading';
 import TicketModal from './tickets/TicketModal';
 import EditTaskModal from './tickets/EditTaskModal';
@@ -34,6 +35,11 @@ type POI = {
 	finishedImagePath?: string;
 	completedBy?: string;
 	proofDescription?: string;
+	requiresMaterials?: boolean;
+	materialAssignee?: string;
+	materialState?: 'needs_ordering' | 'ordered' | 'in_stock';
+	materialOrderedBy?: string;
+	materialStockedBy?: string;
 };
 
 type Ticket = {
@@ -61,6 +67,11 @@ export default function Tickets({ client }: { client: string }) {
 	const [poiToEdit, setPoiToEdit] = useState<{
 		poi: POI;
 		ticket: Ticket;
+	} | null>(null);
+	const [materialStateConfirm, setMaterialStateConfirm] = useState<{
+		ticketId: string;
+		poiId: string;
+		newState: 'ordered' | 'in_stock';
 	} | null>(null);
 	const [generatingPdf, setGeneratingPdf] = useState<string | null>(null);
 	const [users, setUsers] = useState<any[]>([]);
@@ -149,6 +160,32 @@ export default function Tickets({ client }: { client: string }) {
 	useEffect(() => {
 		load();
 	}, [client]);
+
+	const updateMaterialState = async (ticketId: string, poiId: string, newState: 'needs_ordering' | 'ordered' | 'in_stock') => {
+		const ticketIndex = tickets.findIndex((t) => t.id === ticketId);
+		if (ticketIndex === -1) return;
+
+		const ticket = tickets[ticketIndex];
+		const extraFields: any = {};
+		if (newState === 'ordered') extraFields.materialOrderedBy = currentUsername;
+		if (newState === 'in_stock') extraFields.materialStockedBy = currentUsername;
+
+		const updatedPOIs = ticket.pois.map((poi) => (poi.id === poiId ? { ...poi, materialState: newState, ...extraFields } : poi));
+
+		const updatedTickets = [...tickets];
+		updatedTickets[ticketIndex] = { ...ticket, pois: updatedPOIs };
+		setTickets(updatedTickets);
+
+		await fetch('/api/projects/tickets', {
+			method: 'PATCH',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				client,
+				ticketId,
+				updates: { pois: updatedPOIs },
+			}),
+		});
+	};
 
 	const markPOIDone = async (ticketId: string, poiId: string, finishedImagePath?: string, completedBy?: string, proofDescription?: string) => {
 		const ticketIndex = tickets.findIndex((t) => t.id === ticketId);
@@ -902,6 +939,7 @@ export default function Tickets({ client }: { client: string }) {
 												isAllowed={isAllowed}
 												setPoiToComplete={setPoiToComplete}
 												setPoiToEdit={setPoiToEdit}
+												setMaterialStateConfirm={setMaterialStateConfirm}
 											/>
 										))}
 									</SortableContext>
@@ -954,6 +992,34 @@ export default function Tickets({ client }: { client: string }) {
 					}}
 				/>
 			)}
+
+			<Modal
+				open={!!materialStateConfirm}
+				title="Confirm Material Status"
+				size="md"
+				onClose={() => setMaterialStateConfirm(null)}
+				footer={
+					<>
+						<Button variant="secondary" onClick={() => setMaterialStateConfirm(null)}>
+							Cancel
+						</Button>
+						<Button
+							onClick={() => {
+								if (materialStateConfirm) {
+									updateMaterialState(materialStateConfirm.ticketId, materialStateConfirm.poiId, materialStateConfirm.newState);
+									setMaterialStateConfirm(null);
+								}
+							}}
+						>
+							Confirm
+						</Button>
+					</>
+				}
+			>
+				<div className="py-2 text-sm text-[var(--text)]">
+					Are you sure you want to mark these materials as <strong>{materialStateConfirm?.newState === 'ordered' ? 'Ordered' : 'In Stock'}</strong>?
+				</div>
+			</Modal>
 		</section>
 	);
 }
@@ -965,6 +1031,7 @@ function SortablePOI({
 	isAllowed,
 	setPoiToComplete,
 	setPoiToEdit,
+	setMaterialStateConfirm,
 }: {
 	poi: POI;
 	ticket: Ticket;
@@ -972,6 +1039,7 @@ function SortablePOI({
 	isAllowed: boolean;
 	setPoiToComplete: any;
 	setPoiToEdit: any;
+	setMaterialStateConfirm: any;
 }) {
 	const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: poi.id });
 
@@ -996,19 +1064,40 @@ function SortablePOI({
 							<Edit3 size={16} />
 						</button>
 					)}
-					<button
-						disabled={poi.state === 'finished' || (poi.technician !== currentUsername && !isAllowed)}
-						onClick={() =>
-							setPoiToComplete({
-								ticketId: ticket.id,
-								poiId: poi.id,
-								requiresPicture: poi.requiresPicture,
-							})
-						}
-						className={`${poi.state === 'finished' ? 'text-green-500' : 'text-(--text-muted) hover:text-(--accent)'} transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
-					>
-						{poi.state === 'finished' ? <CheckCircle2 size={20} /> : <Circle size={20} />}
-					</button>
+					{poi.requiresMaterials && poi.state !== 'finished' && (!poi.materialState || poi.materialState === 'needs_ordering') ? (
+						<button
+							disabled={!(currentUsername === poi.materialAssignee || isAllowed)}
+							onClick={() => setMaterialStateConfirm({ ticketId: ticket.id, poiId: poi.id, newState: 'ordered' })}
+							className="text-orange-500 hover:text-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed p-1"
+							title="Mark as Ordered"
+						>
+							<Package size={20} />
+						</button>
+					) : poi.requiresMaterials && poi.state !== 'finished' && poi.materialState === 'ordered' ? (
+						<button
+							disabled={!(currentUsername === poi.materialAssignee || isAllowed)}
+							onClick={() => setMaterialStateConfirm({ ticketId: ticket.id, poiId: poi.id, newState: 'in_stock' })}
+							className="text-blue-500 hover:text-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed p-1"
+							title="Mark as In Stock"
+						>
+							<PackageCheck size={20} />
+						</button>
+					) : (
+						<button
+							disabled={poi.state === 'finished' || (poi.technician !== currentUsername && !isAllowed) || (poi.requiresMaterials && poi.materialState !== 'in_stock')}
+							onClick={() =>
+								setPoiToComplete({
+									ticketId: ticket.id,
+									poiId: poi.id,
+									requiresPicture: poi.requiresPicture,
+								})
+							}
+							className={`${poi.state === 'finished' ? 'text-green-500' : 'text-[var(--text-muted)] hover:text-[var(--accent)]'} transition-colors disabled:opacity-50 disabled:cursor-not-allowed p-1`}
+							title={poi.requiresMaterials && poi.materialState !== 'in_stock' ? 'Materials are not in stock yet.' : ''}
+						>
+							{poi.state === 'finished' ? <CheckCircle2 size={20} /> : <Circle size={20} />}
+						</button>
+					)}
 				</div>
 				<div className="flex-1 min-w-0">
 					<p className={`text-sm break-words whitespace-normal ${poi.state === 'finished' ? 'line-through text-(--text-muted)' : ''}`}>{poi.description}</p>
@@ -1021,6 +1110,19 @@ function SortablePOI({
 						<span className="px-2 py-0.5 rounded-full capitalize shrink-0 bg-zinc-500/10 text-zinc-500 font-mono text-[10px]">
 							#{poi.importance || ticket.pois.findIndex((p) => p.id === poi.id) + 1}
 						</span>
+
+						{poi.requiresMaterials && (
+							<span
+								className={`px-2 py-0.5 rounded-full border truncate max-w-full font-medium ${poi.materialState === 'in_stock' ? 'bg-green-500/10 border-green-500/20 text-green-600 dark:text-green-400' : poi.materialState === 'ordered' ? 'bg-blue-500/10 border-blue-500/20 text-blue-600 dark:text-blue-400' : 'bg-orange-500/10 border-orange-500/20 text-orange-600 dark:text-orange-400'}`}
+							>
+								Materials:{' '}
+								{poi.materialState === 'ordered'
+									? `Ordered by ${poi.materialOrderedBy || poi.materialAssignee || 'Unassigned'}`
+									: poi.materialState === 'in_stock'
+										? `In Stock (received by ${poi.materialStockedBy || poi.materialAssignee || 'Unassigned'})`
+										: `Needs Ordering (assigned to ${poi.materialAssignee || 'Unassigned'})`}
+							</span>
+						)}
 					</div>
 				</div>
 			</div>

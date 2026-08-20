@@ -16,6 +16,7 @@ export type TicketTemplatePOI = {
 	id: string;
 	description: string;
 	requiresPicture: boolean;
+	requiresMaterials?: boolean;
 };
 
 export type TicketTemplate = {
@@ -54,6 +55,7 @@ export default function TasksSettings() {
 				id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2),
 				description: '',
 				requiresPicture: false,
+				requiresMaterials: false,
 			},
 		]);
 	};
@@ -74,6 +76,7 @@ export default function TasksSettings() {
 				id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2),
 				description: '',
 				requiresPicture: false,
+				requiresMaterials: false,
 			},
 		]);
 		setShowModal(true);
@@ -203,6 +206,15 @@ export default function TasksSettings() {
 										onChange={(checked) => handlePOIChange(poi.id, 'requiresPicture', checked)}
 										label="Require Proof Media"
 										description="The technician must upload media when marking this task as done."
+									/>
+								</div>
+
+								<div className="py-2 border-t border-(--border)/10">
+									<Toggle
+										checked={poi.requiresMaterials || false}
+										onChange={(checked) => handlePOIChange(poi.id, 'requiresMaterials', checked)}
+										label="Requires Materials"
+										description="This task requires materials to be ordered and received before completion."
 									/>
 								</div>
 							</div>

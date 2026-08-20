@@ -7,6 +7,7 @@ import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Modal from '@/components/ui/Modal';
 import Selector from '@/components/ui/Selector';
+import Toggle from '@/components/ui/Toggle';
 
 type Task = {
 	id: string;
@@ -29,6 +30,10 @@ export default function EditTaskModal({ open, task, onClose, onSave }: EditTaskM
 	const [ticketName, setTicketName] = useState(task.ticketName || '');
 	const [description, setDescription] = useState(task.description || '');
 	const [technician, setTechnician] = useState(task.technician || '');
+	const [requiresMaterials, setRequiresMaterials] = useState(task.requiresMaterials || false);
+	const [materialAssignee, setMaterialAssignee] = useState(task.materialAssignee || '');
+	const [materialState, setMaterialState] = useState(task.materialState || 'needs_ordering');
+
 	const [users, setUsers] = useState<any[]>([]);
 	const [saving, setSaving] = useState(false);
 
@@ -52,7 +57,18 @@ export default function EditTaskModal({ open, task, onClose, onSave }: EditTaskM
 
 			if (!fullTicket) throw new Error('Ticket not found');
 
-			const updatedPOIs = fullTicket.pois.map((poi: any) => (poi.id === task.id ? { ...poi, description, technician } : poi));
+			const updatedPOIs = fullTicket.pois.map((poi: any) =>
+				poi.id === task.id
+					? {
+							...poi,
+							description,
+							technician,
+							requiresMaterials,
+							materialAssignee,
+							materialState,
+						}
+					: poi
+			);
 
 			await fetch('/api/projects/tickets', {
 				method: 'PATCH',
@@ -80,6 +96,7 @@ export default function EditTaskModal({ open, task, onClose, onSave }: EditTaskM
 		<Modal
 			open={open}
 			title="Edit Task"
+			size="2xl"
 			onClose={onClose}
 			footer={
 				<>
@@ -95,13 +112,13 @@ export default function EditTaskModal({ open, task, onClose, onSave }: EditTaskM
 			<div className="space-y-4">
 				<div className="mb-4">
 					<Input label="Ticket Name" value={ticketName} onChange={(e) => setTicketName(e.target.value)} />
-					<p className="text-xs text-(--text-muted) mt-1">Warning: Editing this changes the name for all tasks in this ticket.</p>
+					<p className="text-xs text-[var(--text-muted)] mt-1">Warning: Editing this changes the name for all tasks in this ticket.</p>
 				</div>
 
 				<Input label="Task Description" value={description} onChange={(e) => setDescription(e.target.value)} />
 
 				<div className="pt-2">
-					<label className="text-sm font-medium text-(--text) block mb-2">Assign Technician</label>
+					<label className="text-sm font-medium text-[var(--text)] block mb-2">Assign Technician</label>
 					<Selector
 						value={technician}
 						onChange={(v) => setTechnician(v)}
@@ -114,6 +131,29 @@ export default function EditTaskModal({ open, task, onClose, onSave }: EditTaskM
 						]}
 					/>
 				</div>
+
+				<div className="pt-4 border-t border-[var(--border)] mt-4">
+					<Toggle label="Requires Materials" checked={requiresMaterials} onChange={setRequiresMaterials} />
+				</div>
+
+				{requiresMaterials && (
+					<div className="space-y-4 pt-2">
+						<div>
+							<label className="text-sm font-medium text-[var(--text)] block mb-2">Material Assignee</label>
+							<Selector
+								value={materialAssignee}
+								onChange={(v) => setMaterialAssignee(v)}
+								options={[
+									{ label: 'Unassigned', value: '' },
+									...users.map((u) => ({
+										label: u.name || u.username || u.id,
+										value: u.username || u.name || u.id,
+									})),
+								]}
+							/>
+						</div>
+					</div>
+				)}
 			</div>
 		</Modal>
 	);

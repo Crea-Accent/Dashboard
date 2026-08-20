@@ -1,5 +1,11 @@
 # panel
 
+## 0.4.0
+
+### Minor Changes
+
+- Added task material stages and fixed a Selector bug where the screen would flash
+
 ## 0.3.10
 
 ### Patch Changes

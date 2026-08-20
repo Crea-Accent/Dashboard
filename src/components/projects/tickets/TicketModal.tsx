@@ -27,6 +27,9 @@ type POIState = {
 	requiresPicture: boolean;
 	file: File | null;
 	filePreview: string | null;
+	requiresMaterials: boolean;
+	materialAssignee: string;
+	materialState: 'needs_ordering' | 'ordered' | 'in_stock';
 };
 
 type TicketTemplate = {
@@ -35,6 +38,7 @@ type TicketTemplate = {
 	pois: {
 		description: string;
 		requiresPicture: boolean;
+		requiresMaterials?: boolean;
 	}[];
 };
 
@@ -67,6 +71,9 @@ export default function TicketModal({ open, client, users, existingTicket, onClo
 			requiresPicture: false,
 			file: null,
 			filePreview: null,
+			requiresMaterials: false,
+			materialAssignee: '',
+			materialState: 'needs_ordering',
 		},
 	]);
 
@@ -80,6 +87,9 @@ export default function TicketModal({ open, client, users, existingTicket, onClo
 				requiresPicture: false,
 				file: null,
 				filePreview: null,
+				requiresMaterials: false,
+				materialAssignee: '',
+				materialState: 'needs_ordering',
 			},
 		]);
 	};
@@ -131,6 +141,9 @@ export default function TicketModal({ open, client, users, existingTicket, onClo
 					requiresPicture: poi.requiresPicture,
 					state: 'unfinished',
 					imagePath,
+					requiresMaterials: poi.requiresMaterials,
+					materialAssignee: poi.materialAssignee,
+					materialState: poi.materialState,
 				});
 			}
 
@@ -176,6 +189,9 @@ export default function TicketModal({ open, client, users, existingTicket, onClo
 					requiresPicture: false,
 					file: null,
 					filePreview: null,
+					requiresMaterials: false,
+					materialAssignee: '',
+					materialState: 'needs_ordering',
 				},
 			]);
 		} catch (error) {
@@ -189,7 +205,7 @@ export default function TicketModal({ open, client, users, existingTicket, onClo
 		<Modal
 			open={open}
 			title={existingTicket ? 'Add Points of Interest' : 'New Ticket'}
-			size="lg"
+			size="3xl"
 			onClose={onClose}
 			footer={
 				<>
@@ -231,6 +247,9 @@ export default function TicketModal({ open, client, users, existingTicket, onClo
 													requiresPicture: p.requiresPicture,
 													file: null,
 													filePreview: null,
+													requiresMaterials: p.requiresMaterials || false,
+													materialAssignee: '',
+													materialState: 'needs_ordering' as const,
 												}));
 
 												if (isDefaultEmpty) {
@@ -276,7 +295,7 @@ export default function TicketModal({ open, client, users, existingTicket, onClo
 
 							<div className="grid grid-cols-1 gap-4">
 								<div>
-									<label className="text-sm font-medium text-(--text) block mb-2">Technician</label>
+									<label className="text-sm font-medium text-[var(--text)] block mb-2">Technician</label>
 									<Selector
 										value={poi.technician}
 										onChange={(v) => handlePOIChange(poi.id, 'technician', v)}
@@ -290,6 +309,34 @@ export default function TicketModal({ open, client, users, existingTicket, onClo
 									/>
 								</div>
 							</div>
+
+							<div className="pt-2">
+								<Toggle
+									checked={poi.requiresMaterials}
+									onChange={(checked) => handlePOIChange(poi.id, 'requiresMaterials', checked)}
+									label="Requires Materials"
+									description="This task requires materials to be ordered and received before completion."
+								/>
+							</div>
+
+							{poi.requiresMaterials && (
+								<div className="grid grid-cols-1 gap-4 pt-2">
+									<div>
+										<label className="text-sm font-medium text-[var(--text)] block mb-2">Material Assignee</label>
+										<Selector
+											value={poi.materialAssignee}
+											onChange={(v) => handlePOIChange(poi.id, 'materialAssignee', v)}
+											options={[
+												{ label: 'Unassigned', value: '' },
+												...users.map((u) => ({
+													label: u.name || u.username || u.id,
+													value: u.username || u.name || u.id,
+												})),
+											]}
+										/>
+									</div>
+								</div>
+							)}
 
 							<div className="py-2 border-t border-(--border)/10">
 								<Toggle

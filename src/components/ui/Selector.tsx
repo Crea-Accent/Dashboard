@@ -29,7 +29,7 @@ type Props = {
 export default function Selector({ value, options, onChange, placeholder = 'Select', className, hideLabelOnMobile, onOpenChange, direction = 'down', disabled, loading }: Props) {
 	const [open, setOpen] = useState(false);
 	const [searchQuery, setSearchQuery] = useState('');
-	const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
+	const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({ position: 'fixed', opacity: 0, pointerEvents: 'none' });
 	const [portalNode, setPortalNode] = useState<HTMLElement | null>(null);
 
 	const ref = useRef<HTMLDivElement>(null);
@@ -43,6 +43,7 @@ export default function Selector({ value, options, onChange, placeholder = 'Sele
 		onOpenChange?.(open);
 		if (!open) {
 			setSearchQuery('');
+			setDropdownStyle({ position: 'fixed', opacity: 0, pointerEvents: 'none' });
 		}
 	}, [open, onOpenChange]);
 
@@ -56,6 +57,8 @@ export default function Selector({ value, options, onChange, placeholder = 'Sele
 				left: rect.left,
 				width: rect.width,
 				zIndex: 99999,
+				opacity: 1,
+				pointerEvents: 'auto',
 			});
 		}
 	}, [open, direction]);
