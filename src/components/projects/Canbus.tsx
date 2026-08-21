@@ -1070,7 +1070,7 @@ export default function Canbus({ basePath, client }: Props) {
 			{dockNode &&
 				createPortal(
 					<>
-						<div className="relative flex items-center w-[150px] sm:w-auto sm:min-w-[300px]">
+						<div className="relative hidden sm:flex items-center sm:w-auto sm:min-w-[300px]">
 							<Input
 								placeholder="Search modules..."
 								value={search}

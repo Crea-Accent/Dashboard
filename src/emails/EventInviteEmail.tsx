@@ -278,7 +278,6 @@ export default function EventInviteEmail({ event, contact, baseUrl, bannerUrl, r
 										>
 											<tr>
 												<td align="center" bgcolor="#F9F7F3">
-													<Text style={styles.programTitle}>WAAR PARKEREN ?</Text>
 													<Text style={styles.text}>
 														{event?.location || 'Er is voldoende parkeerplek op het Lodewijk De Vocht plein; dit is op 200m stappen van onze showroom.'}
 													</Text>
@@ -311,21 +310,35 @@ export default function EventInviteEmail({ event, contact, baseUrl, bannerUrl, r
 								</tr>
 							</table>
 
-							<table width="100%" border={0} cellPadding={0} cellSpacing={0} role="presentation" align="center" bgcolor="#F9F7F3" style={{ marginTop: '40px' }}>
+							<Spacer height={40} />
+
+							<table width="100%" border={0} cellPadding={0} cellSpacing={0} role="presentation" align="center" bgcolor="#F9F7F3">
 								<tr>
 									<td align="center" bgcolor="#F9F7F3">
-										<Link href="https://www.crea-accent.be" style={styles.socialLink}>
-											<Img src={`${baseUrl}/website.png`} width="32" height="32" alt="Website" style={styles.socialIcon} />
-										</Link>
-										<Link href="https://www.instagram.com/crea.accent/" style={styles.socialLink}>
-											<Img src={`${baseUrl}/instagram.png`} width="32" height="32" alt="Instagram" style={styles.socialIcon} />
-										</Link>
-										<Link href="https://www.linkedin.com/company/crea-accent" style={styles.socialLink}>
-											<Img src={`${baseUrl}/linkedin.png`} width="32" height="32" alt="LinkedIn" style={styles.socialIcon} />
-										</Link>
-										<Link href="https://www.facebook.com/Crea.Accent.Verlichting" style={styles.socialLink}>
-											<Img src={`${baseUrl}/facebook.png`} width="32" height="32" alt="Facebook" style={styles.socialIcon} />
-										</Link>
+										<table border={0} cellPadding={0} cellSpacing={0} role="presentation" align="center">
+											<tr>
+												<td style={{ padding: '0 8px' }}>
+													<Link href="https://www.crea-accent.be" style={styles.socialLink}>
+														<Img src={`${baseUrl}/website.png`} width="32" height="32" alt="Website" style={styles.socialIcon} />
+													</Link>
+												</td>
+												<td style={{ padding: '0 8px' }}>
+													<Link href="https://www.instagram.com/crea.accent/" style={styles.socialLink}>
+														<Img src={`${baseUrl}/instagram.png`} width="32" height="32" alt="Instagram" style={styles.socialIcon} />
+													</Link>
+												</td>
+												<td style={{ padding: '0 8px' }}>
+													<Link href="https://www.linkedin.com/company/crea-accent" style={styles.socialLink}>
+														<Img src={`${baseUrl}/linkedin.png`} width="32" height="32" alt="LinkedIn" style={styles.socialIcon} />
+													</Link>
+												</td>
+												<td style={{ padding: '0 8px' }}>
+													<Link href="https://www.facebook.com/Crea.Accent.Verlichting" style={styles.socialLink}>
+														<Img src={`${baseUrl}/facebook.png`} width="32" height="32" alt="Facebook" style={styles.socialIcon} />
+													</Link>
+												</td>
+											</tr>
+										</table>
 									</td>
 								</tr>
 							</table>
@@ -438,7 +451,6 @@ const styles = {
 	},
 	socialLink: {
 		display: 'inline-block',
-		margin: '0 8px',
 	},
 	socialIcon: {
 		display: 'block',
