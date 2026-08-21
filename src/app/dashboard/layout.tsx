@@ -19,6 +19,9 @@ export const metadata: Metadata = {
 	},
 };
 
+import { LocalProvider } from '@/providers/LocalProvider';
+import { ProjectPromptProvider } from '@/providers/ProjectPromptProvider';
+
 export default async function DashboardLayout({
 	children,
 }: Readonly<{
@@ -36,16 +39,18 @@ export default async function DashboardLayout({
 	if (permissions.includes('client.read') || permissions.includes('client.write')) return redirect('/portal');
 
 	return (
-		<>
-			<ToastProvider>
-				<StatusProvider>
-					<SidebarLayout>
-						<Sidebar />
-						<SidePanel />
-						<main className="flex-1 w-full md:px-6 py-25 md:py-25">{children}</main>
-					</SidebarLayout>
-				</StatusProvider>
-			</ToastProvider>
-		</>
+		<LocalProvider>
+			<ProjectPromptProvider>
+				<ToastProvider>
+					<StatusProvider>
+						<SidebarLayout>
+							<Sidebar />
+							<SidePanel />
+							<main className="flex-1 w-full md:px-6 py-25 md:py-25">{children}</main>
+						</SidebarLayout>
+					</StatusProvider>
+				</ToastProvider>
+			</ProjectPromptProvider>
+		</LocalProvider>
 	);
 }

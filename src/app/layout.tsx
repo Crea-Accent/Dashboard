@@ -5,11 +5,9 @@ import './globals.css';
 import BackgroundGlow from '@/components/ui/BackGroundGlow';
 import { HEADER_HEIGHT } from '@/lib/layout';
 import Header from '@/components/Header';
-import { LocalProvider } from '@/providers/LocalProvider';
 import type { Metadata } from 'next';
 import { PermissionsProvider } from '@/providers/PermissionsProvider';
 import { DebugProvider } from '@/providers/DebugProvider';
-import { ProjectPromptProvider } from '@/providers/ProjectPromptProvider';
 import { SessionProvider } from '@/providers/SessionProvider';
 import { SidebarProvider } from '@/providers/SidebarProvider';
 import { ThemeProvider } from '@/providers/ThemeProvider';
@@ -48,21 +46,17 @@ export default async function RootLayout({
 					<ThemeProvider>
 						<PermissionsProvider>
 							<DebugProvider>
-								<LocalProvider>
-									<ProjectPromptProvider>
-										<UploadProvider>
-											<SidebarProvider>
-												<div className="min-h-screen flex flex-col relative overflow-hidden">
-													{/* Background glow */}
-													{/* <BackgroundGlow /> */}
+								<UploadProvider>
+									<SidebarProvider>
+										<div className="min-h-screen flex flex-col relative overflow-hidden">
+											{/* Background glow */}
+											{/* <BackgroundGlow /> */}
 
-													<Header />
-													<div className={`mt-[${HEADER_HEIGHT}px]`}>{children}</div>
-												</div>
-											</SidebarProvider>
-										</UploadProvider>
-									</ProjectPromptProvider>
-								</LocalProvider>
+											<Header />
+											<div className={`mt-[${HEADER_HEIGHT}px]`}>{children}</div>
+										</div>
+									</SidebarProvider>
+								</UploadProvider>
 							</DebugProvider>
 						</PermissionsProvider>
 					</ThemeProvider>

@@ -1,5 +1,11 @@
 # panel
 
+## 0.4.4
+
+### Patch Changes
+
+- Fixed permissions
+
 ## 0.4.3
 
 ### Patch Changes
