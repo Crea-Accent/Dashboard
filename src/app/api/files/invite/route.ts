@@ -140,16 +140,16 @@ export async function POST(request: NextRequest) {
         <div style="text-align:center;">
             
             <a href="https://www.crea-accent.be" style="text-decoration:none; display:inline-block; margin:0 8px 10px 8px;" target="_blank">
-                    <img src="https://crea.dummi.me/website.png" alt="Website" border="0" width="32" height="32" style="display:block; width:32px; height:32px;" />
+                    <img src="https://crea-accent.app/website.png" alt="Website" border="0" width="32" height="32" style="display:block; width:32px; height:32px;" />
                 </a>
             <a href="https://www.instagram.com/crea.accent/" style="text-decoration:none; display:inline-block; margin:0 8px 10px 8px;" target="_blank">
-                    <img src="https://crea.dummi.me/instagram.png" alt="Instagram" border="0" width="32" height="32" style="display:block; width:32px; height:32px;" />
+                    <img src="https://crea-accent.app/instagram.png" alt="Instagram" border="0" width="32" height="32" style="display:block; width:32px; height:32px;" />
                 </a>
             <a href="https://www.linkedin.com/company/crea-accent" style="text-decoration:none; display:inline-block; margin:0 8px 10px 8px;" target="_blank">
-                    <img src="https://crea.dummi.me/linkedin.png" alt="LinkedIn" border="0" width="32" height="32" style="display:block; width:32px; height:32px;" />
+                    <img src="https://crea-accent.app/linkedin.png" alt="LinkedIn" border="0" width="32" height="32" style="display:block; width:32px; height:32px;" />
                 </a>
             <a href="https://www.facebook.com/Crea.Accent.Verlichting" style="text-decoration:none; display:inline-block; margin:0 8px 10px 8px;" target="_blank">
-                    <img src="https://crea.dummi.me/facebook.png" alt="Facebook" border="0" width="32" height="32" style="display:block; width:32px; height:32px;" />
+                    <img src="https://crea-accent.app/facebook.png" alt="Facebook" border="0" width="32" height="32" style="display:block; width:32px; height:32px;" />
                 </a>
             </div>
     </div>

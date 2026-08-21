@@ -55,7 +55,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 			return NextResponse.json({ error: 'Postmark API token is not configured' }, { status: 500 });
 		}
 
-		const baseUrl = process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : 'https://crea.dummi.me';
+		const baseUrl = process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : 'https://crea-accent.app';
 
 		let bannerUrl: string | undefined;
 		let ribbonUrl: string | undefined;

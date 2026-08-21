@@ -1,5 +1,11 @@
 # panel
 
+## 0.4.3
+
+### Patch Changes
+
+- new domain
+
 ## 0.4.2
 
 ### Patch Changes
