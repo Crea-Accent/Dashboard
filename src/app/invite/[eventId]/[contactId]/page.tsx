@@ -81,7 +81,7 @@ export default function InvitePage() {
 
 	if (loading) {
 		return (
-			<div className="min-h-screen bg-[#f5f5f5] flex items-center justify-center font-sans">
+			<div className="min-h-screen bg-[#f5f5f5] flex items-center justify-center font-sans text-zinc-900">
 				<div className="animate-pulse flex flex-col items-center gap-4">
 					<div className="h-8 w-8 rounded-full border-4 border-[#a4b795] border-t-transparent animate-spin"></div>
 					<p className="text-zinc-500">Laden...</p>
@@ -92,7 +92,7 @@ export default function InvitePage() {
 
 	if (error) {
 		return (
-			<div className="min-h-screen bg-[#f5f5f5] p-6 flex flex-col items-center justify-center font-sans">
+			<div className="min-h-screen bg-[#f5f5f5] p-6 flex flex-col items-center justify-center font-sans text-zinc-900">
 				<div className="max-w-md w-full bg-white rounded-3xl p-8 shadow-sm text-center">
 					<div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6">
 						<X size={32} />
@@ -106,7 +106,7 @@ export default function InvitePage() {
 
 	if (success) {
 		return (
-			<div className="min-h-screen bg-[#f5f5f5] p-6 flex flex-col items-center justify-center font-sans">
+			<div className="min-h-screen bg-[#f5f5f5] p-6 flex flex-col items-center justify-center font-sans text-zinc-900">
 				<div className="max-w-md w-full bg-white rounded-3xl p-8 shadow-[0_4px_15px_rgba(0,0,0,0.05)] text-center">
 					<div className="w-16 h-16 bg-green-50 text-green-500 rounded-full flex items-center justify-center mx-auto mb-6">
 						<Check size={32} />
@@ -119,7 +119,7 @@ export default function InvitePage() {
 	}
 
 	return (
-		<div className="min-h-screen bg-[#f5f5f5] p-4 sm:p-8 flex flex-col items-center font-sans">
+		<div className="min-h-screen bg-[#f5f5f5] p-4 sm:p-8 flex flex-col items-center font-sans text-zinc-900">
 			<div className="max-w-xl w-full bg-white rounded-[24px] overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.03)]">
 				{/* Header */}
 				<div className="bg-[#a4b795]/10 p-8 text-center border-b border-[#a4b795]/20">
@@ -197,49 +197,51 @@ export default function InvitePage() {
 						<div className="space-y-4 pt-6 border-t border-zinc-100">
 							<div className="flex items-center justify-between">
 								<h3 className="font-semibold text-lg text-zinc-900">Extra gasten (+1)</h3>
+							</div>
+
+							<div className="space-y-4">
+								{guests.length === 0 && <p className="text-zinc-500 text-sm">U kunt maximaal 2 extra gasten meebrengen.</p>}
+
+								{guests.map((guest, index) => (
+									<div key={index} className="bg-zinc-50 p-4 rounded-xl border border-zinc-200 relative group">
+										<button onClick={() => removeGuest(index)} className="absolute top-4 right-4 text-zinc-400 hover:text-red-500 transition-colors">
+											<Trash2 size={16} />
+										</button>
+										<div className="pr-8 space-y-4">
+											<div>
+												<label className="block text-xs font-medium text-zinc-500 mb-1">Naam gast</label>
+												<input
+													type="text"
+													value={guest.name}
+													onChange={(e) => updateGuest(index, 'name', e.target.value)}
+													className="w-full bg-white border border-zinc-200 rounded-lg px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:border-[#a4b795] focus:ring-1 focus:ring-[#a4b795]"
+													placeholder="Naam en achternaam"
+												/>
+											</div>
+											<div>
+												<label className="block text-xs font-medium text-zinc-500 mb-1">Bedrijf</label>
+												<input
+													type="text"
+													value={guest.company}
+													onChange={(e) => updateGuest(index, 'company', e.target.value)}
+													className="w-full bg-white border border-zinc-200 rounded-lg px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:border-[#a4b795] focus:ring-1 focus:ring-[#a4b795]"
+													placeholder="Bedrijfsnaam"
+												/>
+											</div>
+										</div>
+									</div>
+								))}
+
 								{guests.length < 2 && (
-									<button onClick={addGuest} className="text-sm font-medium text-[#a4b795] hover:text-[#8fa37f] flex items-center gap-1">
-										<Plus size={16} />
+									<button
+										onClick={addGuest}
+										className="w-full flex items-center justify-center gap-2 p-4 rounded-xl border-2 border-dashed border-[#a4b795]/50 text-[#a4b795] hover:border-[#a4b795] hover:bg-[#a4b795]/5 transition-all font-medium text-lg"
+									>
+										<Plus size={24} />
 										Gast toevoegen
 									</button>
 								)}
 							</div>
-
-							{guests.length === 0 ? (
-								<p className="text-zinc-500 text-sm">U kunt maximaal 2 extra gasten meebrengen.</p>
-							) : (
-								<div className="space-y-4">
-									{guests.map((guest, index) => (
-										<div key={index} className="bg-zinc-50 p-4 rounded-xl border border-zinc-200 relative group">
-											<button onClick={() => removeGuest(index)} className="absolute top-4 right-4 text-zinc-400 hover:text-red-500 transition-colors">
-												<Trash2 size={16} />
-											</button>
-											<div className="pr-8 space-y-4">
-												<div>
-													<label className="block text-xs font-medium text-zinc-500 mb-1">Naam gast</label>
-													<input
-														type="text"
-														value={guest.name}
-														onChange={(e) => updateGuest(index, 'name', e.target.value)}
-														className="w-full bg-white border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#a4b795] focus:ring-1 focus:ring-[#a4b795]"
-														placeholder="Naam en achternaam"
-													/>
-												</div>
-												<div>
-													<label className="block text-xs font-medium text-zinc-500 mb-1">Bedrijf</label>
-													<input
-														type="text"
-														value={guest.company}
-														onChange={(e) => updateGuest(index, 'company', e.target.value)}
-														className="w-full bg-white border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#a4b795] focus:ring-1 focus:ring-[#a4b795]"
-														placeholder="Bedrijfsnaam"
-													/>
-												</div>
-											</div>
-										</div>
-									))}
-								</div>
-							)}
 						</div>
 					)}
 
