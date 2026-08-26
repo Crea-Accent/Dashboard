@@ -138,6 +138,8 @@ export async function GET() {
 
 						label: metadata.label ?? null,
 						project: metadata.project ?? null,
+						contractor: metadata.contractor ?? null,
+						architect: metadata.architect ?? null,
 						color: label?.color ?? '#6b7280',
 
 						address: metadata.address ?? null,

@@ -1,7 +1,7 @@
 /** @format */
 'use client';
 
-import { Calendar, Download, Eye, FileText, FileType, Loader2, Pencil, UserIcon, Users } from 'lucide-react';
+import { Calendar, Download, Eye, FileText, FileType, Loader2, Pencil, UserIcon, Users, ChevronDown, ChevronRight } from 'lucide-react';
 
 import Button from '@/components/ui/Button';
 import FileIcon from './FileIcon';
@@ -30,6 +30,10 @@ type FileActionHandlers = {
 	onContextMenu?: (file: FileEntry, event: React.MouseEvent) => void;
 
 	onDragStart?: (file: FileEntry) => void;
+
+	onToggleVersions?: (file: FileEntry) => void;
+	versionsCount?: number;
+	isVersionsExpanded?: boolean;
 };
 
 type Props = FileActionHandlers & {
@@ -67,6 +71,10 @@ export default function File({
 	onRename,
 
 	onDragStart,
+
+	onToggleVersions,
+	versionsCount,
+	isVersionsExpanded,
 
 	compact = false,
 	image = false,
@@ -171,6 +179,11 @@ export default function File({
 						<div className="font-medium truncate">{formattedName}</div>
 
 						<div className="flex gap-2 mt-3">
+							{(versionsCount || 0) > 0 && onToggleVersions && (
+								<Button icon={isVersionsExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />} onClick={() => onToggleVersions(file)}>
+									{versionsCount}
+								</Button>
+							)}
 							{canEdit && <Button icon={<Pencil size={14} />} onClick={() => onEdit?.(file)} />}
 
 							{canDownload && <Button icon={download ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />} onClick={handleDownload} disabled={download} />}
@@ -245,6 +258,11 @@ export default function File({
 					</div>
 
 					<div className="flex gap-2">
+						{(versionsCount || 0) > 0 && onToggleVersions && (
+							<Button icon={isVersionsExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />} onClick={() => onToggleVersions(file)}>
+								{versionsCount}
+							</Button>
+						)}
 						{isMedia && <Button icon={<Eye size={14} />} onClick={() => setViewing(true)} />}
 
 						{canEdit && <Button icon={<Pencil size={14} />} onClick={() => onEdit?.(file)} />}
@@ -278,6 +296,11 @@ export default function File({
 				</div>
 
 				<div className="flex gap-2">
+					{(versionsCount || 0) > 0 && onToggleVersions && (
+						<Button icon={isVersionsExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />} onClick={() => onToggleVersions(file)}>
+							{versionsCount}
+						</Button>
+					)}
 					{canEdit && <Button icon={<Pencil size={14} />} onClick={() => onEdit?.(file)} />}
 
 					{canDownload && <Button icon={download ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />} onClick={handleDownload} disabled={download} />}

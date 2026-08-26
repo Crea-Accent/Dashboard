@@ -521,23 +521,18 @@ export default function Documents({ basePath, client }: { basePath: string; clie
 																		setEditModalOpen(true);
 																	}}
 																	onDragStart={setDraggingFile}
+																	onToggleVersions={
+																		older.length > 0
+																			? () => {
+																					setExpandedGroups((prev) =>
+																						prev.includes(uniqueGroupKey) ? prev.filter((g) => g !== uniqueGroupKey) : [...prev, uniqueGroupKey]
+																					);
+																				}
+																			: undefined
+																	}
+																	versionsCount={older.length}
+																	isVersionsExpanded={isExpanded}
 																/>
-
-																{older.length > 0 && (
-																	<div
-																		onClick={() =>
-																			setExpandedGroups((prev) =>
-																				prev.includes(uniqueGroupKey) ? prev.filter((g) => g !== uniqueGroupKey) : [...prev, uniqueGroupKey]
-																			)
-																		}
-																		className="rounded-3xl min-h-45 flex items-center justify-center cursor-pointer bg-(--accent)/10 border-2 border-(--accent)/70 transition hover:opacity-80"
-																	>
-																		<div className="text-center">
-																			{isExpanded ? <ChevronLeft className="mx-auto w-8 h-8" /> : <ChevronRight className="mx-auto w-8 h-8" />}
-																			<div className="text-xs mt-2 text-zinc-500">{older.length} older</div>
-																		</div>
-																	</div>
-																)}
 															</div>
 
 															<AnimatePresence>
@@ -570,22 +565,18 @@ export default function Documents({ basePath, client }: { basePath: string; clie
 																}}
 																onDragStart={setDraggingFile}
 																permission="projects.write"
+																onToggleVersions={
+																	older.length > 0
+																		? () => {
+																				setExpandedGroups((prev) =>
+																					prev.includes(uniqueGroupKey) ? prev.filter((g) => g !== uniqueGroupKey) : [...prev, uniqueGroupKey]
+																				);
+																			}
+																		: undefined
+																}
+																versionsCount={older.length}
+																isVersionsExpanded={isExpanded}
 															/>
-
-															{older.length > 0 && (
-																<Button
-																	className="w-full"
-																	variant="primary-ghost"
-																	onClick={() =>
-																		setExpandedGroups((prev) =>
-																			prev.includes(uniqueGroupKey) ? prev.filter((g) => g !== uniqueGroupKey) : [...prev, uniqueGroupKey]
-																		)
-																	}
-																>
-																	{isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-																	<span>{isExpanded ? 'Hide older' : `Show older (${older.length})`}</span>
-																</Button>
-															)}
 
 															<AnimatePresence>
 																{isExpanded && (

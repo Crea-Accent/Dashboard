@@ -141,7 +141,8 @@ export default function Tickets({ client }: { client: string }) {
 					const next = { ...curr };
 					loaded.forEach((t: Ticket) => {
 						if (next[t.id] === undefined) {
-							const isCompleted = t.pois.length > 0 && t.pois.every((p) => p.state === 'finished');
+							const activePois = t.pois.filter((p) => p.state !== 'canceled');
+							const isCompleted = t.pois.length > 0 && (activePois.length === 0 || activePois.every((p) => p.state === 'finished'));
 							next[t.id] = !isCompleted;
 						}
 					});
@@ -204,7 +205,8 @@ export default function Tickets({ client }: { client: string }) {
 					}
 				: poi
 		);
-		const isCompleted = updatedPOIs.length > 0 && updatedPOIs.every((p) => p.state === 'finished');
+		const activeUpdatedPois = updatedPOIs.filter((p) => p.state !== 'canceled');
+		const isCompleted = updatedPOIs.length > 0 && (activeUpdatedPois.length === 0 || activeUpdatedPois.every((p) => p.state === 'finished'));
 
 		// Optimistic update
 		const updatedTickets = [...tickets];
@@ -842,7 +844,7 @@ export default function Tickets({ client }: { client: string }) {
 	if (!canView) return null;
 
 	return (
-		<section className="space-y-4">
+		<section className="space-y-6">
 			<DebugInfo>
 				<div>Total tickets: {tickets.length}</div>
 				<div>Client: {client}</div>
@@ -915,7 +917,7 @@ export default function Tickets({ client }: { client: string }) {
 							</div>
 							<div className="flex flex-wrap items-center gap-3 sm:gap-4 shrink-0">
 								<div className="text-sm font-medium shrink-0">
-									{ticket.pois.filter((p) => p.state === 'finished').length} / {ticket.pois.length} Finished
+									{ticket.pois.filter((p) => p.state === 'finished').length} / {ticket.pois.filter((p) => p.state !== 'canceled').length} Finished
 								</div>
 								{isAllowed && (
 									<Button

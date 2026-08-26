@@ -1,5 +1,11 @@
 # panel
 
+## 0.5.1
+
+### Patch Changes
+
+- fixed some ui elements
+
 ## 0.5.0
 
 ### Minor Changes

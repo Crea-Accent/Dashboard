@@ -1087,7 +1087,7 @@ export default function Canbus({ basePath, client }: Props) {
 
 	return (
 		<div className="flex flex-col flex-1 w-full">
-			<div id="canbus-topology-container" className="mt-8 w-full overflow-x-auto pb-64 pl-8 flex-1 flex flex-col gap-12">
+			<div id="canbus-topology-container" className="w-full overflow-x-auto pb-64 flex-1 flex flex-col gap-12">
 				{topology.length === 0 && editing && (
 					<div className="p-8">
 						<Button onClick={() => beginInsertNewBusLine()} icon={<Plus size={20} />}>
@@ -1167,8 +1167,9 @@ export default function Canbus({ basePath, client }: Props) {
 							{has('projects.write') && <Button onClick={() => setEditing(!editing)} className="shadow-sm px-3" icon={editing ? <Save size={16} /> : <Pencil size={16} />} />}
 
 							{has('projects.write') && editing && (
-								<Button onClick={() => beginInsertNewBusLine()} className="shadow-sm" icon={<Plus size={20} />}>
-									{viewMode === 'setup' ? unplacedModules.length : 'Add Bus Line'}
+								<Button onClick={() => beginInsertNewBusLine()} className="shadow-sm px-3" icon={<Plus size={16} />}>
+									<span className="hidden sm:inline">{viewMode === 'setup' ? `${unplacedModules.length} unplaced` : 'Add Bus Line'}</span>
+									<span className="sm:hidden">{viewMode === 'setup' ? unplacedModules.length : 'Add'}</span>
 								</Button>
 							)}
 
@@ -1177,14 +1178,14 @@ export default function Canbus({ basePath, client }: Props) {
 							<div className="flex items-center gap-1">
 								<Button
 									variant="ghost"
-									className="rounded-full h-8 w-8 sm:h-10 sm:w-10 p-0 hover:bg-[var(--foreground)]"
+									className="rounded-full h-8 w-8 sm:h-10 sm:w-10 p-0 hover:bg-[var(--foreground)] shrink-0"
 									icon={<Minus size={18} />}
 									onClick={() => setZoom((z) => Math.max(0.05, z - 0.25))}
 								/>
 								<span className="text-xs sm:text-sm font-semibold w-10 sm:w-12 text-center text-[var(--text)]">{Math.round(zoom * 100)}%</span>
 								<Button
 									variant="ghost"
-									className="rounded-full h-8 w-8 sm:h-10 sm:w-10 p-0 hover:bg-[var(--foreground)]"
+									className="rounded-full h-8 w-8 sm:h-10 sm:w-10 p-0 hover:bg-[var(--foreground)] shrink-0"
 									icon={<Plus size={18} />}
 									onClick={() => setZoom((z) => Math.min(5, z + 0.25))}
 								/>
@@ -1196,7 +1197,7 @@ export default function Canbus({ basePath, client }: Props) {
 								<Button
 									size="sm"
 									variant="ghost"
-									className="text-xs"
+									className="text-xs sm:px-3 px-2"
 									disabled={printing}
 									icon={printing ? <Loader2 size={16} className="animate-spin" /> : <Printer size={16} />}
 									onClick={async () => {
@@ -1332,7 +1333,7 @@ export default function Canbus({ basePath, client }: Props) {
 										}
 									}}
 								>
-									{printing ? 'Preparing...' : 'Print'}
+									<span className="hidden sm:inline">{printing ? 'Preparing...' : 'Print'}</span>
 								</Button>
 							</div>
 						</div>

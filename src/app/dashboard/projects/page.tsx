@@ -34,6 +34,8 @@ type Project = {
 	type: string;
 	label?: string;
 	project?: string;
+	contractor?: string;
+	architect?: string;
 	updatedAt?: string;
 	address?: {
 		street?: string;
@@ -57,7 +59,7 @@ type Settings = {
 	labels?: LabelSetting[];
 };
 
-type SortKey = 'name' | 'updated' | 'address' | 'label' | 'project';
+type SortKey = 'name' | 'updated' | 'address' | 'label' | 'project' | 'contractor' | 'architect';
 
 export default function Page() {
 	const { data: session } = useSession();
@@ -78,6 +80,8 @@ export default function Page() {
 	const [labelFilters, setLabelFilters] = useState<string[]>([]);
 	const [projectFilters, setProjectFilters] = useState<string[]>([]);
 	const [statusFilters, setStatusFilters] = useState<string[]>([]);
+	const [contractorFilters, setContractorFilters] = useState<string[]>([]);
+	const [architectFilters, setArchitectFilters] = useState<string[]>([]);
 	const [view, setView] = useState<'grid' | 'list'>(session?.user?.preferences?.defaultView ?? 'list');
 	const [showFilters, setShowFilters] = useState(false);
 
@@ -86,6 +90,16 @@ export default function Page() {
 
 	const uniqueProjects = useMemo(() => {
 		const names = new Set(projects.map((p) => p.project).filter(Boolean) as string[]);
+		return Array.from(names).sort();
+	}, [projects]);
+
+	const uniqueContractors = useMemo(() => {
+		const names = new Set(projects.map((p) => (p as any).contractor).filter(Boolean) as string[]);
+		return Array.from(names).sort();
+	}, [projects]);
+
+	const uniqueArchitects = useMemo(() => {
+		const names = new Set(projects.map((p) => (p as any).architect).filter(Boolean) as string[]);
 		return Array.from(names).sort();
 	}, [projects]);
 
@@ -181,6 +195,8 @@ export default function Page() {
 				q &&
 				!p.name.toLowerCase().includes(q) &&
 				!p.project?.toLowerCase().includes(q) &&
+				!(p as any).contractor?.toLowerCase().includes(q) &&
+				!(p as any).architect?.toLowerCase().includes(q) &&
 				!p.label?.toLowerCase().includes(q) &&
 				!p.address?.street?.toLowerCase().includes(q) &&
 				!p.address?.country?.toLowerCase().includes(q) &&
@@ -191,6 +207,12 @@ export default function Page() {
 				return false;
 			}
 			if (projectFilters.length > 0 && (!p.project || !projectFilters.includes(p.project))) {
+				return false;
+			}
+			if (contractorFilters.length > 0 && (!(p as any).contractor || !contractorFilters.includes((p as any).contractor))) {
+				return false;
+			}
+			if (architectFilters.length > 0 && (!(p as any).architect || !architectFilters.includes((p as any).architect))) {
 				return false;
 			}
 
@@ -222,6 +244,12 @@ export default function Page() {
 
 				case 'project':
 					return sortAsc ? (a.project ?? '').localeCompare(b.project ?? '') : (b.project ?? '').localeCompare(a.project ?? '');
+
+				case 'contractor':
+					return sortAsc ? ((a as any).contractor ?? '').localeCompare((b as any).contractor ?? '') : ((b as any).contractor ?? '').localeCompare((a as any).contractor ?? '');
+
+				case 'architect':
+					return sortAsc ? ((a as any).architect ?? '').localeCompare((b as any).architect ?? '') : ((b as any).architect ?? '').localeCompare((a as any).architect ?? '');
 
 				case 'label':
 					return sortAsc ? (a.label ?? '').localeCompare(b.label ?? '') : (b.label ?? '').localeCompare(a.label ?? '');
@@ -352,6 +380,28 @@ export default function Page() {
 
 						<MultiSelector
 							className="flex-1 min-w-[140px] sm:w-40 sm:flex-none xl:w-48"
+							placeholder="All Contractors"
+							value={contractorFilters}
+							onChange={setContractorFilters}
+							options={uniqueContractors.map((p) => ({
+								label: p,
+								value: p,
+							}))}
+						/>
+
+						<MultiSelector
+							className="flex-1 min-w-[140px] sm:w-40 sm:flex-none xl:w-48"
+							placeholder="All Architects"
+							value={architectFilters}
+							onChange={setArchitectFilters}
+							options={uniqueArchitects.map((p) => ({
+								label: p,
+								value: p,
+							}))}
+						/>
+
+						<MultiSelector
+							className="flex-1 min-w-[140px] sm:w-40 sm:flex-none xl:w-48"
 							placeholder="All Labels"
 							value={labelFilters}
 							onChange={setLabelFilters}
@@ -389,12 +439,18 @@ export default function Page() {
 						</div>
 					) : view === 'list' ? (
 						<Card className="overflow-hidden">
-							<div className="grid grid-cols-[1fr_24px_80px] md:grid-cols-[1fr_120px_24px_100px_80px] xl:grid-cols-[1fr_120px_140px_120px_100px_100px] px-5 h-11 items-center text-xs font-semibold text-(--text-muted) border-b border-(--border)/10">
+							<div className="grid grid-cols-[1fr_24px_80px] md:grid-cols-[1fr_120px_24px_100px_80px] xl:grid-cols-[1fr_120px_140px_120px_100px_100px] 2xl:grid-cols-[1fr_120px_120px_120px_140px_120px_100px_100px] px-5 h-11 items-center text-xs font-semibold text-(--text-muted) border-b border-(--border)/10">
 								<button onClick={() => toggleSort('name')} className="text-left">
 									Name
 								</button>
 								<button onClick={() => toggleSort('project')} className="hidden md:block text-left">
 									Project
+								</button>
+								<button onClick={() => toggleSort('contractor')} className="hidden 2xl:block text-left">
+									Contractor
+								</button>
+								<button onClick={() => toggleSort('architect')} className="hidden 2xl:block text-left">
+									Architect
 								</button>
 								<span className="text-center xl:text-left">Label</span>
 								<button onClick={() => toggleSort('updated')} className="hidden xl:block text-left">
@@ -409,7 +465,7 @@ export default function Page() {
 									layout
 									layoutId={`project-${p.path}`}
 									key={p.path}
-									className={`grid grid-cols-[1fr_24px_80px] md:grid-cols-[1fr_120px_24px_100px_80px] xl:grid-cols-[1fr_120px_140px_120px_100px_100px] items-center h-16 px-5 text-sm hover:bg-(--background) transition-colors ${index !== filteredProjects.length - 1 ? 'border-b border-(--border)/10' : ''}`}
+									className={`grid grid-cols-[1fr_24px_80px] md:grid-cols-[1fr_120px_24px_100px_80px] xl:grid-cols-[1fr_120px_140px_120px_100px_100px] 2xl:grid-cols-[1fr_120px_120px_120px_140px_120px_100px_100px] items-center h-16 px-5 text-sm hover:bg-(--background) transition-colors ${index !== filteredProjects.length - 1 ? 'border-b border-(--border)/10' : ''}`}
 								>
 									<Link href={`/dashboard/projects/${encodeURIComponent(p.name)}`} className="flex items-center gap-3 min-w-0">
 										<div
@@ -433,6 +489,16 @@ export default function Page() {
 									{/* Key */}
 									<div className="hidden md:block text-sm font-medium text-[var(--text-muted)] min-w-0 pr-4">
 										<div className="truncate">{p.project || '—'}</div>
+									</div>
+
+									{/* Contractor */}
+									<div className="hidden 2xl:block text-sm font-medium text-[var(--text-muted)] min-w-0 pr-4">
+										<div className="truncate">{(p as any).contractor || '—'}</div>
+									</div>
+
+									{/* Architect */}
+									<div className="hidden 2xl:block text-sm font-medium text-[var(--text-muted)] min-w-0 pr-4">
+										<div className="truncate">{(p as any).architect || '—'}</div>
 									</div>
 
 									{/* Label */}

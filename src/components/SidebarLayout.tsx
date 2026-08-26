@@ -16,9 +16,9 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
 			}}
 			transition={{ duration: 0.25 }}
 			style={{
-				minHeight: `calc(100dvh - ${HEADER_HEIGHT}px)`,
+				height: `calc(100dvh - ${HEADER_HEIGHT}px)`,
 			}}
-			className="px-4 md:px-6 py-6 md:ml-0 md:transition-[margin]"
+			className="px-4 md:px-6 py-6 md:ml-0 md:transition-[margin] flex flex-col"
 		>
 			{children}
 		</motion.main>

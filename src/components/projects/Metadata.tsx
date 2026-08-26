@@ -24,6 +24,8 @@ type Label = {
 export type MetadataType = {
 	label?: string;
 	project?: string;
+	contractor?: string;
+	architect?: string;
 
 	address?: {
 		lat?: number;
@@ -31,6 +33,7 @@ export type MetadataType = {
 		street?: string;
 		number?: string;
 		suite?: string;
+		building?: string;
 		postalCode?: string;
 		city?: string;
 		country?: string;
@@ -83,7 +86,11 @@ export default function Metadata({ client, onActionsChange }: Props) {
 	const [users, setUsers] = useState<User[]>([]);
 	const [labels, setLabels] = useState<Label[]>([]);
 	const [projectNames, setProjectNames] = useState<string[]>([]);
+	const [contractorNames, setContractorNames] = useState<string[]>([]);
+	const [architectNames, setArchitectNames] = useState<string[]>([]);
 	const [showSuggestions, setShowSuggestions] = useState(false);
+	const [showContractorSuggestions, setShowContractorSuggestions] = useState(false);
+	const [showArchitectSuggestions, setShowArchitectSuggestions] = useState(false);
 
 	/* ---------- STYLES ---------- */
 
@@ -240,6 +247,12 @@ export default function Metadata({ client, onActionsChange }: Props) {
 			.then((d) => {
 				const names = d.map((p: any) => p.project).filter((p: any) => p && typeof p === 'string');
 				setProjectNames(Array.from(new Set(names)) as string[]);
+
+				const contractors = d.map((p: any) => p.contractor).filter((p: any) => p && typeof p === 'string');
+				setContractorNames(Array.from(new Set(contractors)) as string[]);
+
+				const architects = d.map((p: any) => p.architect).filter((p: any) => p && typeof p === 'string');
+				setArchitectNames(Array.from(new Set(architects)) as string[]);
 			});
 	}, [client]);
 
@@ -248,7 +261,7 @@ export default function Metadata({ client, onActionsChange }: Props) {
 	if (!metadata) return <EmptyState title="No metadata" description="No metadata could be loaded for this project." />;
 
 	return (
-		<section className="space-y-4">
+		<section className="space-y-6">
 			<div className="rounded-3xl p-6 bg-(--foreground)">
 				<Button onClick={() => toggleSection('general')} className="w-full justify-start" variant="secondary">
 					<span>General</span>
@@ -259,45 +272,131 @@ export default function Metadata({ client, onActionsChange }: Props) {
 				<AnimatePresence initial={false}>
 					{openSections.includes('general') && (
 						<motion.div {...collapseAnimation} className="pt-4 overflow-hidden">
-							<div className="relative">
-								<Input
-									label="Project Group Name"
-									placeholder="e.g. Solar City Phase 1"
-									value={metadata.project ?? ''}
-									onChange={(e) => {
-										setMetadata({ ...metadata, project: e.target.value });
-										setShowSuggestions(true);
-									}}
-									onFocus={() => setShowSuggestions(true)}
-									onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-									disabled={hasWrite}
-								/>
+							<div className="flex flex-col gap-4">
+								<div className="relative">
+									<Input
+										label="Project Group Name"
+										placeholder="e.g. Solar City Phase 1"
+										value={metadata.project ?? ''}
+										onChange={(e) => {
+											setMetadata({ ...metadata, project: e.target.value });
+											setShowSuggestions(true);
+										}}
+										onFocus={() => setShowSuggestions(true)}
+										onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+										disabled={hasWrite}
+									/>
 
-								<AnimatePresence>
-									{showSuggestions && projectNames.filter((n) => n.toLowerCase().includes((metadata.project ?? '').toLowerCase()) && n !== metadata.project).length > 0 && (
-										<motion.div
-											initial={{ opacity: 0, y: -5 }}
-											animate={{ opacity: 1, y: 0 }}
-											exit={{ opacity: 0, y: -5 }}
-											className="absolute z-10 w-full mt-2 bg-[var(--background)] border border-[var(--border)]/10 rounded-xl shadow-xl max-h-48 overflow-y-auto p-1"
-										>
-											{projectNames
-												.filter((n) => n.toLowerCase().includes((metadata.project ?? '').toLowerCase()) && n !== metadata.project)
-												.map((name) => (
-													<div
-														key={name}
-														className="px-3 py-2 hover:bg-[var(--foreground)] rounded-lg cursor-pointer text-sm font-medium transition-colors"
-														onClick={() => {
-															setMetadata({ ...metadata, project: name });
-															setShowSuggestions(false);
-														}}
+									<AnimatePresence>
+										{showSuggestions && projectNames.filter((n) => n.toLowerCase().includes((metadata.project ?? '').toLowerCase()) && n !== metadata.project).length > 0 && (
+											<motion.div
+												initial={{ opacity: 0, y: -5 }}
+												animate={{ opacity: 1, y: 0 }}
+												exit={{ opacity: 0, y: -5 }}
+												className="absolute z-10 w-full mt-2 bg-[var(--background)] border border-[var(--border)]/10 rounded-xl shadow-xl max-h-48 overflow-y-auto p-1"
+											>
+												{projectNames
+													.filter((n) => n.toLowerCase().includes((metadata.project ?? '').toLowerCase()) && n !== metadata.project)
+													.map((name) => (
+														<div
+															key={name}
+															className="px-3 py-2 hover:bg-[var(--foreground)] rounded-lg cursor-pointer text-sm font-medium transition-colors"
+															onClick={() => {
+																setMetadata({ ...metadata, project: name });
+																setShowSuggestions(false);
+															}}
+														>
+															{name}
+														</div>
+													))}
+											</motion.div>
+										)}
+									</AnimatePresence>
+								</div>
+
+								<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+									<div className="relative">
+										<Input
+											label="Contractor"
+											placeholder="e.g. BuildCorp Inc."
+											value={metadata.contractor ?? ''}
+											onChange={(e) => {
+												setMetadata({ ...metadata, contractor: e.target.value });
+												setShowContractorSuggestions(true);
+											}}
+											onFocus={() => setShowContractorSuggestions(true)}
+											onBlur={() => setTimeout(() => setShowContractorSuggestions(false), 200)}
+											disabled={hasWrite}
+										/>
+										<AnimatePresence>
+											{showContractorSuggestions &&
+												contractorNames.filter((n) => n.toLowerCase().includes((metadata.contractor ?? '').toLowerCase()) && n !== metadata.contractor).length > 0 && (
+													<motion.div
+														initial={{ opacity: 0, y: -5 }}
+														animate={{ opacity: 1, y: 0 }}
+														exit={{ opacity: 0, y: -5 }}
+														className="absolute z-10 w-full mt-2 bg-[var(--background)] border border-[var(--border)]/10 rounded-xl shadow-xl max-h-48 overflow-y-auto p-1"
 													>
-														{name}
-													</div>
-												))}
-										</motion.div>
-									)}
-								</AnimatePresence>
+														{contractorNames
+															.filter((n) => n.toLowerCase().includes((metadata.contractor ?? '').toLowerCase()) && n !== metadata.contractor)
+															.map((name) => (
+																<div
+																	key={name}
+																	className="px-3 py-2 hover:bg-[var(--foreground)] rounded-lg cursor-pointer text-sm font-medium transition-colors"
+																	onClick={() => {
+																		setMetadata({ ...metadata, contractor: name });
+																		setShowContractorSuggestions(false);
+																	}}
+																>
+																	{name}
+																</div>
+															))}
+													</motion.div>
+												)}
+										</AnimatePresence>
+									</div>
+
+									<div className="relative">
+										<Input
+											label="Architect"
+											placeholder="e.g. Design Studio"
+											value={metadata.architect ?? ''}
+											onChange={(e) => {
+												setMetadata({ ...metadata, architect: e.target.value });
+												setShowArchitectSuggestions(true);
+											}}
+											onFocus={() => setShowArchitectSuggestions(true)}
+											onBlur={() => setTimeout(() => setShowArchitectSuggestions(false), 200)}
+											disabled={hasWrite}
+										/>
+										<AnimatePresence>
+											{showArchitectSuggestions &&
+												architectNames.filter((n) => n.toLowerCase().includes((metadata.architect ?? '').toLowerCase()) && n !== metadata.architect).length > 0 && (
+													<motion.div
+														initial={{ opacity: 0, y: -5 }}
+														animate={{ opacity: 1, y: 0 }}
+														exit={{ opacity: 0, y: -5 }}
+														className="absolute z-10 w-full mt-2 bg-[var(--background)] border border-[var(--border)]/10 rounded-xl shadow-xl max-h-48 overflow-y-auto p-1"
+													>
+														{architectNames
+															.filter((n) => n.toLowerCase().includes((metadata.architect ?? '').toLowerCase()) && n !== metadata.architect)
+															.map((name) => (
+																<div
+																	key={name}
+																	className="px-3 py-2 hover:bg-[var(--foreground)] rounded-lg cursor-pointer text-sm font-medium transition-colors"
+																	onClick={() => {
+																		setMetadata({ ...metadata, architect: name });
+																		setShowArchitectSuggestions(false);
+																	}}
+																>
+																	{name}
+																</div>
+															))}
+													</motion.div>
+												)}
+										</AnimatePresence>
+									</div>
+								</div>
 							</div>
 						</motion.div>
 					)}

@@ -16,6 +16,7 @@ type AddressValue = {
 	street?: string;
 	number?: string;
 	suite?: string;
+	building?: string;
 	postalCode?: string;
 	city?: string;
 	country?: string;
@@ -40,10 +41,16 @@ export default function Address({ value, onChange }: Props) {
 		street: value?.street ?? '',
 		number: value?.number ?? '',
 		suite: value?.suite ?? '',
+		building: value?.building ?? '',
 		postalCode: value?.postalCode ?? '',
 		city: value?.city ?? '',
 		country: value?.country ?? '',
 	});
+
+	const valueRef = useRef(value);
+	useEffect(() => {
+		valueRef.current = value;
+	}, [value]);
 
 	const places = useMapsLibrary('places');
 
@@ -71,10 +78,13 @@ export default function Address({ value, onChange }: Props) {
 
 		const components = first.address_components;
 
+		const current = valueRef.current || address;
+
 		const nextAddress = {
 			street: getComponent(components, 'route'),
 			number: getComponent(components, 'street_number'),
-			suite: getComponent(components, 'subpremise') || address.suite || '',
+			suite: getComponent(components, 'subpremise') || current.suite || '',
+			building: current.building || '',
 			postalCode: getComponent(components, 'postal_code'),
 			city: getComponent(components, 'locality'),
 			country: getComponent(components, 'country'),
@@ -150,6 +160,7 @@ export default function Address({ value, onChange }: Props) {
 			street: value?.street ?? '',
 			number: value?.number ?? '',
 			suite: value?.suite ?? '',
+			building: value?.building ?? '',
 			postalCode: value?.postalCode ?? '',
 			city: value?.city ?? '',
 			country: value?.country ?? '',
@@ -206,6 +217,22 @@ export default function Address({ value, onChange }: Props) {
 							lng: position.lng,
 							...address,
 							suite: nextSuite,
+						});
+					}}
+				/>
+
+				<Input
+					label="Building/Block"
+					value={address.building}
+					readOnly={!has('projects.write')}
+					onChange={(e) => {
+						const nextBuilding = e.target.value;
+						setAddress((prev) => ({ ...prev, building: nextBuilding }));
+						onChange({
+							lat: position.lat,
+							lng: position.lng,
+							...address,
+							building: nextBuilding,
 						});
 					}}
 				/>

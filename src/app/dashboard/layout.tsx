@@ -46,7 +46,7 @@ export default async function DashboardLayout({
 						<SidebarLayout>
 							<Sidebar />
 							<SidePanel />
-							<main className="flex-1 w-full md:px-6 py-25 md:py-25">{children}</main>
+							<main className="flex-1 w-full md:px-6 flex flex-col min-h-0">{children}</main>
 						</SidebarLayout>
 					</StatusProvider>
 				</ToastProvider>

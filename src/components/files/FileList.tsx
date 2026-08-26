@@ -20,9 +20,13 @@ type Props = {
 	onDelete?: (file: FileEntry) => void;
 	onRename?: (file: FileEntry) => void;
 	onDragStart?: (file: FileEntry) => void;
+
+	onToggleVersions?: (file: FileEntry) => void;
+	versionsCount?: number;
+	isVersionsExpanded?: boolean;
 };
 
-export default function FileList({ files, users = [], permission, mode, onDownload, onEdit, onDragStart, onOpen, onDelete, onRename }: Props) {
+export default function FileList({ files, users = [], permission, mode, onDownload, onEdit, onDragStart, onOpen, onDelete, onRename, onToggleVersions, versionsCount, isVersionsExpanded }: Props) {
 	return (
 		<div className="space-y-2">
 			{files.map((file, index) => (
@@ -52,6 +56,9 @@ export default function FileList({ files, users = [], permission, mode, onDownlo
 						onOpen={() => onOpen?.(file)}
 						onDelete={() => onDelete?.(file)}
 						onRename={() => onRename?.(file)}
+						onToggleVersions={onToggleVersions}
+						versionsCount={versionsCount}
+						isVersionsExpanded={isVersionsExpanded}
 					/>
 				</motion.div>
 			))}

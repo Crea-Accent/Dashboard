@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
-import { ChevronLeft, Plus, Mail, Trash2, Mails, Users, MapPin, User, Download, CalendarRange, Edit2, Building2, Calendar, Clock, Play, Square } from 'lucide-react';
+import { ChevronLeft, Plus, Mail, Trash2, Mails, Users, MapPin, User, Download, CalendarRange, Edit2, Building2, Calendar, Clock, Play, Square, Ban } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import groupsplit, { leaders } from '@/lib/groupsplit';
 import { motion } from 'framer-motion';
@@ -143,6 +143,17 @@ export default function EventDetail({ params }: { params: Promise<{ id: string }
 	async function handleRemoveInvite(contactId: string) {
 		const currentInvites = event.invites || [];
 		const updated = currentInvites.filter((inv: any) => inv.contactId !== contactId);
+		await fetch(`/api/events/${id}`, {
+			method: 'PATCH',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ updates: { invites: updated } }),
+		});
+		load();
+	}
+
+	async function handleMarkDeclined(contactId: string) {
+		const currentInvites = event.invites || [];
+		const updated = currentInvites.map((inv: any) => (inv.contactId === contactId ? { ...inv, status: 'refused' } : inv));
 		await fetch(`/api/events/${id}`, {
 			method: 'PATCH',
 			headers: { 'Content-Type': 'application/json' },
@@ -485,9 +496,24 @@ export default function EventDetail({ params }: { params: Promise<{ id: string }
 											{hasBeenMailed ? 'Resend' : 'Send'}
 										</Button>
 										{!isPast && (
-											<button onClick={() => handleRemoveInvite(contact.id)} className="text-red-500/70 hover:text-red-600 p-2 hover:bg-red-50 rounded-lg transition-colors">
-												<Trash2 size={18} />
-											</button>
+											<>
+												{!isRefused && (
+													<button
+														title="Mark as Declined"
+														onClick={() => handleMarkDeclined(contact.id)}
+														className="text-orange-500/70 hover:text-orange-600 p-2 hover:bg-orange-50 rounded-lg transition-colors"
+													>
+														<Ban size={18} />
+													</button>
+												)}
+												<button
+													title="Remove Invite"
+													onClick={() => handleRemoveInvite(contact.id)}
+													className="text-red-500/70 hover:text-red-600 p-2 hover:bg-red-50 rounded-lg transition-colors"
+												>
+													<Trash2 size={18} />
+												</button>
+											</>
 										)}
 									</div>
 								</div>

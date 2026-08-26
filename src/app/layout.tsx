@@ -48,12 +48,14 @@ export default async function RootLayout({
 							<DebugProvider>
 								<UploadProvider>
 									<SidebarProvider>
-										<div className="min-h-screen flex flex-col relative overflow-hidden">
+										<div className="min-h-screen flex flex-col relative">
 											{/* Background glow */}
 											{/* <BackgroundGlow /> */}
 
 											<Header />
-											<div className={`mt-[${HEADER_HEIGHT}px]`}>{children}</div>
+											<div style={{ marginTop: HEADER_HEIGHT }} className="flex-1 flex flex-col">
+												{children}
+											</div>
 										</div>
 									</SidebarProvider>
 								</UploadProvider>

@@ -251,20 +251,16 @@ export default function Programmation({ basePath, client }: { basePath: string; 
 													setEditingFile(latest);
 													setEditModalOpen(true);
 												}}
+												onToggleVersions={
+													older.length > 0
+														? () => {
+																setExpandedGroups((prev) => (prev.includes(type) ? prev.filter((g) => g !== type) : [...prev, type]));
+															}
+														: undefined
+												}
+												versionsCount={older.length}
+												isVersionsExpanded={isExpanded}
 											/>
-
-											{older.length > 0 && (
-												<div
-													onClick={() => setExpandedGroups((prev) => (prev.includes(type) ? prev.filter((g) => g !== type) : [...prev, type]))}
-													className="rounded-3xl min-h-45 flex items-center justify-center cursor-pointer bg-(--accent)/10 border-2 border-(--accent)/70 transition	hover:opacity-80"
-												>
-													<div className="text-center">
-														{isExpanded ? <ChevronLeft className="mx-auto w-8 h-8" /> : <ChevronRight className="mx-auto w-8 h-8" />}
-
-														<div className="text-xs mt-2 text-zinc-500">{older.length} older</div>
-													</div>
-												</div>
-											)}
 										</div>
 
 										<AnimatePresence>
@@ -295,19 +291,16 @@ export default function Programmation({ basePath, client }: { basePath: string; 
 												setEditModalOpen(true);
 											}}
 											permission="projects.write"
+											onToggleVersions={
+												older.length > 0
+													? () => {
+															setExpandedGroups((prev) => (prev.includes(type) ? prev.filter((g) => g !== type) : [...prev, type]));
+														}
+													: undefined
+											}
+											versionsCount={older.length}
+											isVersionsExpanded={isExpanded}
 										/>
-
-										{older.length > 0 && (
-											<Button
-												className="w-full"
-												variant="primary-ghost"
-												onClick={() => setExpandedGroups((prev) => (prev.includes(type) ? prev.filter((g) => g !== type) : [...prev, type]))}
-											>
-												{isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-
-												<span>{isExpanded ? 'Hide older' : `Show older (${older.length})`}</span>
-											</Button>
-										)}
 
 										<AnimatePresence>
 											{isExpanded && (

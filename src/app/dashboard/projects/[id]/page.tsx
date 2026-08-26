@@ -148,10 +148,9 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 
 	return (
 		<NotPermitted permission="projects.read" shareAccess={shareAccess}>
-			<div className="space-y-6">
-				{/* Header */}
-
-				<div>
+			<div className="flex flex-col h-full min-h-0">
+				{/* Header & Navigation */}
+				<div className="shrink-0 z-40 bg-(--background) pb-4 flex flex-col xl:flex-row justify-between xl:items-center gap-4 border-b border-(--border)/10 mb-6">
 					<Selector
 						className="min-w-0 w-fit -ml-4 [&>button]:bg-transparent [&>button]:border-transparent [&>button]:shadow-none [&>button:hover]:bg-black/5 [&>button]:!justify-start [&>button]:!text-2xl [&>button]:!font-semibold [&>button]:!tracking-tight [&_svg]:opacity-50 [&_svg]:ml-2"
 						value={client ?? ''}
@@ -159,29 +158,25 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 						onChange={(val) => router.push(`/dashboard/projects/${encodeURIComponent(val)}`)}
 					/>
 
-					<p className="text-sm mt-1 text-(--text-muted)">Project dashboard</p>
+					<Tabs
+						value={tab}
+						onChange={(newTab) => {
+							if (metadataActions?.hasChanges) {
+								toast('error', 'Please save your changes before switching tabs.');
+								return;
+							}
+							setTab(newTab);
+							const url = new URL(window.location.href);
+							url.searchParams.set('view', newTab);
+							window.history.replaceState({}, '', url.toString());
+						}}
+						tabs={tabs.map((t) => ({
+							id: t.key,
+							icon: t.icon,
+							label: t.label,
+						}))}
+					/>
 				</div>
-
-				{/* Navigation */}
-
-				<Tabs
-					value={tab}
-					onChange={(newTab) => {
-						if (metadataActions?.hasChanges) {
-							toast('error', 'Please save your changes before switching tabs.');
-							return;
-						}
-						setTab(newTab);
-						const url = new URL(window.location.href);
-						url.searchParams.set('view', newTab);
-						window.history.replaceState({}, '', url.toString());
-					}}
-					tabs={tabs.map((t) => ({
-						id: t.key,
-						icon: t.icon,
-						label: t.label,
-					}))}
-				/>
 
 				{/* Floating Actions Dock */}
 				<motion.div
@@ -200,7 +195,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 							</Button>
 						)}
 
-						<div id="project-dock-actions" className="flex items-center gap-2 empty:hidden" />
+						<div id="project-dock-actions" className="flex items-center gap-2 empty:hidden overflow-x-auto max-w-[calc(100vw-3rem)] sm:max-w-none scrollbar-none" />
 
 						<div className="w-px h-6 bg-(--border)/20 mx-1 hidden sm:block" />
 
@@ -243,17 +238,18 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 				</motion.div>
 
 				{/* Content */}
-
-				<motion.div key={tab} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
-					{tab === 'info' && <Metadata client={client} onActionsChange={setMetadataActions} />}
-					{tab === 'solar' && <Solar client={client} />}
-					{tab === 'schemas' && <Schemas basePath={settings.path} client={client} />}
-					{tab === 'documents' && <Documents basePath={settings.path} client={client} />}
-					{tab === 'programmation' && <Programmation basePath={settings.path} client={client} />}
-					{tab === 'canbus' && <Canbus basePath={settings.path} client={client} />}
-					{tab === 'pictures' && <Pictures basePath={settings.path} client={client} />}
-					{tab === 'tickets' && <Tickets client={client} />}
-				</motion.div>
+				<div className="flex-1 overflow-y-auto min-h-0 -mx-4 px-4 md:-mx-6 md:px-6 pb-32">
+					<motion.div key={tab} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="h-full flex flex-col min-h-0">
+						{tab === 'info' && <Metadata client={client} onActionsChange={setMetadataActions} />}
+						{tab === 'solar' && <Solar client={client} />}
+						{tab === 'schemas' && <Schemas basePath={settings.path} client={client} />}
+						{tab === 'documents' && <Documents basePath={settings.path} client={client} />}
+						{tab === 'programmation' && <Programmation basePath={settings.path} client={client} />}
+						{tab === 'canbus' && <Canbus basePath={settings.path} client={client} />}
+						{tab === 'pictures' && <Pictures basePath={settings.path} client={client} />}
+						{tab === 'tickets' && <Tickets client={client} />}
+					</motion.div>
+				</div>
 			</div>
 		</NotPermitted>
 	);
