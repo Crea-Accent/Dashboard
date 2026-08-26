@@ -1,5 +1,11 @@
 # panel
 
+## 0.5.0
+
+### Minor Changes
+
+- Added new module and fixed some printing in canbus
+
 ## 0.4.5
 
 ### Patch Changes

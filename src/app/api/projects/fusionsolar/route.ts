@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
 			let isFailed = false;
 
 			do {
-				const listRes = await fetch(`${baseUrl}/thirdData/getStationList`, {
+				const listRes = await fetch(`${baseUrl}/thirdData/stations`, {
 					method: 'POST',
 					headers: {
 						'Content-Type': 'application/json',

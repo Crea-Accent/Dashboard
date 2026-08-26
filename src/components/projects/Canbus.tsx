@@ -39,6 +39,7 @@ import EmptyState from '../ui/EmptyState';
 import { ReactSVG } from 'react-svg';
 import { usePermissions } from '@/providers/PermissionsProvider';
 import { createPortal } from 'react-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const units = {
 	Sens: <Thermometer size={30} />, // or FaTemperatureHigh
@@ -205,35 +206,43 @@ export default function Canbus({ basePath, client }: Props) {
 
 	const manualModules = availableModules.filter((m) => !m.detectable);
 
+	const [moduleSearch, setModuleSearch] = useState('');
+
+	const filterModule = (m: ModuleDefinition) => {
+		if (!moduleSearch) return true;
+		const s = moduleSearch.toLowerCase();
+		return m.name.toLowerCase().includes(s) || m.category?.toLowerCase().includes(s) || m.id.toLowerCase().includes(s);
+	};
+
 	const groupedDetectableModules = useMemo(() => {
 		const groups: Record<string, ModuleDefinition[]> = {};
-		detectableModules.forEach((m) => {
+		detectableModules.filter(filterModule).forEach((m) => {
 			const cat = m.category || 'Other';
 			if (!groups[cat]) groups[cat] = [];
 			groups[cat].push(m);
 		});
 		return Object.entries(groups).sort((a, b) => a[0].localeCompare(b[0]));
-	}, [detectableModules]);
+	}, [detectableModules, moduleSearch]);
 
 	const groupedManualModules = useMemo(() => {
 		const groups: Record<string, ModuleDefinition[]> = {};
-		manualModules.forEach((m) => {
+		manualModules.filter(filterModule).forEach((m) => {
 			const cat = m.category || 'Other';
 			if (!groups[cat]) groups[cat] = [];
 			groups[cat].push(m);
 		});
 		return Object.entries(groups).sort((a, b) => a[0].localeCompare(b[0]));
-	}, [manualModules]);
+	}, [manualModules, moduleSearch]);
 
 	const groupedAvailableModules = useMemo(() => {
 		const groups: Record<string, ModuleDefinition[]> = {};
-		availableModules.forEach((m) => {
+		availableModules.filter(filterModule).forEach((m) => {
 			const cat = m.category || 'Other';
 			if (!groups[cat]) groups[cat] = [];
 			groups[cat].push(m);
 		});
 		return Object.entries(groups).sort((a, b) => a[0].localeCompare(b[0]));
-	}, [availableModules]);
+	}, [availableModules, moduleSearch]);
 
 	function findNextSwitch(tree: TopologyModule[], instanceId: string): TopologyModule | null {
 		for (let i = 0; i < tree.length; i++) {
@@ -818,14 +827,56 @@ export default function Canbus({ basePath, client }: Props) {
 
 		if (!module) return null;
 
-		const branchCount = module?.channels ?? 0;
 		const isMatch = activeMatchId === entry.instanceId;
+
+		if (module.id === 'DT-120OHM') {
+			return (
+				<div
+					id={'module-' + entry.instanceId}
+					key={entry.instanceId}
+					className={`relative w-full flex flex-col items-center justify-start transition-all duration-300 ${editing ? 'min-h-[500px]' : 'min-h-[360px]'} ${isMatch ? 'ring-4 ring-[var(--accent)] shadow-xl scale-105 z-50 rounded-xl' : ''}`}
+				>
+					{/* Pass-through wire */}
+					<div
+						className="absolute h-2.5 flex flex-col justify-between"
+						style={{
+							top: '10rem',
+							left: rootModule || firstInBranch ? '50%' : '0',
+							right: lastRootModule || lastInBranch ? '50%' : '0',
+						}}
+					>
+						<div className="h-0.75 w-full bg-orange-500" />
+						<div className="h-0.75 w-full bg-orange-200" />
+					</div>
+
+					{/* The circle */}
+					<div
+						className="absolute w-16 h-16 rounded-full bg-orange-500 text-white flex items-center justify-center shadow-md z-20 print:border-4 print:bg-white print:text-orange-800 print:border-orange-500 group"
+						style={{ top: '10rem', transform: 'translateY(-50%)' }}
+					>
+						<span className="font-bold text-sm">120Ω</span>
+
+						{/* Quick Delete overlay for resistor */}
+						{editing && (
+							<button
+								onClick={() => removeModule(entry.instanceId)}
+								className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20 hover:scale-110 shadow-sm"
+							>
+								<Trash2 size={12} />
+							</button>
+						)}
+					</div>
+				</div>
+			);
+		}
+
+		const branchCount = module?.channels ?? 0;
 
 		return (
 			<Card
 				id={'module-' + entry.instanceId}
 				key={entry.instanceId}
-				className={`overflow-hidden flex flex-col justify-between transition-all duration-300 ${editing ? 'min-h-[500px]' : 'min-h-[360px]'} ${isMatch ? 'ring-4 ring-[var(--accent)] shadow-xl scale-105 z-50' : ''}`}
+				className={`relative overflow-hidden flex flex-col justify-between transition-all duration-300 ${editing ? 'min-h-[500px]' : 'min-h-[360px]'} ${isMatch ? 'ring-4 ring-[var(--accent)] shadow-xl scale-105 z-50' : ''}`}
 			>
 				<div className="flex flex-col gap-4">
 					<div className="rounded-lg p-1 flex items-center justify-center h-[160px] shrink-0">
@@ -946,9 +997,13 @@ export default function Canbus({ basePath, client }: Props) {
 									</div>
 
 									{/* Horizontal branch line */}
-									<div className="w-12 absolute flex flex-col justify-between h-2.5 group" style={{ left: '140px', top: '10rem' }}>
+									<div className="w-[188px] absolute flex flex-col justify-between h-2.5 group" style={{ left: '140px', top: '10rem' }}>
 										<div className="h-0.75 w-full bg-orange-500" />
 										<div className="h-0.75 w-full bg-orange-200" />
+
+										<div className="absolute left-1/2 -translate-x-1/2 -top-6 px-3 py-1 bg-(--background) rounded-full border border-(--border)/10 text-xs font-medium opacity-50 z-20 whitespace-nowrap">
+											{branch.name}
+										</div>
 
 										{editing && (
 											<button
@@ -961,13 +1016,7 @@ export default function Canbus({ basePath, client }: Props) {
 									</div>
 
 									{/* Branch content */}
-									<div className="flex flex-row items-start gap-4 relative z-10" style={{ marginLeft: '188px' }}>
-										<div
-											className="px-3 py-1 bg-(--background) rounded-full border border-(--border)/10 text-xs font-medium opacity-50 flex-shrink-0"
-											style={{ marginTop: '9.25rem' }}
-										>
-											{branch.name}
-										</div>
+									<div className="flex flex-row items-start relative z-10" style={{ marginLeft: '328px' }}>
 										<div className="flex-shrink-0">{branch.content}</div>
 									</div>
 								</div>
@@ -1174,7 +1223,14 @@ export default function Canbus({ basePath, client }: Props) {
 											const pageW = 1450;
 											const pageH = 1040;
 
-											const scaleFactor = pageH / scrollHeight;
+											// We want to avoid slicing cards in half across pages.
+											// A card column is exactly 328px wide (280px card + 48px horizontal line).
+											// By calculating a scale factor that makes `pageW` an exact multiple of 328px,
+											// the page cut will ALWAYS fall cleanly in the 48px horizontal line gap between cards!
+											const requiredScale = Math.min(0.8, pageH / scrollHeight);
+											const cardsPerPage = Math.ceil(pageW / (requiredScale * 328));
+											const scaleFactor = pageW / (cardsPerPage * 328);
+
 											const scaledWidth = scrollWidth * scaleFactor;
 											const numPages = Math.ceil(scaledWidth / pageW);
 
@@ -1206,13 +1262,15 @@ export default function Canbus({ basePath, client }: Props) {
 
 												// Shift the content horizontally using CSS transform inside the SVG
 												const translateX = -(i * pageW) / scaleFactor;
+												// Vertically center the content on the page if it's smaller than the page height
+												const translateY = (pageH - scrollHeight * scaleFactor) / 2 / scaleFactor;
 
 												cloneWrapper.style.cssText = `
 											width: ${scrollWidth}px;
 											height: ${scrollHeight}px;
 											padding: 20px;
 											box-sizing: border-box;
-											transform: scale(${scaleFactor}) translateX(${translateX}px);
+											transform: scale(${scaleFactor}) translate(${translateX}px, ${translateY}px);
 											transform-origin: top left;
 											background: white;
 										`;
@@ -1282,7 +1340,18 @@ export default function Canbus({ basePath, client }: Props) {
 					dockNode
 				)}
 
-			<Modal size={'xxl'} open={addModalOpen} onClose={() => setAddModalOpen(false)} title="Add Module">
+			<Modal
+				size={'xxl'}
+				open={addModalOpen}
+				onClose={() => {
+					setAddModalOpen(false);
+					setModuleSearch('');
+				}}
+				title="Add Module"
+			>
+				<div className="mb-4">
+					<Input placeholder="Search modules..." value={moduleSearch} onChange={(e) => setModuleSearch(e.target.value)} className="w-full" />
+				</div>
 				<div className="space-y-8 max-h-[70vh] overflow-y-auto pr-2">
 					{viewMode === 'setup' ? (
 						<>
@@ -1311,66 +1380,117 @@ export default function Canbus({ basePath, client }: Props) {
 							<div>
 								<h3 className="mb-4 text-lg font-semibold">Infrastructure</h3>
 
-								<div className="space-y-6">
-									{groupedManualModules.map(([category, modules]) => (
-										<div key={category}>
-											<h4 className="mb-3 font-medium opacity-80 capitalize">{category}</h4>
-											<div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-												{modules.map((module, i) => (
-													<Card key={i} onClick={() => addManualModule(module)} className="cursor-pointer transition hover:scale-[1.02]">
-														<div className="flex flex-col gap-4 p-2">
-															<div className="rounded-lg p-1 overflow-hidden max-h-70">
-																<ReactSVG src={`/modules/${module.id}/drawing.svg`} className="h-100 w-auto" />
-															</div>
+								<motion.div layout className="space-y-6">
+									<AnimatePresence>
+										{groupedManualModules.map(([category, modules]) => (
+											<motion.div
+												key={category}
+												layout
+												initial={{ opacity: 0, height: 0 }}
+												animate={{ opacity: 1, height: 'auto' }}
+												exit={{ opacity: 0, height: 0 }}
+												className="overflow-hidden"
+											>
+												<h4 className="mb-3 font-medium opacity-80 capitalize">{category}</h4>
+												<motion.div layout className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+													<AnimatePresence>
+														{modules.map((module) => (
+															<motion.div
+																key={module.id}
+																layout
+																initial={{ opacity: 0, scale: 0.8 }}
+																animate={{ opacity: 1, scale: 1 }}
+																exit={{ opacity: 0, scale: 0.8 }}
+																transition={{ duration: 0.15 }}
+															>
+																<Card onClick={() => addManualModule(module)} className="cursor-pointer transition hover:scale-[1.02] h-full">
+																	<div className="flex flex-col gap-4 p-2 h-full">
+																		<div className="rounded-lg p-1 overflow-hidden max-h-70">
+																			<ReactSVG src={`/modules/${module.id}/drawing.svg`} className="h-100 w-auto" />
+																		</div>
 
-															<div>
-																<h4 className="font-semibold">{module.name}</h4>
+																		<div>
+																			<h4 className="font-semibold">{module.name}</h4>
 
-																<p className="text-sm opacity-70 line-clamp-3">{module.description}</p>
-															</div>
-														</div>
-													</Card>
-												))}
-											</div>
-										</div>
-									))}
-								</div>
+																			<p className="text-sm opacity-70 line-clamp-3">{module.description}</p>
+																		</div>
+																	</div>
+																</Card>
+															</motion.div>
+														))}
+													</AnimatePresence>
+												</motion.div>
+											</motion.div>
+										))}
+									</AnimatePresence>
+								</motion.div>
 							</div>
 						</>
 					) : (
 						<div>
 							<h3 className="mb-4 text-lg font-semibold">Simulated Modules</h3>
 
-							<div className="space-y-6">
-								{groupedAvailableModules.map(([category, modules]) => (
-									<div key={category}>
-										<h4 className="mb-3 font-medium opacity-80 capitalize">{category}</h4>
-										<div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-											{modules.map((module, i) => (
-												<Card key={i} onClick={() => addManualModule(module)} className="cursor-pointer transition hover:scale-[1.02]">
-													<div className="flex flex-col gap-4 p-2">
-														<div className="rounded-lg p-1 overflow-hidden max-h-70">
-															<ReactSVG src={`/modules/${module.id}/drawing.svg`} className="h-100 w-auto" />
-														</div>
+							<motion.div layout className="space-y-6">
+								<AnimatePresence>
+									{groupedAvailableModules.map(([category, modules]) => (
+										<motion.div
+											key={category}
+											layout
+											initial={{ opacity: 0, height: 0 }}
+											animate={{ opacity: 1, height: 'auto' }}
+											exit={{ opacity: 0, height: 0 }}
+											className="overflow-hidden"
+										>
+											<h4 className="mb-3 font-medium opacity-80 capitalize">{category}</h4>
+											<motion.div layout className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+												<AnimatePresence>
+													{modules.map((module) => (
+														<motion.div
+															key={module.id}
+															layout
+															initial={{ opacity: 0, scale: 0.8 }}
+															animate={{ opacity: 1, scale: 1 }}
+															exit={{ opacity: 0, scale: 0.8 }}
+															transition={{ duration: 0.15 }}
+														>
+															<Card onClick={() => addManualModule(module)} className="cursor-pointer transition hover:scale-[1.02] h-full">
+																<div className="flex flex-col gap-4 p-2 h-full">
+																	<div className="rounded-lg p-1 overflow-hidden max-h-70">
+																		<ReactSVG src={`/modules/${module.id}/drawing.svg`} className="h-100 w-auto" />
+																	</div>
 
-														<div>
-															<h4 className="font-semibold">{module.name}</h4>
+																	<div>
+																		<h4 className="font-semibold">{module.name}</h4>
 
-															<p className="text-sm opacity-70 line-clamp-3">{module.description}</p>
-														</div>
-													</div>
-												</Card>
-											))}
-										</div>
-									</div>
-								))}
-							</div>
+																		<p className="text-sm opacity-70 line-clamp-3">{module.description}</p>
+																	</div>
+																</div>
+															</Card>
+														</motion.div>
+													))}
+												</AnimatePresence>
+											</motion.div>
+										</motion.div>
+									))}
+								</AnimatePresence>
+							</motion.div>
 						</div>
 					)}
 				</div>
 			</Modal>
 
-			<Modal open={moduleSelection !== null} size={'xxl'} onClose={() => setModuleSelection(null)} title="Select Module Type">
+			<Modal
+				open={moduleSelection !== null}
+				size={'xxl'}
+				onClose={() => {
+					setModuleSelection(null);
+					setModuleSearch('');
+				}}
+				title="Select Module Type"
+			>
+				<div className="mb-4">
+					<Input placeholder="Search modules..." value={moduleSearch} onChange={(e) => setModuleSearch(e.target.value)} className="w-full" />
+				</div>
 				<div className="space-y-6">
 					<div>
 						<h3 className="font-semibold">
@@ -1384,34 +1504,53 @@ export default function Canbus({ basePath, client }: Props) {
 						</p>
 					</div>
 
-					<div className="space-y-6 max-h-[70vh] overflow-y-auto pr-2">
-						{groupedDetectableModules.map(([category, modules]) => (
-							<div key={category}>
-								<h4 className="mb-3 font-medium opacity-80 capitalize">{category}</h4>
-								<div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-									{modules.map((module, i) => (
-										<Card
-											key={i}
-											onClick={() => (moduleSelection?.mode === 'add' ? addDetectedModule(module) : changeModuleType(module))}
-											className="cursor-pointer transition hover:scale-[1.02]"
-										>
-											<div className="flex flex-col gap-4 p-2">
-												<div className="rounded-lg p-1 overflow-hidden max-h-70">
-													<ReactSVG src={`/modules/${module.id}/drawing.svg`} className="h-100 w-auto" />
-												</div>
+					<motion.div layout className="space-y-6 max-h-[70vh] overflow-y-auto pr-2">
+						<AnimatePresence>
+							{groupedDetectableModules.map(([category, modules]) => (
+								<motion.div
+									key={category}
+									layout
+									initial={{ opacity: 0, height: 0 }}
+									animate={{ opacity: 1, height: 'auto' }}
+									exit={{ opacity: 0, height: 0 }}
+									className="overflow-hidden"
+								>
+									<h4 className="mb-3 font-medium opacity-80 capitalize">{category}</h4>
+									<motion.div layout className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+										<AnimatePresence>
+											{modules.map((module) => (
+												<motion.div
+													key={module.id}
+													layout
+													initial={{ opacity: 0, scale: 0.8 }}
+													animate={{ opacity: 1, scale: 1 }}
+													exit={{ opacity: 0, scale: 0.8 }}
+													transition={{ duration: 0.15 }}
+												>
+													<Card
+														onClick={() => (moduleSelection?.mode === 'add' ? addDetectedModule(module) : changeModuleType(module))}
+														className="cursor-pointer transition hover:scale-[1.02] h-full"
+													>
+														<div className="flex flex-col gap-4 p-2 h-full">
+															<div className="rounded-lg p-1 overflow-hidden max-h-70">
+																<ReactSVG src={`/modules/${module.id}/drawing.svg`} className="h-100 w-auto" />
+															</div>
 
-												<div>
-													<h4 className="font-semibold">{module.name}</h4>
+															<div>
+																<h4 className="font-semibold">{module.name}</h4>
 
-													<p className="text-sm opacity-70 line-clamp-3">{module.description}</p>
-												</div>
-											</div>
-										</Card>
-									))}
-								</div>
-							</div>
-						))}
-					</div>
+																<p className="text-sm opacity-70 line-clamp-3">{module.description}</p>
+															</div>
+														</div>
+													</Card>
+												</motion.div>
+											))}
+										</AnimatePresence>
+									</motion.div>
+								</motion.div>
+							))}
+						</AnimatePresence>
+					</motion.div>
 				</div>
 			</Modal>
 

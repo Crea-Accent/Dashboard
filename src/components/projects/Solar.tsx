@@ -228,7 +228,10 @@ export default function Solar({ client }: Props) {
 	}
 
 	useEffect(() => {
-		if (stationCode) {
+		// Only fetch if it looks like a valid station code to save API calls while typing
+		const isValidFormat = stationCode.startsWith('NE=') && /^\d+$/.test(stationCode.slice(3));
+
+		if (stationCode && isValidFormat) {
 			fetchFusionData();
 			const interval = setInterval(fetchFusionData, 300000); // Poll every 5 minutes
 			return () => clearInterval(interval);
@@ -316,7 +319,7 @@ export default function Solar({ client }: Props) {
 				setPlants(
 					data.data.map((p: any) => ({
 						value: p.stationCode,
-						label: p.stationName,
+						label: p.stationName || p.plantName || p.stationCode || 'Unnamed Station',
 					}))
 				);
 			} else {

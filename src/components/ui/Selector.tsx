@@ -86,7 +86,7 @@ export default function Selector({ value, options, onChange, placeholder = 'Sele
 	}, [open]);
 
 	const selected = options.find((x) => x.value === value);
-	const filteredOptions = options.filter((o) => o.label.toLowerCase().includes(searchQuery.toLowerCase()));
+	const filteredOptions = options.filter((o) => (o.label || '').toLowerCase().includes(searchQuery.toLowerCase()));
 
 	const isIconOnly = hideLabelOnMobile && selected?.color;
 

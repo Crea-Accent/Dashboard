@@ -1,0 +1,7 @@
+{
+	"id": "DT-120OHM",
+	"name": "120O Terminator",
+	"description": "Virtual module representing a physical 120 ohm end-of-line resistor.",
+	"category": "Accessories",
+	"detectable": false
+}

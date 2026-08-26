@@ -1,4 +1,10 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="800.000" height="600.000" viewBox="0.0 0.0 800.000 600.000" version="1.1">
-  <desc>Produce by Acme CAD Converter</desc>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 315 210" fill="none" stroke="currentColor" stroke-width="1.5">
+  <!-- Outer Frame (315mm x 210mm) -->
+  <rect x="0" y="0" width="315" height="210" />
+  
+  <!-- Screen Opening (210mm x 130mm, centered) -->
+  <rect x="52.5" y="40" width="210" height="130" />
+  
+  <!-- Microphone Hole (centered horizontally) -->
+  <circle cx="157.5" cy="20" r="1.5" />
 </svg>
