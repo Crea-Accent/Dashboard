@@ -26,11 +26,19 @@ export function LocalProvider({ children }: { children: React.ReactNode }) {
 				return;
 			}
 
-			const local = await fetch(`http://${server?.ip}:3000/api/local`, { signal: AbortSignal.timeout(1500) })
+			const actualIpForCheck =
+				server?.ip === '127.0.0.1' && typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
+					? window.location.hostname
+					: server?.ip;
+			const local = await fetch(`http://${actualIpForCheck}:3000/api/local`, { signal: AbortSignal.timeout(1500) })
 				.then(() => true)
 				.catch(() => false);
 
-			const localUrl = local ? 'http://' + server?.ip + ':3000' : '';
+			const actualIp =
+				server?.ip === '127.0.0.1' && typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
+					? window.location.hostname
+					: server?.ip;
+			const localUrl = local ? 'http://' + actualIp + ':3000' : '';
 			setLocal(local);
 			setUrl(localUrl);
 

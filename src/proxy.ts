@@ -1,13 +1,17 @@
 ﻿import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
+const allowedOrigins = ['http://localhost:3000', 'https://crea.dummi.me', 'https://crea-accent.app', 'https://www.crea-accent.app'];
+
 export function proxy(request: NextRequest) {
 	const headers = new Headers(request.headers);
 	headers.set('x-current-path', request.nextUrl.pathname);
 
 	const origin = request.headers.get('origin');
 
-	if (request.nextUrl.pathname.startsWith('/api/') && origin) {
+	const isAllowedOrigin = origin && (allowedOrigins.includes(origin) || origin.startsWith('http://192.168.') || origin.startsWith('http://172.16.') || origin.startsWith('http://10.'));
+
+	if (request.nextUrl.pathname.startsWith('/api/') && isAllowedOrigin) {
 		const resHeaders = new Headers();
 		resHeaders.set('Access-Control-Allow-Origin', origin);
 		resHeaders.set('Access-Control-Allow-Credentials', 'true');
