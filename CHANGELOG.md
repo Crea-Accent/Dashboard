@@ -1,5 +1,11 @@
 # panel
 
+## 0.5.2
+
+### Patch Changes
+
+- Fixed loading times
+
 ## 0.5.1
 
 ### Patch Changes

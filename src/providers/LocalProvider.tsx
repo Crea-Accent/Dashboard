@@ -20,12 +20,32 @@ export function LocalProvider({ children }: { children: React.ReactNode }) {
 				.then((res) => res.json())
 				.catch(() => null)) as { message: string; ip: string };
 
-			const local = await fetch(`http://${server?.ip}:3000/api/local`)
+			if (!server?.ip) {
+				setLocal(false);
+				setUrl('');
+				return;
+			}
+
+			const local = await fetch(`http://${server?.ip}:3000/api/local`, { signal: AbortSignal.timeout(1500) })
 				.then(() => true)
 				.catch(() => false);
 
+			const localUrl = local ? 'http://' + server?.ip + ':3000' : '';
 			setLocal(local);
-			local ? setUrl(`http://${server?.ip}:3000`) : setUrl('');
+			setUrl(localUrl);
+
+			if (local && localUrl && typeof window !== 'undefined') {
+				const originalFetch = window.fetch;
+				window.fetch = async (...args) => {
+					let [resource, config] = args;
+					if (typeof resource === 'string' && resource.startsWith('/api/')) {
+						resource = localUrl + resource;
+					} else if (resource instanceof URL && resource.pathname.startsWith('/api/')) {
+						resource = new URL(localUrl + resource.pathname + resource.search);
+					}
+					return originalFetch(resource, config);
+				};
+			}
 		})();
 	}, []);
 
@@ -45,4 +65,15 @@ export function useLocal() {
 	const ctx = useContext(LocalContext);
 	if (!ctx) throw new Error('Local must be used inside LocalProvider');
 	return ctx;
+}
+
+export function useApiUrl(path: string) {
+	const ctx = useContext(LocalContext);
+	if (!ctx) return path;
+
+	if (ctx.local && ctx.url && path.startsWith('/api/')) {
+		return `${ctx.url}${path}`;
+	}
+
+	return path;
 }

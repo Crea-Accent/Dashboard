@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 
 import Button from '../ui/Button';
 import Image from 'next/image';
+import { useApiUrl } from '@/providers/LocalProvider';
 import { X } from 'lucide-react';
 import { useEffect } from 'react';
 

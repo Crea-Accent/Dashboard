@@ -2,6 +2,7 @@
 'use client';
 
 import { Calendar, Download, Eye, FileText, FileType, Loader2, Pencil, UserIcon, Users, ChevronDown, ChevronRight } from 'lucide-react';
+import { useApiUrl } from '@/providers/LocalProvider';
 
 import Button from '@/components/ui/Button';
 import FileIcon from './FileIcon';
@@ -86,6 +87,8 @@ export default function File({
 	const [viewing, setViewing] = useState(false);
 
 	const extension = file.type === 'directory' ? '' : (file.name.split('.').pop() ?? '');
+	const renderUrl = useApiUrl('/api/files/render?path=' + encodeURIComponent(file.path));
+	const downloadUrl = useApiUrl('/api/files/download?path=' + encodeURIComponent(file.path));
 
 	const filename = file.name.replace(new RegExp(`\\.${extension}$`), '');
 

@@ -1,174 +1,190 @@
-/** @format */
-
 import { NextResponse } from 'next/server';
 import fs from 'fs';
+import fsp from 'fs/promises';
 import path from 'path';
 
 const DATA_DIR = path.join(process.cwd(), 'data');
 const PROJECTS_PATH = path.join(DATA_DIR, 'projects.json');
 
-function loadProjectsSettings() {
-	const raw = fs.readFileSync(PROJECTS_PATH, 'utf8');
+async function loadProjectsSettings() {
+	const raw = await fsp.readFile(PROJECTS_PATH, 'utf8');
 	return JSON.parse(raw);
 }
 
+// In-memory cache
+let cachedProjects: any = null;
+let cacheTimestamp = 0;
+const CACHE_TTL = 30000; // 30 seconds
+
 export async function GET() {
 	try {
-		const settings = loadProjectsSettings();
+		if (cachedProjects && Date.now() - cacheTimestamp < CACHE_TTL) {
+			return NextResponse.json(cachedProjects);
+		}
 
+		const settings = await loadProjectsSettings();
 		const basePath = path.resolve(/*turbopackIgnore: true*/ process.cwd(), settings.path);
-
 		const labels = settings.labels ?? [];
 
-		if (!fs.existsSync(basePath)) {
+		try {
+			await fsp.access(basePath);
+		} catch {
 			return NextResponse.json([]);
 		}
 
-		const folders = fs
-			.readdirSync(/*turbopackIgnore: true*/ basePath, {
-				withFileTypes: true,
-			})
-			.filter((entry) => entry.isDirectory());
+		const entries = await fsp.readdir(/*turbopackIgnore: true*/ basePath, {
+			withFileTypes: true,
+		});
+		const folders = entries.filter((entry) => entry.isDirectory());
 
-		const projects = folders
-			.map((folder) => {
+		const projectPromises = folders.map(async (folder) => {
+			try {
+				const metadataPath = path.join(basePath, folder.name, 'metadata.json');
+
+				let metadataRaw;
 				try {
-					const metadataPath = path.join(basePath, folder.name, 'metadata.json');
+					metadataRaw = await fsp.readFile(metadataPath, 'utf8');
+				} catch {
+					return null;
+				}
 
-					if (!fs.existsSync(metadataPath)) {
-						return null;
-					}
+				const metadata = JSON.parse(metadataRaw);
 
-					const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8'));
-
-					const solarPath = path.join(basePath, folder.name, 'solar.json');
-					let solar = null;
-					if (fs.existsSync(solarPath)) {
-						solar = JSON.parse(fs.readFileSync(solarPath, 'utf8'));
-					} else if (metadata.solar) {
-						// Fallback to legacy metadata.solar if it exists
+				const solarPath = path.join(basePath, folder.name, 'solar.json');
+				let solar = null;
+				try {
+					const solarRaw = await fsp.readFile(solarPath, 'utf8');
+					solar = JSON.parse(solarRaw);
+				} catch {
+					if (metadata.solar) {
 						solar = metadata.solar;
 					}
+				}
 
-					const lat = metadata?.address?.lat;
-					const lng = metadata?.address?.lng;
+				const lat = metadata?.address?.lat;
+				const lng = metadata?.address?.lng;
+				const hasLocation = typeof lat === 'number' && typeof lng === 'number' && lat !== 0 && lng !== 0;
 
-					const hasLocation = typeof lat === 'number' && typeof lng === 'number' && lat !== 0 && lng !== 0;
+				const label = labels.find((x: any) => x.name === metadata.label);
 
-					const label = labels.find((x: any) => x.name === metadata.label);
+				const hasFusionSolar = !!solar?.stationCode;
 
-					// 1. Check FusionSolar
-					const hasFusionSolar = !!solar?.stationCode;
-
-					// 2. Check Canbus setup
-					let hasCanbusSetup = false;
-					let hasCanbusSim = false;
-					const canbusPath = path.join(basePath, folder.name, 'canbus.json');
-					if (fs.existsSync(canbusPath)) {
-						try {
-							const canbusData = JSON.parse(fs.readFileSync(canbusPath, 'utf8'));
-							hasCanbusSetup = Array.isArray(canbusData.setup) && canbusData.setup.length > 0;
-							hasCanbusSim = Array.isArray(canbusData.sim) && canbusData.sim.length > 0;
-						} catch (e) {}
-					} else if (metadata.setup || metadata.sim) {
+				let hasCanbusSetup = false;
+				let hasCanbusSim = false;
+				const canbusPath = path.join(basePath, folder.name, 'canbus.json');
+				try {
+					const canbusData = JSON.parse(await fsp.readFile(canbusPath, 'utf8'));
+					hasCanbusSetup = Array.isArray(canbusData.setup) && canbusData.setup.length > 0;
+					hasCanbusSim = Array.isArray(canbusData.sim) && canbusData.sim.length > 0;
+				} catch {
+					if (metadata.setup || metadata.sim) {
 						hasCanbusSetup = Array.isArray(metadata.setup) && metadata.setup.length > 0;
 						hasCanbusSim = Array.isArray(metadata.sim) && metadata.sim.length > 0;
 					}
+				}
 
-					// 3. Check open tickets and materials
-					let hasOpenTickets = false;
-					let hasNeedsOrdering = false;
-					let hasOrdered = false;
-					let hasInStock = false;
+				let hasOpenTickets = false;
+				let hasNeedsOrdering = false;
+				let hasOrdered = false;
+				let hasInStock = false;
 
-					const processPOI = (poi: any) => {
-						if (poi.state === 'canceled') return;
+				const processPOI = (poi: any) => {
+					if (poi.state === 'canceled') return;
 
-						if (poi.state && poi.state !== 'finished') {
-							hasOpenTickets = true;
+					if (poi.state && poi.state !== 'finished') {
+						hasOpenTickets = true;
+					}
+					if (poi.requiresMaterials) {
+						const mState = poi.materialState || 'needs_ordering';
+						if (mState === 'needs_ordering') hasNeedsOrdering = true;
+						if (mState === 'ordered') hasOrdered = true;
+						if (mState === 'in_stock') hasInStock = true;
+					}
+				};
+
+				const ticketsDir = path.join(basePath, folder.name, 'tickets');
+				try {
+					const dirs = await fsp.readdir(ticketsDir, { withFileTypes: true });
+
+					const ticketPromises = dirs.map(async (d) => {
+						if (d.isDirectory()) {
+							const ticketFolder = path.join(ticketsDir, d.name);
+							const files = await fsp.readdir(ticketFolder);
+							const poiPromises = files.map(async (f) => {
+								if (f.startsWith('poi_') && f.endsWith('.json')) {
+									const poi = JSON.parse(await fsp.readFile(path.join(ticketFolder, f), 'utf8'));
+									processPOI(poi);
+								}
+							});
+							await Promise.all(poiPromises);
 						}
-						if (poi.requiresMaterials) {
-							const mState = poi.materialState || 'needs_ordering';
-							if (mState === 'needs_ordering') hasNeedsOrdering = true;
-							if (mState === 'ordered') hasOrdered = true;
-							if (mState === 'in_stock') hasInStock = true;
-						}
-					};
-
-					const ticketsDir = path.join(basePath, folder.name, 'tickets');
-					if (fs.existsSync(ticketsDir)) {
-						try {
-							const dirs = fs.readdirSync(ticketsDir, { withFileTypes: true });
-							for (const d of dirs) {
-								if (d.isDirectory()) {
-									const ticketFolder = path.join(ticketsDir, d.name);
-									const files = fs.readdirSync(ticketFolder);
-									for (const f of files) {
-										if (f.startsWith('poi_') && f.endsWith('.json')) {
-											const poi = JSON.parse(fs.readFileSync(path.join(ticketFolder, f), 'utf8'));
-											processPOI(poi);
-										}
+					});
+					await Promise.all(ticketPromises);
+				} catch {
+					// Check legacy tickets.json
+					const oldTicketsFile = path.join(basePath, folder.name, 'tickets.json');
+					try {
+						const ticketsData = JSON.parse(await fsp.readFile(oldTicketsFile, 'utf8'));
+						if (ticketsData.tickets && Array.isArray(ticketsData.tickets)) {
+							for (const t of ticketsData.tickets) {
+								if (t.pois && Array.isArray(t.pois)) {
+									for (const p of t.pois) {
+										processPOI(p);
 									}
 								}
 							}
-						} catch (e) {}
-					} else {
-						// Check legacy tickets.json
-						const oldTicketsFile = path.join(basePath, folder.name, 'tickets.json');
-						if (fs.existsSync(oldTicketsFile)) {
-							try {
-								const ticketsData = JSON.parse(fs.readFileSync(oldTicketsFile, 'utf8'));
-								if (ticketsData.tickets && Array.isArray(ticketsData.tickets)) {
-									for (const t of ticketsData.tickets) {
-										if (t.pois && Array.isArray(t.pois)) {
-											for (const p of t.pois) {
-												processPOI(p);
-											}
-										}
-									}
-								}
-							} catch (e) {}
 						}
-					}
-
-					return {
-						name: folder.name,
-						path: `${settings.path}/${folder.name}`,
-						type: 'directory',
-
-						label: metadata.label ?? null,
-						project: metadata.project ?? null,
-						contractor: metadata.contractor ?? null,
-						architect: metadata.architect ?? null,
-						color: label?.color ?? '#6b7280',
-
-						address: metadata.address ?? null,
-
-						updatedAt: metadata.updatedAt ?? fs.statSync(path.join(/*turbopackIgnore: true*/ basePath, folder.name)).mtime.toISOString(),
-
-						contacts: metadata.contacts?.length ?? 0,
-
-						panels: solar?.recommended?.panelsCount ?? solar?.maximum?.panelsCount ?? null,
-
-						yield: solar?.recommended?.yearlyEnergyDcKwh ?? solar?.maximum?.yearlyEnergyDcKwh ?? null,
-
-						hasLocation,
-						lat: hasLocation ? lat : null,
-						lng: hasLocation ? lng : null,
-
-						hasFusionSolar,
-						hasCanbusSetup,
-						hasCanbusSim,
-						hasOpenTickets,
-						hasNeedsOrdering,
-						hasMaterialsReady: hasOrdered || hasInStock,
-					};
-				} catch (error) {
-					console.error(`Failed to load ${folder.name}`, error);
-					return null;
+					} catch {}
 				}
-			})
-			.filter(Boolean);
+
+				let updatedAt = metadata.updatedAt;
+				if (!updatedAt) {
+					const stat = await fsp.stat(path.join(/*turbopackIgnore: true*/ basePath, folder.name));
+					updatedAt = stat.mtime.toISOString();
+				}
+
+				return {
+					name: folder.name,
+					path: `${settings.path}/${folder.name}`,
+					type: 'directory',
+
+					label: metadata.label ?? null,
+					project: metadata.project ?? null,
+					contractor: metadata.contractor ?? null,
+					architect: metadata.architect ?? null,
+					color: label?.color ?? '#6b7280',
+
+					address: metadata.address ?? null,
+
+					updatedAt,
+
+					contacts: metadata.contacts?.length ?? 0,
+
+					panels: solar?.recommended?.panelsCount ?? solar?.maximum?.panelsCount ?? null,
+
+					yield: solar?.recommended?.yearlyEnergyDcKwh ?? solar?.maximum?.yearlyEnergyDcKwh ?? null,
+
+					hasLocation,
+					lat: hasLocation ? lat : null,
+					lng: hasLocation ? lng : null,
+
+					hasFusionSolar,
+					hasCanbusSetup,
+					hasCanbusSim,
+					hasOpenTickets,
+					hasNeedsOrdering,
+					hasMaterialsReady: hasOrdered || hasInStock,
+				};
+			} catch (error) {
+				console.error(`Failed to load ${folder.name}`, error);
+				return null;
+			}
+		});
+
+		const projects = (await Promise.all(projectPromises)).filter(Boolean);
+
+		cachedProjects = projects;
+		cacheTimestamp = Date.now();
 
 		return NextResponse.json(projects);
 	} catch (error) {
