@@ -1,5 +1,11 @@
 # panel
 
+## 0.6.0
+
+### Minor Changes
+
+- Added redirect when local
+
 ## 0.5.3
 
 ### Patch Changes

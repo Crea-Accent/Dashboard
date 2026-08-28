@@ -3,6 +3,7 @@
 'use server';
 
 import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 import dgram from 'dgram';
 
 async function getLocalIp(): Promise<string> {
@@ -15,7 +16,6 @@ async function getLocalIp(): Promise<string> {
 		});
 		socket.on('error', () => {
 			socket.close();
-			// Fallback to os.networkInterfaces if no internet route
 			const os = require('os');
 			const interfaces = os.networkInterfaces();
 			for (const name of Object.keys(interfaces)) {
@@ -32,10 +32,30 @@ async function getLocalIp(): Promise<string> {
 	});
 }
 
-export async function GET() {
+let cachedServerIp: string | null = null;
+let lastFetch = 0;
+async function getServerPublicIp() {
+	if (cachedServerIp && Date.now() - lastFetch < 3600000) return cachedServerIp;
+	try {
+		const res = await fetch('https://api.ipify.org');
+		if (res.ok) {
+			cachedServerIp = (await res.text()).trim();
+			lastFetch = Date.now();
+		}
+	} catch {}
+	return cachedServerIp || 'unknown';
+}
+
+export async function GET(request: NextRequest) {
 	const ip = await getLocalIp();
+	const serverPublicIp = await getServerPublicIp();
+	const clientIps = request.headers.get('x-forwarded-for') || request.headers.get('cf-connecting-ip') || '';
+
+	// Check if the client is connecting from the same public IP as the server
+	const isSameNetwork = !!clientIps && serverPublicIp !== 'unknown' && clientIps.includes(serverPublicIp);
+
 	return NextResponse.json(
-		{ message: `Local service running on ${ip}.`, ip },
+		{ message: `Local service running on ${ip}.`, ip, isSameNetwork },
 		{
 			headers: {
 				'Access-Control-Allow-Origin': '*',

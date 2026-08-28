@@ -18,7 +18,12 @@ export function LocalProvider({ children }: { children: React.ReactNode }) {
 		(async () => {
 			const server = (await fetch('/api/local')
 				.then((res) => res.json())
-				.catch(() => null)) as { message: string; ip: string };
+				.catch(() => null)) as { message: string; ip: string; isSameNetwork?: boolean };
+
+			if (server?.isSameNetwork && typeof window !== 'undefined' && window.location.protocol === 'https:') {
+				window.location.href = `http://${server.ip}:3000${window.location.pathname}${window.location.search}`;
+				return;
+			}
 
 			if (!server?.ip) {
 				setLocal(false);
