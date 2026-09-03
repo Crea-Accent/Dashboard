@@ -15,7 +15,7 @@ export default function Header() {
 
 	return (
 		<header
-			className="fixed w-full top-0 z-40 backdrop-blur-xl transition-all duration-300"
+			className="fixed w-full top-0 z-40 backdrop-blur-xl transition-all duration-300 print:hidden"
 			style={{
 				height: HEADER_HEIGHT,
 				background: 'color-mix(in srgb, var(--background) 80%, transparent)',

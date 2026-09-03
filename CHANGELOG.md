@@ -1,5 +1,11 @@
 # panel
 
+## 0.6.1
+
+### Patch Changes
+
+- Fixed an issue where print buttons were not displaying their location
+
 ## 0.6.0
 
 ### Minor Changes

@@ -53,7 +53,7 @@ export default async function RootLayout({
 											{/* <BackgroundGlow /> */}
 
 											<Header />
-											<div style={{ marginTop: HEADER_HEIGHT }} className="flex-1 flex flex-col">
+											<div style={{ marginTop: HEADER_HEIGHT }} className="flex-1 flex flex-col print:!mt-0">
 												{children}
 											</div>
 										</div>

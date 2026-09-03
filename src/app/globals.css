@@ -1,4 +1,4 @@
-/** @format */
+﻿/** @format */
 @import 'tailwindcss';
 
 @theme {
@@ -100,4 +100,26 @@ body {
 * {
 	scrollbar-width: thin;
 	scrollbar-color: var(--accent) var(--background);
+}
+
+@media print {
+	.print-force-black {
+		color: #000000 !important;
+		-webkit-print-color-adjust: exact !important;
+		print-color-adjust: exact !important;
+		visibility: visible !important;
+		opacity: 1 !important;
+	}
+}
+
+@media print {
+	main,
+	body,
+	html {
+		height: auto !important;
+		min-height: auto !important;
+		overflow: visible !important;
+		display: block !important;
+		flex: none !important;
+	}
 }

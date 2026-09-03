@@ -144,10 +144,10 @@ export default function Page() {
 	}
 
 	return (
-		<div className="p-6 space-y-6">
-			<div className="print:text-center print:mb-8">
-				<h1 className="text-2xl font-semibold">{project.name}</h1>
-				<p className="text-(--text-muted)">
+		<div className="p-6 print:p-2 print:space-y-4 space-y-6">
+			<div className="print:hidden">
+				<h1 className="text-2xl font-semibold print:!text-black">{project.name}</h1>
+				<p className="text-(--text-muted) print:!text-black">
 					{[project.address.suite, project.address.street, project.address.number, project.address.postalCode, project.address.city, project.address.country].filter(Boolean).join(', ')}
 				</p>
 			</div>
@@ -175,20 +175,20 @@ export default function Page() {
 						<h2 className="font-semibold">Project Information</h2>
 
 						<div className="grid grid-cols-[140px_1fr] gap-y-2 text-sm">
-							<div className="text-(--text-muted)">Address</div>
+							<div className="text-(--text-muted) print:!text-black">Address</div>
 							<div>
 								{[project.address.suite, project.address.street, project.address.number, project.address.postalCode, project.address.city, project.address.country]
 									.filter(Boolean)
 									.join(', ')}
 							</div>
 
-							<div className="text-(--text-muted)">Status</div>
+							<div className="text-(--text-muted) print:!text-black">Status</div>
 							<div>{project.label || '-'}</div>
 
-							<div className="text-(--text-muted)">Created</div>
+							<div className="text-(--text-muted) print:!text-black">Created</div>
 							<div>{new Date(project.createdAt).toLocaleDateString()}</div>
 
-							<div className="text-(--text-muted)">Updated</div>
+							<div className="text-(--text-muted) print:!text-black">Updated</div>
 							<div>{new Date(project.updatedAt).toLocaleString()}</div>
 						</div>
 					</Card>
@@ -201,18 +201,18 @@ export default function Page() {
 						<div className="flex items-center gap-4 text-sm">
 							<div className="flex items-center gap-2 text-[var(--text-muted)] bg-[var(--background)] print:bg-transparent px-3 py-1.5 rounded-md border border-[var(--border)]/10 print:border-gray-200">
 								<Pointer size={14} className="text-(--accent)" />
-								<span className="font-medium">Pulse</span>
+								<span className="font-medium print:!text-black">Pulse</span>
 							</div>
 							<div className="flex items-center gap-2 text-[var(--text-muted)] bg-[var(--background)] print:bg-transparent px-3 py-1.5 rounded-md border border-[var(--border)]/10 print:border-gray-200">
 								<SunDim size={14} className="text-(--accent)" />
-								<span className="font-medium">Long Hold</span>
+								<span className="font-medium print:!text-black">Long Hold</span>
 							</div>
 						</div>
 						<Button onClick={() => window.print()} variant="ghost" className="print:hidden" icon={<Printer size={16} />}>
 							Print Layout
 						</Button>
 					</div>
-					<div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3 print:grid-cols-2 print:gap-4">
+					<div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3 print:flex print:flex-wrap print:gap-4">
 						{allModules.some((m) => ['DTBS-4x', 'DT1ET-4x', 'DT1C-4x'].includes(m.moduleId))
 							? allModules
 									.filter((module) => ['DTBS-4x', 'DT1ET-4x', 'DT1C-4x'].includes(module.moduleId))
@@ -253,13 +253,16 @@ export default function Page() {
 															return (
 																<div
 																	key={i}
-																	className="flex flex-row items-center w-full justify-center gap-2"
+																	className="flex flex-row items-center w-full justify-center gap-2 min-w-0"
 																	title={`Binding: ${bindingName} (Event: ${inputEvent})`}
 																>
 																	<Icon size={16} className="shrink-0 text-(--accent)" />
-																	<div className="flex flex-col items-start justify-center">
+																	<div className="flex flex-col items-start justify-center min-w-0">
 																		{outputs.map((outName, oIdx) => (
-																			<span key={oIdx} className="text-xs sm:text-sm font-medium leading-tight truncate max-w-full text-left">
+																			<span
+																				key={oIdx}
+																				className="text-xs sm:text-sm font-medium leading-tight truncate max-w-full text-left print:whitespace-normal print:overflow-visible print:!text-black"
+																			>
 																				{outName as string}
 																			</span>
 																		))}
@@ -275,16 +278,29 @@ export default function Page() {
 										};
 
 										return (
-											<Card key={button.instanceId} className="p-1.5 flex flex-col h-full print:break-inside-avoid print:shadow-none print:border print:border-gray-200">
-												<div className="flex justify-between items-start mb-2 px-2 pt-2">
+											<Card
+												key={button.instanceId}
+												className="p-1.5 flex flex-col print:block h-full print:h-auto print:shadow-none print:border print:border-gray-200 print:w-[48%] print:break-inside-avoid"
+											>
+												<div className="flex justify-between items-start mb-2 px-2 pt-2 shrink-0 print-force-black print:block">
 													<div>
-														<h2 className="text-xl font-semibold leading-tight">{node ? node.name : button.physicalAddress}</h2>
-														<p className="text-sm text-[var(--text-muted)]">{button.physicalAddress}</p>
+														<h2
+															className="text-xl font-semibold leading-tight print:text-black print-force-black"
+															style={{ WebkitPrintColorAdjust: 'exact', colorAdjust: 'exact' }}
+														>
+															{node ? node.name : button.physicalAddress}
+														</h2>
+														<p
+															className="text-sm text-[var(--text-muted)] print:text-black print-force-black"
+															style={{ WebkitPrintColorAdjust: 'exact', colorAdjust: 'exact' }}
+														>
+															{button.physicalAddress}
+														</p>
 													</div>
 													<Button size="sm" variant="ghost" icon={<Info size={14} />} onClick={() => setBindingsModal(node)} className="print:hidden" />
 												</div>
 
-												<div className="relative w-full aspect-square bg-[var(--background)] print:bg-transparent rounded-xl border border-[var(--border)]/10 print:border-gray-200 overflow-hidden">
+												<div className="relative w-full aspect-square print:aspect-auto print:h-0 print:pb-[100%] bg-[var(--background)] print:bg-transparent rounded-xl border border-[var(--border)]/10 print:border-gray-200 overflow-hidden ">
 													<ReactSVG
 														src="/modules/DTBS-4x/drawing.svg"
 														className="absolute inset-0 w-full h-full p-1 [&>div]:w-full [&>div]:h-full [&_svg]:w-full [&_svg]:h-full opacity-20 print:opacity-40 pointer-events-none"
@@ -340,13 +356,16 @@ export default function Page() {
 															return (
 																<div
 																	key={i}
-																	className="flex flex-row items-center w-full justify-center gap-2"
+																	className="flex flex-row items-center w-full justify-center gap-2 min-w-0"
 																	title={`Binding: ${bindingName} (Event: ${inputEvent})`}
 																>
 																	<Icon size={16} className="shrink-0 text-(--accent)" />
-																	<div className="flex flex-col items-start justify-center">
+																	<div className="flex flex-col items-start justify-center min-w-0">
 																		{outputs.map((outName, oIdx) => (
-																			<span key={oIdx} className="text-xs sm:text-sm font-medium leading-tight truncate max-w-full text-left">
+																			<span
+																				key={oIdx}
+																				className="text-xs sm:text-sm font-medium leading-tight truncate max-w-full text-left print:whitespace-normal print:overflow-visible print:!text-black"
+																			>
 																				{outName as string}
 																			</span>
 																		))}
@@ -364,17 +383,27 @@ export default function Page() {
 										return (
 											<Card
 												key={node.physicalAddress || index}
-												className="p-1.5 flex flex-col h-full print:break-inside-avoid print:shadow-none print:border print:border-gray-200"
+												className="p-1.5 flex flex-col print:block h-full print:h-auto print:shadow-none print:border print:border-gray-200 print:w-[48%] print:break-inside-avoid"
 											>
-												<div className="flex justify-between items-start mb-2 px-2 pt-2">
+												<div className="flex justify-between items-start mb-2 px-2 pt-2 shrink-0 print-force-black print:block">
 													<div>
-														<h2 className="text-xl font-semibold leading-tight">{node.name}</h2>
-														<p className="text-sm text-[var(--text-muted)]">{node.physicalAddress}</p>
+														<h2
+															className="text-xl font-semibold leading-tight print:text-black print-force-black"
+															style={{ WebkitPrintColorAdjust: 'exact', colorAdjust: 'exact' }}
+														>
+															{node.name}
+														</h2>
+														<p
+															className="text-sm text-[var(--text-muted)] print:text-black print-force-black"
+															style={{ WebkitPrintColorAdjust: 'exact', colorAdjust: 'exact' }}
+														>
+															{node.physicalAddress}
+														</p>
 													</div>
 													<Button size="sm" variant="ghost" icon={<Info size={14} />} onClick={() => setBindingsModal(node)} className="print:hidden" />
 												</div>
 
-												<div className="relative w-full aspect-square bg-[var(--background)] print:bg-transparent rounded-xl border border-[var(--border)]/10 print:border-gray-200 overflow-hidden">
+												<div className="relative w-full aspect-square print:aspect-auto print:h-0 print:pb-[100%] bg-[var(--background)] print:bg-transparent rounded-xl border border-[var(--border)]/10 print:border-gray-200 overflow-hidden ">
 													<ReactSVG
 														src="/modules/DTBS-4x/drawing.svg"
 														className="absolute inset-0 w-full h-full p-1 [&>div]:w-full [&>div]:h-full [&_svg]:w-full [&_svg]:h-full opacity-20 print:opacity-40 pointer-events-none"
