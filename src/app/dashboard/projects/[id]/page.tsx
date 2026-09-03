@@ -1,13 +1,14 @@
 /** @format */
 'use client';
 
-import { Cable, Check, ClipboardCheck, Code, Eye, File, FileText, Folder, ImageIcon, MapPin, Save, Settings, Share, Sun, Ticket } from 'lucide-react';
+import { Cable, Pointer, Check, ClipboardCheck, Code, Eye, File, FileText, Folder, ImageIcon, MapPin, Save, Settings, Share, Sun, Ticket } from 'lucide-react';
 import { NotPermitted, usePermissions } from '@/providers/PermissionsProvider';
 import { useEffect, useState } from 'react';
 import { useToast } from '@/providers/ToastProvider';
 
 import Button from '@/components/ui/Button';
 import Canbus from '@/components/projects/Canbus';
+import Controls from '@/components/projects/Controls';
 import Documents from '@/components/projects/Document';
 import EmptyState from '@/components/ui/EmptyState';
 import Link from 'next/link';
@@ -23,7 +24,7 @@ import Tickets from '@/components/projects/Tickets';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 
-type Tab = 'info' | 'schemas' | 'documents' | 'programmation' | 'pictures' | 'solar' | 'canbus' | 'tickets';
+type Tab = 'info' | 'schemas' | 'documents' | 'programmation' | 'pictures' | 'solar' | 'canbus' | 'controls' | 'tickets';
 
 type Settings = {
 	path: string;
@@ -95,6 +96,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 		{ key: 'documents', label: 'Documents', icon: <File /> },
 		{ key: 'programmation', label: 'Programmation', icon: <Code /> },
 		{ key: 'canbus', label: 'Canbus', icon: <Cable /> },
+		{ key: 'controls', label: 'Controls', icon: <Pointer /> },
 		{ key: 'pictures', label: 'Media', icon: <ImageIcon /> },
 		{ key: 'tickets', label: 'Tickets', icon: <Ticket /> },
 	] as const;
@@ -150,7 +152,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 		<NotPermitted permission="projects.read" shareAccess={shareAccess}>
 			<div className="flex flex-col h-full min-h-0">
 				{/* Header & Navigation */}
-				<div className="shrink-0 z-40 bg-(--background) pb-4 flex flex-col xl:flex-row justify-between xl:items-center gap-4 border-b border-(--border)/10 mb-6">
+				<div className="shrink-0 z-40 bg-(--background) pb-4 flex flex-col xl:flex-row justify-between xl:items-center gap-4 border-b border-(--border)/10 mb-6 print:hidden">
 					<Selector
 						className="min-w-0 w-fit -ml-4 [&>button]:bg-transparent [&>button]:border-transparent [&>button]:shadow-none [&>button:hover]:bg-black/5 [&>button]:!justify-start [&>button]:!text-2xl [&>button]:!font-semibold [&>button]:!tracking-tight [&_svg]:opacity-50 [&_svg]:ml-2"
 						value={client ?? ''}
@@ -246,6 +248,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 						{tab === 'documents' && <Documents basePath={settings.path} client={client} />}
 						{tab === 'programmation' && <Programmation basePath={settings.path} client={client} />}
 						{tab === 'canbus' && <Canbus basePath={settings.path} client={client} />}
+						{tab === 'controls' && <Controls basePath={settings.path} client={client} />}
 						{tab === 'pictures' && <Pictures basePath={settings.path} client={client} />}
 						{tab === 'tickets' && <Tickets client={client} />}
 					</motion.div>

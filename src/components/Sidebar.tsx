@@ -126,7 +126,7 @@ export default function Sidebar({ type = 'dashboard', items = [] }: any) {
 						animate={{ x: 0 }}
 						exit={{ x: -SIDEBAR_WIDTH }}
 						transition={{ duration: 0.25 }}
-						className="fixed left-0 z-50 p-4 flex flex-col backdrop-blur-xl"
+						className="fixed left-0 z-50 p-4 flex flex-col backdrop-blur-xl print:hidden"
 						style={{
 							width: SIDEBAR_WIDTH,
 							top: HEADER_HEIGHT,

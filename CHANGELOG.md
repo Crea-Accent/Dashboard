@@ -1,5 +1,11 @@
 # panel
 
+## 0.6.2
+
+### Patch Changes
+
+- Added new tab in projects, controls
+
 ## 0.6.1
 
 ### Patch Changes
