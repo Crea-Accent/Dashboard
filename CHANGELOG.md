@@ -1,5 +1,11 @@
 # panel
 
+## 0.7.1
+
+### Patch Changes
+
+- Fixed 2 and 4 buttons render
+
 ## 0.7.0
 
 ### Minor Changes
