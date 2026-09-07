@@ -1,0 +1,10 @@
+{
+	"id": "DTBS-H4",
+	"name": "Velocity schakelaar - 4 hendels",
+	"description": "Een krachtige en elegante schakelaar waarbij robuust design perfect samengaat met een verfijnde afwerking. Dankzij zijn tijdloze uitstraling integreert de Velocity moeiteloos in elke leefomgeving.",
+	"category": "Button",
+	"type": "user",
+	"current": "0.02",
+	"voltage": "24",
+	"detectable": true
+}

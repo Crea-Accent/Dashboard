@@ -1,5 +1,11 @@
 # panel
 
+## 0.7.0
+
+### Minor Changes
+
+- Added modules Essence and Velocity
+
 ## 0.6.2
 
 ### Patch Changes

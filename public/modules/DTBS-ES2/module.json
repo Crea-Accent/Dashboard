@@ -1,0 +1,10 @@
+{
+	"id": "DTBS-ES2",
+	"name": "Essence schakelaar - 2 drukknoppen",
+	"description": "Een toegankelijke en stijlvolle schakelaar die eenvoud combineert met betrouwbare Duotecno-kwaliteit. De Essence komt voort uit de productielijn van Serenity en biedt een budgetvriendelijke oplossing zonder in te boeten op uitstraling of gebruiksgemak.",
+	"category": "Button",
+	"type": "user",
+	"current": "0.02",
+	"voltage": "24",
+	"detectable": true
+}
