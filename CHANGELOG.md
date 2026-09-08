@@ -1,5 +1,11 @@
 # panel
 
+## 0.8.0
+
+### Minor Changes
+
+- Added new feed feature for live feed about domotica systems
+
 ## 0.7.1
 
 ### Patch Changes

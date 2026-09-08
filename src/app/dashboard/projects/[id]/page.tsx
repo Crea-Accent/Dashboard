@@ -1,7 +1,7 @@
 /** @format */
 'use client';
 
-import { Cable, Pointer, Check, ClipboardCheck, Code, Eye, File, FileText, Folder, ImageIcon, MapPin, Save, Settings, Share, Sun, Ticket } from 'lucide-react';
+import { Cable, Pointer, Terminal, Check, ClipboardCheck, Code, Eye, File, FileText, Folder, ImageIcon, MapPin, Save, Settings, Share, Sun, Ticket } from 'lucide-react';
 import { NotPermitted, usePermissions } from '@/providers/PermissionsProvider';
 import { useEffect, useState } from 'react';
 import { useToast } from '@/providers/ToastProvider';
@@ -9,6 +9,7 @@ import { useToast } from '@/providers/ToastProvider';
 import Button from '@/components/ui/Button';
 import Canbus from '@/components/projects/Canbus';
 import Controls from '@/components/projects/Controls';
+import Feed from '@/components/projects/Feed';
 import Documents from '@/components/projects/Document';
 import EmptyState from '@/components/ui/EmptyState';
 import Link from 'next/link';
@@ -24,7 +25,7 @@ import Tickets from '@/components/projects/Tickets';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 
-type Tab = 'info' | 'schemas' | 'documents' | 'programmation' | 'pictures' | 'solar' | 'canbus' | 'controls' | 'tickets';
+type Tab = 'info' | 'schemas' | 'documents' | 'programmation' | 'pictures' | 'solar' | 'canbus' | 'controls' | 'tickets' | 'feed';
 
 type Settings = {
 	path: string;
@@ -99,6 +100,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 		{ key: 'controls', label: 'Controls', icon: <Pointer /> },
 		{ key: 'pictures', label: 'Media', icon: <ImageIcon /> },
 		{ key: 'tickets', label: 'Tickets', icon: <Ticket /> },
+		{ key: 'feed', label: 'Feed', icon: <Terminal /> },
 	] as const;
 
 	const isAllowed = has('projects.write');
@@ -251,6 +253,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 						{tab === 'controls' && <Controls basePath={settings.path} client={client} />}
 						{tab === 'pictures' && <Pictures basePath={settings.path} client={client} />}
 						{tab === 'tickets' && <Tickets client={client} />}
+						{tab === 'feed' && <Feed projectId={metadata?.id} />}
 					</motion.div>
 				</div>
 			</div>

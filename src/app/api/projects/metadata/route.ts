@@ -1,4 +1,4 @@
-/** @format */
+﻿/** @format */
 
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -87,6 +87,13 @@ export async function GET(req: NextRequest) {
 
 	const data = JSON.parse(fs.readFileSync(file, 'utf8'));
 
+	let modified = false;
+
+	if (!data.id) {
+		data.id = crypto.randomUUID();
+		modified = true;
+	}
+
 	if (data.logins && !Array.isArray(data.logins)) {
 		data.logins = [
 			...(data.logins.company ?? []).map((login: any) => ({
@@ -100,6 +107,11 @@ export async function GET(req: NextRequest) {
 				visibleToClient: true,
 			})),
 		];
+		modified = true;
+	}
+
+	if (modified) {
+		fs.writeFileSync(file, JSON.stringify(data, null, 2));
 	}
 
 	if (reveal && Array.isArray(data.logins)) {

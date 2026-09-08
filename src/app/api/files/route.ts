@@ -1,8 +1,9 @@
-/** @format */
+﻿/** @format */
 
 import { NextRequest, NextResponse } from 'next/server';
 
 import fs from 'fs';
+import crypto from 'crypto';
 import path from 'path';
 
 const DATA_DIR = path.join(process.cwd(), 'data');
@@ -106,7 +107,7 @@ export async function GET(request: NextRequest) {
 		return NextResponse.json({ error: 'Forbidden path' }, { status: 403 });
 	}
 
-	// ✅ Create required folders + metadata ONLY in project root folder
+	// âœ… Create required folders + metadata ONLY in project root folder
 	if (projects?.path && Array.isArray(projects.requiredFolders)) {
 		const projectsRoot = path.resolve(projects.path);
 		const current = path.resolve(resolved);
@@ -130,6 +131,7 @@ export async function GET(request: NextRequest) {
 
 			if (!fs.existsSync(metadataPath)) {
 				const defaultMetadata = {
+					id: crypto.randomUUID(),
 					name: path.basename(current),
 					createdAt: new Date().toISOString(),
 					updatedAt: new Date().toISOString(),
@@ -161,7 +163,7 @@ export async function GET(request: NextRequest) {
 		}
 	}
 
-	// 🔥 Recursive reader
+	// ðŸ”¥ Recursive reader
 	function readRecursive(dir: string) {
 		const entries = fs.readdirSync(dir, { withFileTypes: true });
 		let results: Array<Record<string, string | number | null>> = [];
@@ -285,7 +287,7 @@ export async function POST(request: NextRequest) {
 	const contentType = request.headers.get('content-type') || '';
 
 	// ===============================
-	// JSON → create folder
+	// JSON â†’ create folder
 	// ===============================
 	if (contentType.includes('application/json')) {
 		const body = await request.json();
@@ -316,7 +318,7 @@ export async function POST(request: NextRequest) {
 	}
 
 	// ===============================
-	// Multipart → upload file
+	// Multipart â†’ upload file
 	// ===============================
 	const formData = await request.formData();
 	const file = formData.get('file') as File | null;
