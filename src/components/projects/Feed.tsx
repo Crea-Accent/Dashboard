@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { Copy, RefreshCw, Check, Tag, Layers, Cpu, Clock, Radio } from 'lucide-react';
+import { Copy, RefreshCw, Check, Tag, Layers, Cpu, Clock, Radio, Wrench } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import Button from '@/components/ui/Button';
@@ -28,10 +28,12 @@ const syntaxHighlight = (json: string) => {
 	});
 };
 
-export default function Feed({ projectId }: { projectId: string }) {
+export default function Feed({ projectId, onActionsChange }: { projectId: string; onActionsChange?: (actions: any) => void }) {
 	const [messages, setMessages] = useState<any[]>([]);
 	const [loading, setLoading] = useState(false);
+	const [limit, setLimit] = useState(100);
 	const [isLive, setIsLive] = useState(false);
+	const [showBuilder, setShowBuilder] = useState(false);
 
 	// Form state
 	const [msgContent, setMsgContent] = useState('');
@@ -75,7 +77,7 @@ export default function Feed({ projectId }: { projectId: string }) {
 				const data = await res.json();
 				let msgList = Array.isArray(data) ? data : data.messages || [];
 				msgList = msgList.sort((a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
-				setMessages(msgList.slice(0, 100));
+				setMessages(msgList);
 			} else {
 				if (!silent) toast('error', 'Failed to fetch messages.');
 			}
@@ -91,6 +93,17 @@ export default function Feed({ projectId }: { projectId: string }) {
 		fetchMessages();
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [projectId]);
+
+	useEffect(() => {
+		onActionsChange?.({
+			showBuilder,
+			setShowBuilder,
+			isLive,
+			setIsLive,
+			refresh: () => fetchMessages(false),
+			loading,
+		});
+	}, [onActionsChange, showBuilder, isLive, loading]);
 
 	useEffect(() => {
 		let interval: any;
@@ -134,88 +147,77 @@ export default function Feed({ projectId }: { projectId: string }) {
 	}
 
 	return (
-		<div className="flex flex-col lg:flex-row gap-6 items-start w-full">
+		<div className="flex flex-col lg:flex-row gap-6 lg:items-start w-full">
 			{/* Left Column: API Documentation / Testing Box */}
-			<div className="w-full lg:w-[450px] xl:w-[500px] shrink-0 lg:sticky top-6 flex flex-col gap-6">
-				<Card className="p-6 bg-[var(--background)] border border-[var(--border)]/10 shadow-sm rounded-xl">
-					<h3 className="text-lg font-semibold mb-4">Builder</h3>
+			{showBuilder && (
+				<div className="w-full lg:w-[450px] xl:w-[500px] shrink-0 lg:sticky top-6 flex flex-col gap-6">
+					<Card className="p-6 bg-[var(--background)] border border-[var(--border)]/10 shadow-sm rounded-xl">
+						<h3 className="text-lg font-semibold mb-4">Builder</h3>
 
-					<div className="space-y-6">
-						<div>
-							<label className="block text-sm font-medium mb-1.5 text-[var(--text-muted)]">Endpoint URL (POST)</label>
-							<div className="flex gap-2">
-								<code className="flex-1 block p-3 bg-black/5 dark:bg-white/5 rounded-lg text-sm border border-[var(--border)]/5 overflow-x-auto whitespace-nowrap">{apiUrl}</code>
-								<Button variant="secondary" onClick={() => copyToClipboard(apiUrl, 'url')} icon={copiedUrl ? <Check size={16} className="text-green-500" /> : <Copy size={16} />} />
-							</div>
-						</div>
-
-						<div className="grid grid-cols-1 gap-6">
-							<div className="space-y-3">
-								<h4 className="text-sm font-medium text-[var(--text-muted)]">Payload</h4>
-								<div>
-									<label className="block text-xs mb-1 text-[var(--text-muted)]">Message</label>
-									<Input value={msgContent} onChange={(e) => setMsgContent(e.target.value)} placeholder="e.g. test" />
-								</div>
-								<div>
-									<label className="block text-xs mb-1 text-[var(--text-muted)]">Status</label>
-									<Input value={msgStatus} onChange={(e) => setMsgStatus(e.target.value)} placeholder="e.g. info" />
-								</div>
-								<div>
-									<label className="block text-xs mb-1 text-[var(--text-muted)]">Action</label>
-									<Input value={msgAction} onChange={(e) => setMsgAction(e.target.value)} placeholder="e.g. none" />
-								</div>
-								<div>
-									<label className="block text-xs mb-1 text-[var(--text-muted)]">Name</label>
-									<Input value={msgName} onChange={(e) => setMsgName(e.target.value)} placeholder="e.g. sensor_1" />
-								</div>
-								<div>
-									<label className="block text-xs mb-1 text-[var(--text-muted)]">Type</label>
-									<Input value={msgType} onChange={(e) => setMsgType(e.target.value)} placeholder="e.g. event" />
-								</div>
-								<div>
-									<label className="block text-xs mb-1 text-[var(--text-muted)]">Device</label>
-									<Input value={msgDevice} onChange={(e) => setMsgDevice(e.target.value)} placeholder="e.g. raspi_4" />
+						<div className="space-y-6">
+							<div>
+								<label className="block text-sm font-medium mb-1.5 text-[var(--text-muted)]">Endpoint URL (POST)</label>
+								<div className="flex gap-2">
+									<code className="flex-1 block p-3 bg-black/5 dark:bg-white/5 rounded-lg text-sm border border-[var(--border)]/5 overflow-x-auto whitespace-nowrap">{apiUrl}</code>
+									<Button variant="secondary" onClick={() => copyToClipboard(apiUrl, 'url')} icon={copiedUrl ? <Check size={16} className="text-green-500" /> : <Copy size={16} />} />
 								</div>
 							</div>
 
-							<div className="space-y-3 flex flex-col">
-								<h4 className="text-sm font-medium text-[var(--text-muted)]">Generated JSON</h4>
-								<div className="flex-1 relative">
-									<pre className="h-full block p-4 bg-black/5 dark:bg-white/5 rounded-lg text-sm font-mono border border-[var(--border)]/5 overflow-x-auto">
-										<code dangerouslySetInnerHTML={{ __html: syntaxHighlight(generatedJson) }} />
-									</pre>
-									<div className="absolute top-2 right-2">
-										<Button
-											variant="secondary"
-											size="sm"
-											onClick={() => copyToClipboard(generatedJson, 'json')}
-											icon={copiedJson ? <Check size={16} className="text-green-500" /> : <Copy size={16} />}
-										/>
+							<div className="grid grid-cols-1 gap-6">
+								<div className="space-y-3">
+									<h4 className="text-sm font-medium text-[var(--text-muted)]">Payload</h4>
+									<div>
+										<label className="block text-xs mb-1 text-[var(--text-muted)]">Message</label>
+										<Input value={msgContent} onChange={(e) => setMsgContent(e.target.value)} placeholder="e.g. test" />
+									</div>
+									<div>
+										<label className="block text-xs mb-1 text-[var(--text-muted)]">Status</label>
+										<Input value={msgStatus} onChange={(e) => setMsgStatus(e.target.value)} placeholder="e.g. info" />
+									</div>
+									<div>
+										<label className="block text-xs mb-1 text-[var(--text-muted)]">Action</label>
+										<Input value={msgAction} onChange={(e) => setMsgAction(e.target.value)} placeholder="e.g. none" />
+									</div>
+									<div>
+										<label className="block text-xs mb-1 text-[var(--text-muted)]">Name</label>
+										<Input value={msgName} onChange={(e) => setMsgName(e.target.value)} placeholder="e.g. sensor_1" />
+									</div>
+									<div>
+										<label className="block text-xs mb-1 text-[var(--text-muted)]">Type</label>
+										<Input value={msgType} onChange={(e) => setMsgType(e.target.value)} placeholder="e.g. event" />
+									</div>
+									<div>
+										<label className="block text-xs mb-1 text-[var(--text-muted)]">Device</label>
+										<Input value={msgDevice} onChange={(e) => setMsgDevice(e.target.value)} placeholder="e.g. raspi_4" />
+									</div>
+								</div>
+
+								<div className="space-y-3 flex flex-col">
+									<h4 className="text-sm font-medium text-[var(--text-muted)]">Generated JSON</h4>
+									<div className="flex-1 relative">
+										<pre className="h-full block p-4 bg-black/5 dark:bg-white/5 rounded-lg text-sm font-mono border border-[var(--border)]/5 overflow-x-auto">
+											<code dangerouslySetInnerHTML={{ __html: syntaxHighlight(generatedJson) }} />
+										</pre>
+										<div className="absolute top-2 right-2">
+											<Button
+												variant="secondary"
+												size="sm"
+												onClick={() => copyToClipboard(generatedJson, 'json')}
+												icon={copiedJson ? <Check size={16} className="text-green-500" /> : <Copy size={16} />}
+											/>
+										</div>
 									</div>
 								</div>
 							</div>
 						</div>
-					</div>
-				</Card>
-			</div>
+					</Card>
+				</div>
+			)}
 
 			{/* Right Column: Feed Viewer */}
-			<div className="flex-1 flex flex-col gap-4 min-w-0">
+			<div className="flex-1 flex flex-col gap-4 min-w-0 w-full">
 				<div className="flex justify-between items-center px-1">
 					<h3 className="text-lg font-semibold">Message Feed</h3>
-					<div className="flex items-center gap-2">
-						<Button
-							variant={isLive ? 'primary' : 'secondary'}
-							size="sm"
-							onClick={() => setIsLive(!isLive)}
-							icon={<Radio size={14} className={isLive ? 'animate-pulse text-white' : 'text-[var(--accent)]'} />}
-						>
-							{isLive ? 'Live (1m)' : 'Go Live'}
-						</Button>
-						<Button variant="ghost" size="sm" onClick={() => fetchMessages(false)} disabled={loading || isLive} icon={<RefreshCw size={14} className={loading ? 'animate-spin' : ''} />}>
-							Refresh
-						</Button>
-					</div>
 				</div>
 
 				{messages.length === 0 ? (
@@ -224,9 +226,9 @@ export default function Feed({ projectId }: { projectId: string }) {
 					</Card>
 				) : (
 					<div className="space-y-3">
-						{messages.map((msg, idx) => (
+						{messages.slice(0, limit).map((msg, idx) => (
 							<Card key={idx} className="p-4 shadow-sm text-sm break-words overflow-hidden bg-white dark:bg-[#1a1a1a]">
-								<div className="flex justify-between items-start gap-4 mb-2">
+								<div className="flex flex-col sm:flex-row justify-between items-start gap-2 sm:gap-4 mb-2">
 									<div className="flex items-center gap-2 flex-wrap">
 										{msg.status && (
 											<Badge color={msg.status === 'error' ? '#ef4444' : msg.status === 'warning' ? '#f59e0b' : msg.status === 'success' ? '#10b981' : '#3b82f6'}>
@@ -271,6 +273,11 @@ export default function Feed({ projectId }: { projectId: string }) {
 								)}
 							</Card>
 						))}
+						{messages.length > limit && (
+							<Button variant="secondary" className="w-full mt-2" onClick={() => setLimit(limit + 100)}>
+								Load 100 more ({messages.length - limit} remaining)
+							</Button>
+						)}
 					</div>
 				)}
 			</div>

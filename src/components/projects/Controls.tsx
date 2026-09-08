@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { Info, Printer, Pointer, SunDim, Zap, Hand, Sun } from 'lucide-react';
+import { Info, Printer, Pointer, SunDim, Zap, Hand, Sun, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
@@ -9,12 +9,75 @@ import Modal from '../ui/Modal';
 import { linkNodeUnitsWithBindings } from '@/lib/duotecno';
 import { ReactSVG } from 'react-svg';
 
-export default function Controls({ basePath, client }: { basePath: string; client: string }) {
+export default function Controls({ basePath, client, onActionsChange }: { basePath: string; client: string; onActionsChange?: (actions: any) => void }) {
 	const [projectSetup, setProjectSetup] = useState<any>(null);
 	const [loading, setLoading] = useState(true);
+	const [printing, setPrinting] = useState(false);
 	const [nodesData, setNodesData] = useState<any[]>([]);
 	const [bindingsData, setBindingsData] = useState<any[]>([]);
 	const [bindingsModal, setBindingsModal] = useState<any | null>(null);
+
+	useEffect(() => {
+		onActionsChange?.({
+			print: handlePrint,
+			printing,
+		});
+	}, [printing, onActionsChange]);
+
+	const handlePrint = () => {
+		const grid = document.getElementById('controls-grid');
+		if (!grid) return;
+
+		setPrinting(true);
+
+		try {
+			const tiler = document.createElement('div');
+			tiler.id = 'print-tiler';
+			tiler.style.cssText = 'position: absolute; top: 0; left: 0; z-index: -100; opacity: 0; pointer-events: none; width: 100%;';
+
+			const clone = grid.cloneNode(true) as HTMLElement;
+			clone.className = 'flex flex-wrap gap-4 w-full';
+			tiler.appendChild(clone);
+			document.body.appendChild(tiler);
+
+			const style = document.createElement('style');
+			style.innerHTML = `
+				@page { size: A3 landscape; margin: 10mm; }
+				@media print {
+					body {
+						margin: 0 !important;
+						padding: 0 !important;
+						background: white !important;
+					}
+					body > *:not(#print-tiler) { display: none !important; }
+					#print-tiler { 
+						display: block !important; 
+						position: static !important; 
+						opacity: 1 !important; 
+						z-index: 10000 !important; 
+					}
+					#print-tiler * {
+						-webkit-print-color-adjust: exact !important;
+						print-color-adjust: exact !important;
+						color-adjust: exact !important;
+					}
+				}
+			`;
+			document.head.appendChild(style);
+
+			setTimeout(() => {
+				window.print();
+				setTimeout(() => {
+					document.head.removeChild(style);
+					document.body.removeChild(tiler);
+					setPrinting(false);
+				}, 1000);
+			}, 100);
+		} catch (e) {
+			console.error('Print failed', e);
+			setPrinting(false);
+		}
+	};
 
 	useEffect(() => {
 		let isMounted = true;
@@ -107,12 +170,9 @@ export default function Controls({ basePath, client }: { basePath: string; clien
 						<Sun className="text-pink-500" size={14} /> Long Hold
 					</div>
 				</div>
-				<Button onClick={() => window.print()} variant="ghost" className="print:hidden" icon={<Printer size={16} />}>
-					Print Layout
-				</Button>
 			</div>
 
-			<div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3 print:flex print:flex-wrap print:gap-4">
+			<div id="controls-grid" className="grid gap-6 md:grid-cols-2 xl:grid-cols-3 print:flex print:flex-wrap print:gap-4">
 				{hasExplicitButtons
 					? allModules
 							.filter((module) => ['DTBS-4x', 'DT1ET-4x', 'DT1C-4x'].includes(module.moduleId))

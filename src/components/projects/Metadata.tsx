@@ -271,9 +271,9 @@ export default function Metadata({ client, onActionsChange }: Props) {
 
 				<AnimatePresence initial={false}>
 					{openSections.includes('general') && (
-						<motion.div {...collapseAnimation} className="pt-4 overflow-hidden">
+						<motion.div {...collapseAnimation} className="pt-4">
 							<div className="flex flex-col gap-4">
-								<div className="relative">
+								<div className="relative z-30">
 									<Input
 										label="Project Group Name"
 										placeholder="e.g. Solar City Phase 1"
@@ -315,7 +315,7 @@ export default function Metadata({ client, onActionsChange }: Props) {
 								</div>
 
 								<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-									<div className="relative">
+									<div className="relative z-20">
 										<Input
 											label="Contractor"
 											placeholder="e.g. BuildCorp Inc."
@@ -356,7 +356,7 @@ export default function Metadata({ client, onActionsChange }: Props) {
 										</AnimatePresence>
 									</div>
 
-									<div className="relative">
+									<div className="relative z-10">
 										<Input
 											label="Architect"
 											placeholder="e.g. Design Studio"
@@ -412,7 +412,7 @@ export default function Metadata({ client, onActionsChange }: Props) {
 
 				<AnimatePresence initial={false}>
 					{openSections.includes('address') && (
-						<motion.div {...collapseAnimation} className="pt-4 overflow-hidden">
+						<motion.div {...collapseAnimation} className="pt-4">
 							<APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!} libraries={['places']}>
 								<Address
 									value={metadata.address}
@@ -438,7 +438,7 @@ export default function Metadata({ client, onActionsChange }: Props) {
 
 				<AnimatePresence initial={false}>
 					{openSections.includes('contact') && (
-						<motion.div {...collapseAnimation} className="pt-4 overflow-hidden">
+						<motion.div {...collapseAnimation} className="pt-4">
 							<Contact
 								contacts={metadata.contacts ?? []}
 								onChange={(contacts) =>
@@ -463,7 +463,7 @@ export default function Metadata({ client, onActionsChange }: Props) {
 
 				<AnimatePresence initial={false}>
 					{openSections.includes('logins') && (
-						<motion.div {...collapseAnimation} className="pt-4 overflow-hidden">
+						<motion.div {...collapseAnimation} className="pt-4">
 							<Login
 								value={metadata.logins ?? []}
 								onChange={(logins) =>
@@ -488,7 +488,7 @@ export default function Metadata({ client, onActionsChange }: Props) {
 
 					<AnimatePresence initial={false}>
 						{openSections.includes('access') && (
-							<motion.div {...collapseAnimation} className="pt-4 overflow-hidden">
+							<motion.div {...collapseAnimation} className="pt-4">
 								<Access
 									users={users}
 									value={(metadata as any).access ?? []}
@@ -515,7 +515,7 @@ export default function Metadata({ client, onActionsChange }: Props) {
 
 				<AnimatePresence initial={false}>
 					{openSections.includes('notes') && (
-						<motion.div {...collapseAnimation} className="pt-4 overflow-hidden">
+						<motion.div {...collapseAnimation} className="pt-4">
 							<textarea
 								className="w-full min-h-48 rounded-2xl p-4 bg-(--background) outline-none resize-y"
 								disabled={hasWrite}

@@ -51,7 +51,7 @@ type Ticket = {
 	pois: POI[];
 };
 
-export default function Tickets({ client }: { client: string }) {
+export default function Tickets({ client, onActionsChange }: { client: string; onActionsChange?: (actions: any) => void }) {
 	const { has } = usePermissions();
 	const { data: session } = useSession();
 
@@ -77,8 +77,8 @@ export default function Tickets({ client }: { client: string }) {
 	const [generatingPdf, setGeneratingPdf] = useState<string | null>(null);
 	const [users, setUsers] = useState<any[]>([]);
 
-	const isAllowed = has('tasks.write');
-	const canView = has('tasks.read') || has('tasks.write');
+	const isAllowed = has('tickets.write');
+	const canView = has('tickets.read') || has('tickets.write');
 	const currentUsername = session?.user?.name || '';
 
 	const sensors = useSensors(
@@ -229,6 +229,19 @@ export default function Tickets({ client }: { client: string }) {
 
 		await load();
 	};
+
+	useEffect(() => {
+		onActionsChange?.({
+			tickets,
+			generatingPdf,
+			isAllowed: canView && !has('projects.write') === false,
+			generateProjectPDF,
+			openNewTicket: () => {
+				setSelectedTicket(null);
+				setModalOpen(true);
+			},
+		});
+	}, [tickets, generatingPdf, canView, onActionsChange]);
 
 	const getBase64Image = async (url: string): Promise<{ data: string; width: number; height: number } | null> => {
 		try {
@@ -850,44 +863,6 @@ export default function Tickets({ client }: { client: string }) {
 				<div>Client: {client}</div>
 				<div>Users loaded: {users.length}</div>
 			</DebugInfo>
-
-			<div className="flex flex-col sm:flex-row sm:items-center gap-3 justify-between bg-(--foreground) p-4 rounded-3xl">
-				<div className="flex items-center gap-3">
-					<div className="w-10 h-10 shrink-0 rounded-xl bg-(--accent)/10 text-(--accent) flex items-center justify-center">
-						<TicketIcon size={20} />
-					</div>
-					<div className="min-w-0">
-						<h2 className="font-semibold truncate">Tickets</h2>
-						<p className="text-xs text-(--text-muted) truncate">Manage work points and visits</p>
-					</div>
-				</div>
-
-				<div className="flex gap-2 flex-col sm:flex-row w-full sm:w-auto">
-					{tickets.length > 0 && (
-						<Button
-							variant="secondary"
-							onClick={generateProjectPDF}
-							disabled={generatingPdf !== null}
-							icon={generatingPdf === 'project' ? <Loader2 size={16} className="animate-spin" /> : <FileIcon size={16} />}
-							className="w-full sm:w-auto justify-center"
-						>
-							{generatingPdf === 'project' ? 'Generating...' : 'Project Summary'}
-						</Button>
-					)}
-					{isAllowed && (
-						<Button
-							onClick={() => {
-								setSelectedTicket(null);
-								setModalOpen(true);
-							}}
-							icon={<Plus size={16} />}
-							className="w-full sm:w-auto justify-center"
-						>
-							New Ticket
-						</Button>
-					)}
-				</div>
-			</div>
 
 			{tickets.length === 0 && <EmptyState title="No Tickets Found" description="Create a new ticket to track points of interest." />}
 

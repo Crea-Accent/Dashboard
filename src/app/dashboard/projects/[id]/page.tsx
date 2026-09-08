@@ -1,7 +1,31 @@
 /** @format */
 'use client';
 
-import { Cable, Pointer, Terminal, Check, ClipboardCheck, Code, Eye, File, FileText, Folder, ImageIcon, MapPin, Save, Settings, Share, Sun, Ticket } from 'lucide-react';
+import {
+	Cable,
+	Pointer,
+	Plus,
+	Radio,
+	RefreshCw,
+	Wrench,
+	Loader2,
+	Printer,
+	Terminal,
+	Check,
+	ClipboardCheck,
+	Code,
+	Eye,
+	File,
+	FileText,
+	Folder,
+	ImageIcon,
+	MapPin,
+	Save,
+	Settings,
+	Share,
+	Sun,
+	Ticket,
+} from 'lucide-react';
 import { NotPermitted, usePermissions } from '@/providers/PermissionsProvider';
 import { useEffect, useState } from 'react';
 import { useToast } from '@/providers/ToastProvider';
@@ -30,6 +54,28 @@ type Tab = 'info' | 'schemas' | 'documents' | 'programmation' | 'pictures' | 'so
 type Settings = {
 	path: string;
 	requiredFolders: string[];
+};
+
+type ControlsActions = {
+	print: () => void;
+	printing: boolean;
+};
+
+type TicketsActions = {
+	tickets: any[];
+	generatingPdf: string | null;
+	isAllowed: boolean;
+	generateProjectPDF: () => void;
+	openNewTicket: () => void;
+};
+
+type FeedActions = {
+	showBuilder: boolean;
+	setShowBuilder: (val: boolean) => void;
+	isLive: boolean;
+	setIsLive: (val: boolean) => void;
+	refresh: () => void;
+	loading: boolean;
 };
 
 type MetadataActions = {
@@ -88,20 +134,25 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 	const [shareAccess, setShareAccess] = useState(false);
 	const [shared, setShared] = useState(false);
 	const [metadataActions, setMetadataActions] = useState<MetadataActions | null>(null);
+	const [feedActions, setFeedActions] = useState<FeedActions | null>(null);
+	const [ticketsActions, setTicketsActions] = useState<TicketsActions | null>(null);
+	const [controlsActions, setControlsActions] = useState<ControlsActions | null>(null);
 	const [selectorOpen, setSelectorOpen] = useState(false);
 
-	const tabs = [
+	const allTabs = [
 		{ key: 'info', label: 'Info', icon: <Folder /> },
-		{ key: 'solar', label: 'Solar', icon: <Sun /> },
+		{ key: 'tickets', label: 'Tickets', icon: <Ticket /> },
 		{ key: 'schemas', label: 'Schemas', icon: <FileText /> },
 		{ key: 'documents', label: 'Documents', icon: <File /> },
+		{ key: 'pictures', label: 'Media', icon: <ImageIcon /> },
+		{ key: 'solar', label: 'Solar', icon: <Sun /> },
 		{ key: 'programmation', label: 'Programmation', icon: <Code /> },
 		{ key: 'canbus', label: 'Canbus', icon: <Cable /> },
 		{ key: 'controls', label: 'Controls', icon: <Pointer /> },
-		{ key: 'pictures', label: 'Media', icon: <ImageIcon /> },
-		{ key: 'tickets', label: 'Tickets', icon: <Ticket /> },
 		{ key: 'feed', label: 'Feed', icon: <Terminal /> },
 	] as const;
+
+	const tabs = allTabs.filter((t) => t.key !== 'tickets' || has('tickets.read'));
 
 	const isAllowed = has('projects.write');
 
@@ -186,9 +237,9 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 				<motion.div
 					layout
 					transition={{ type: 'spring', bounce: 0.25, duration: 0.5 }}
-					className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 p-2 rounded-2xl bg-(--foreground) shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-(--border)/20 transition-all ${selectorOpen ? 'w-64 sm:w-auto' : ''}`}
+					className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 p-2 rounded-2xl bg-(--foreground) shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-(--border)/20 transition-all max-w-[calc(100vw-2rem)] overflow-x-auto scrollbar-none ${selectorOpen ? 'w-64 sm:w-auto' : ''}`}
 				>
-					<div className={`flex items-center gap-2 ${selectorOpen ? 'hidden sm:flex' : ''}`}>
+					<div className={`flex items-center gap-2 shrink-0 ${selectorOpen ? 'hidden sm:flex' : ''}`}>
 						{tab === 'info' && (
 							<Button
 								icon={metadataActions?.saved ? <Check size={16} /> : <Save size={16} />}
@@ -198,16 +249,71 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 								<span className="hidden sm:inline">{metadataActions?.saving ? 'Saving...' : metadataActions?.saved ? 'Saved' : 'Save'}</span>
 							</Button>
 						)}
+						{tab === 'tickets' && ticketsActions && (
+							<>
+								{ticketsActions.tickets.length > 0 && (
+									<Button
+										variant="secondary"
+										onClick={() => ticketsActions.generateProjectPDF()}
+										disabled={ticketsActions.generatingPdf !== null}
+										icon={ticketsActions.generatingPdf === 'project' ? <Loader2 size={16} className="animate-spin" /> : <FileText size={16} />}
+									>
+										<span className="hidden sm:inline">{ticketsActions.generatingPdf === 'project' ? 'Generating...' : 'Project Summary'}</span>
+									</Button>
+								)}
+								{ticketsActions.isAllowed && (
+									<Button onClick={() => ticketsActions.openNewTicket()} icon={<Plus size={16} />}>
+										<span className="hidden sm:inline">New Ticket</span>
+									</Button>
+								)}
+							</>
+						)}
+						{tab === 'controls' && controlsActions && (
+							<Button
+								variant="ghost"
+								icon={controlsActions.printing ? <Loader2 size={16} className="animate-spin" /> : <Printer size={16} />}
+								disabled={controlsActions.printing}
+								onClick={() => controlsActions.print()}
+							>
+								<span className="hidden sm:inline">{controlsActions.printing ? 'Preparing...' : 'Print Layout'}</span>
+							</Button>
+						)}
+						{tab === 'feed' && feedActions && (
+							<>
+								<Button
+									variant={feedActions.showBuilder ? 'secondary' : 'ghost'}
+									icon={<Wrench size={16} className={feedActions.showBuilder ? 'text-[var(--accent)]' : ''} />}
+									onClick={() => feedActions.setShowBuilder(!feedActions.showBuilder)}
+								>
+									<span className="hidden sm:inline">{feedActions.showBuilder ? 'Close' : 'Builder'}</span>
+								</Button>
+								<Button
+									variant={feedActions.isLive ? 'primary' : 'secondary'}
+									icon={<Radio size={16} className={feedActions.isLive ? 'animate-pulse text-white' : 'text-[var(--accent)]'} />}
+									onClick={() => feedActions.setIsLive(!feedActions.isLive)}
+								>
+									<span className="hidden sm:inline">{feedActions.isLive ? 'Live' : 'Go Live'}</span>
+								</Button>
+								<Button
+									variant="ghost"
+									icon={<RefreshCw size={16} className={feedActions.loading ? 'animate-spin' : ''} />}
+									disabled={feedActions.loading || feedActions.isLive}
+									onClick={() => feedActions.refresh()}
+								>
+									<span className="hidden sm:inline">Refresh</span>
+								</Button>
+							</>
+						)}
 
 						<div id="project-dock-actions" className="flex items-center gap-2 empty:hidden overflow-x-auto max-w-[calc(100vw-3rem)] sm:max-w-none scrollbar-none" />
 
 						<div className="w-px h-6 bg-(--border)/20 mx-1 hidden sm:block" />
 
-						<Button icon={shared ? <ClipboardCheck size={16} /> : <Share size={16} />} onClick={handleShare} disabled={shared || !isAllowed}>
+						<Button className="shrink-0" icon={shared ? <ClipboardCheck size={16} /> : <Share size={16} />} onClick={handleShare} disabled={shared || !isAllowed}>
 							<span className="hidden sm:inline">{shared ? 'Copied' : 'Share'}</span>
 						</Button>
 
-						<Link href={`/portal/${encodeURIComponent(client)}`}>
+						<Link href={`/portal/${encodeURIComponent(client)}`} className="shrink-0">
 							<Button icon={<Eye size={16} />}>
 								<span className="hidden sm:inline">View</span>
 							</Button>
@@ -250,10 +356,10 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 						{tab === 'documents' && <Documents basePath={settings.path} client={client} />}
 						{tab === 'programmation' && <Programmation basePath={settings.path} client={client} />}
 						{tab === 'canbus' && <Canbus basePath={settings.path} client={client} />}
-						{tab === 'controls' && <Controls basePath={settings.path} client={client} />}
+						{tab === 'controls' && <Controls basePath={settings.path} client={client} onActionsChange={setControlsActions} />}
 						{tab === 'pictures' && <Pictures basePath={settings.path} client={client} />}
-						{tab === 'tickets' && <Tickets client={client} />}
-						{tab === 'feed' && <Feed projectId={metadata?.id} />}
+						{tab === 'tickets' && <Tickets client={client} onActionsChange={setTicketsActions} />}
+						{tab === 'feed' && <Feed projectId={metadata?.id} onActionsChange={setFeedActions} />}
 					</motion.div>
 				</div>
 			</div>

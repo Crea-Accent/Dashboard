@@ -91,6 +91,16 @@ export const PERMISSIONS = [
 		label: 'Templates - Write',
 		group: 'Templates',
 	},
+	{
+		key: 'tickets.read',
+		label: 'Tickets - Read',
+		group: 'Tickets',
+	},
+	{
+		key: 'tickets.write',
+		label: 'Tickets - Write',
+		group: 'Tickets',
+	},
 ] as const;
 
 export function groupPermissions() {

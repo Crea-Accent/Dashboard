@@ -1,5 +1,11 @@
 # panel
 
+## 0.8.1
+
+### Patch Changes
+
+- Fixed some UI elements and moved some UI elements
+
 ## 0.8.0
 
 ### Minor Changes
