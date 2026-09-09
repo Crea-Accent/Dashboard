@@ -1,5 +1,11 @@
 # panel
 
+## 0.9.1
+
+### Patch Changes
+
+- Fixed UUID issue
+
 ## 0.9.0
 
 ### Minor Changes

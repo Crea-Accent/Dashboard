@@ -46,7 +46,7 @@ export default function IpList({ client, onActionsChange }: Props) {
 	const [openSubnets, setOpenSubnets] = useState<string[]>([]);
 	const [createOpen, setCreateOpen] = useState(false);
 	const [newIp, setNewIp] = useState<IpEntry>({
-		id: crypto.randomUUID(),
+		id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15),
 		ip: '',
 		mac: '',
 		name: '',
@@ -129,7 +129,7 @@ export default function IpList({ client, onActionsChange }: Props) {
 							if (data.serverNodes && Array.isArray(data.serverNodes)) {
 								newExtractedIps.push(
 									...data.serverNodes.map((n: any) => ({
-										id: `extracted-node-${n.logicalAddress || crypto.randomUUID()}`,
+										id: `extracted-node-${n.logicalAddress || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15))}`,
 										ip: n.localAddress || '',
 										mac: n.MAC || '',
 										name: `Node ${n.logicalAddress}`,
@@ -154,7 +154,7 @@ export default function IpList({ client, onActionsChange }: Props) {
 										const match = cam.cam_url.match(ipRegex);
 										if (match && match[1]) {
 											newExtractedIps.push({
-												id: `extracted-cam-${cam.id || crypto.randomUUID()}`,
+												id: `extracted-cam-${cam.id || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15))}`,
 												ip: match[1],
 												mac: '',
 												name: `Camera: ${cam.name || 'Unknown'}`,
@@ -267,7 +267,7 @@ export default function IpList({ client, onActionsChange }: Props) {
 
 	const addIp = () => {
 		if (!newIp.ip) return;
-		setManualIps([...manualIps, { ...newIp, id: crypto.randomUUID() }]);
+		setManualIps([...manualIps, { ...newIp, id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15) }]);
 		setHasChanges(true);
 		setCreateOpen(false);
 		setNewIp({ id: '', ip: '', mac: '', name: '', status: 'static' });
@@ -291,7 +291,7 @@ export default function IpList({ client, onActionsChange }: Props) {
 
 	const startEdit = (entry: IpEntry & { isManual?: boolean }) => {
 		if (!entry.isManual) {
-			const newId = crypto.randomUUID();
+			const newId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15);
 			const newManual: IpEntry = {
 				id: newId,
 				ip: entry.ip,
