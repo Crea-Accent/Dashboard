@@ -36,7 +36,7 @@ function getFolderName(file: FileEntry) {
 	return folder;
 }
 
-export default function Pictures({ basePath, client }: { basePath: string; client: string }) {
+export default function Pictures({ basePath, client, onActionsChange }: { basePath: string; client: string; onActionsChange?: (actions: any) => void }) {
 	const inputRef = useRef<HTMLInputElement>(null);
 
 	const { data: session } = useSession();
@@ -72,6 +72,21 @@ export default function Pictures({ basePath, client }: { basePath: string; clien
 	const [deletingGroup, setDeletingGroup] = useState(false);
 
 	const isAllowed = has('projects.write');
+
+	useEffect(() => {
+		onActionsChange?.({
+			view,
+			setView,
+			canWrite: isAllowed,
+			uploading,
+			clickUpload: () => inputRef.current?.click(),
+			hasNewGroup: true,
+			openNewGroup: () => {
+				setNewGroupName('');
+				setNewGroupOpen(true);
+			},
+		});
+	}, [view, setView, isAllowed, uploading, onActionsChange]);
 
 	const load = async () => {
 		try {
@@ -342,28 +357,7 @@ export default function Pictures({ basePath, client }: { basePath: string; clien
 			/>
 
 			<div className="rounded-3xl bg-(--foreground) p-6 space-y-6">
-				<div className="flex items-center justify-end gap-2">
-					<ViewToggle value={view} onChange={setView} />
-
-					{isAllowed && (
-						<>
-							<Button
-								onClick={() => {
-									setNewGroupName('');
-									setNewGroupOpen(true);
-								}}
-							>
-								New Group
-							</Button>
-
-							<Button onClick={() => inputRef.current?.click()} disabled={uploading}>
-								<Upload size={16} />
-
-								{uploading ? 'Uploading...' : 'Upload'}
-							</Button>
-						</>
-					)}
-				</div>
+				<div className="hidden"></div>
 
 				{groups.length === 0 && files.length === 0 && <EmptyState title="No Media Found" description="Upload media or create a media group to get started." />}
 

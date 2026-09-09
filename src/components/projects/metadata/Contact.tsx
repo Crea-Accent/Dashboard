@@ -123,15 +123,15 @@ export default function Contact({ contacts: selectedContacts, onChange }: Props)
 
 						{editing === index ? (
 							<div className="flex flex-col gap-3 flex-1">
-								<Input label="Name" value={contact.name} onChange={(e) => updateContact(index, 'name', e.target.value)} />
+								<Input copyable label="Name" value={contact.name ?? ''} onChange={(e) => updateContact(index, 'name', e.target.value)} />
 
-								<Input label="Company" value={contact.company || ''} onChange={(e) => updateContact(index, 'company', e.target.value)} />
+								<Input copyable label="Company" value={contact.company || ''} onChange={(e) => updateContact(index, 'company', e.target.value)} />
 
-								<Input label="Role" value={contact.role} onChange={(e) => updateContact(index, 'role', e.target.value)} />
+								<Input copyable label="Role" value={contact.role ?? ''} onChange={(e) => updateContact(index, 'role', e.target.value)} />
 
-								<Input label="Phone" icon={<Phone size={16} />} value={contact.phone} onChange={(e) => updateContact(index, 'phone', e.target.value)} />
+								<Input copyable label="Phone" icon={<Phone size={16} />} value={contact.phone ?? ''} onChange={(e) => updateContact(index, 'phone', e.target.value)} />
 
-								<Input label="Email" icon={<Mail size={16} />} value={contact.email} onChange={(e) => updateContact(index, 'email', e.target.value)} />
+								<Input copyable label="Email" icon={<Mail size={16} />} value={contact.email ?? ''} onChange={(e) => updateContact(index, 'email', e.target.value)} />
 							</div>
 						) : (
 							<div className="text-sm flex flex-col gap-2 flex-1 text-(--text-muted)">
@@ -245,8 +245,9 @@ export default function Contact({ contacts: selectedContacts, onChange }: Props)
 				<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 					<div className="relative">
 						<Input
+							copyable
 							label="Name"
-							value={newContact.name}
+							value={newContact.name ?? ''}
 							onChange={(e) => {
 								setNewContact({
 									...newContact,
@@ -289,8 +290,9 @@ export default function Contact({ contacts: selectedContacts, onChange }: Props)
 					</div>
 
 					<Input
+						copyable
 						label="Company"
-						value={newContact.company}
+						value={newContact.company ?? ''}
 						onChange={(e) =>
 							setNewContact({
 								...newContact,
@@ -300,8 +302,9 @@ export default function Contact({ contacts: selectedContacts, onChange }: Props)
 					/>
 
 					<Input
+						copyable
 						label="Role"
-						value={newContact.role}
+						value={newContact.role ?? ''}
 						onChange={(e) =>
 							setNewContact({
 								...newContact,
@@ -311,9 +314,10 @@ export default function Contact({ contacts: selectedContacts, onChange }: Props)
 					/>
 
 					<Input
+						copyable
 						label="Phone"
 						icon={<Phone size={16} />}
-						value={newContact.phone}
+						value={newContact.phone ?? ''}
 						onChange={(e) =>
 							setNewContact({
 								...newContact,
@@ -323,9 +327,10 @@ export default function Contact({ contacts: selectedContacts, onChange }: Props)
 					/>
 
 					<Input
+						copyable
 						label="Email"
 						icon={<Mail size={16} />}
-						value={newContact.email}
+						value={newContact.email ?? ''}
 						onChange={(e) =>
 							setNewContact({
 								...newContact,

@@ -58,9 +58,10 @@ function detectProgrammationType(entry: FileEntry): 'DuoTecno' | 'DALI' | 'Loxon
 	return 'Other';
 }
 
-export default function Programmation({ basePath, client }: { basePath: string; client: string }) {
+export default function Programmation({ basePath, client, onActionsChange }: { basePath: string; client: string; onActionsChange?: (actions: any) => void }) {
 	const { has } = usePermissions();
 	const [view, setView] = useState<'grid' | 'list'>('list');
+
 	const hasWrite = has('projects.write');
 	const { uploading, uploadFile } = useUpload();
 	const [items, setItems] = useState<FileEntry[]>([]);
@@ -75,6 +76,17 @@ export default function Programmation({ basePath, client }: { basePath: string; 
 
 	const [expandedGroups, setExpandedGroups] = useState<string[]>([]);
 	const inputRef = useRef<HTMLInputElement | null>(null);
+
+	useEffect(() => {
+		onActionsChange?.({
+			view,
+			setView,
+			canWrite: hasWrite,
+			uploading,
+			clickUpload: () => inputRef.current?.click(),
+			hasNewGroup: false,
+		});
+	}, [view, setView, hasWrite, uploading, onActionsChange]);
 
 	const grouped = {
 		DuoTecno: items.filter((i) => detectProgrammationType(i) === 'DuoTecno'),
@@ -216,15 +228,6 @@ export default function Programmation({ basePath, client }: { basePath: string; 
 			<div className="rounded-3xl p-6 space-y-6 bg-(--foreground)">
 				<AnimatePresence mode="popLayout">
 					{/* Upload */}
-					<div key="header" className="flex justify-end gap-2">
-						<ViewToggle value={view} onChange={setView} />
-
-						{hasWrite && (
-							<Button icon={<Upload size={14} />} onClick={() => inputRef.current?.click()} disabled={uploading}>
-								{uploading ? 'Uploading…' : 'Upload'}
-							</Button>
-						)}
-					</div>
 
 					{/* Groups */}
 					{Object.entries(grouped).map(([type, entries], i) => {

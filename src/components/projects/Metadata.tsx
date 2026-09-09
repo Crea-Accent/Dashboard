@@ -1,6 +1,14 @@
 /** @format */
 'use client';
 
+export type IpEntry = {
+	id: string;
+	ip: string;
+	mac?: string;
+	name: string;
+	status: 'static' | 'free' | 'dhcp';
+};
+
 import { AnimatePresence, motion } from 'framer-motion';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import Login, { LoginEntry } from './metadata/Login';
@@ -42,6 +50,7 @@ export type MetadataType = {
 	contacts?: string[];
 
 	logins?: LoginEntry[];
+	ipList?: IpEntry[];
 
 	updatedAt?: string;
 
@@ -275,6 +284,7 @@ export default function Metadata({ client, onActionsChange }: Props) {
 							<div className="flex flex-col gap-4">
 								<div className="relative z-30">
 									<Input
+										copyable
 										label="Project Group Name"
 										placeholder="e.g. Solar City Phase 1"
 										value={metadata.project ?? ''}
@@ -317,6 +327,7 @@ export default function Metadata({ client, onActionsChange }: Props) {
 								<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 									<div className="relative z-20">
 										<Input
+											copyable
 											label="Contractor"
 											placeholder="e.g. BuildCorp Inc."
 											value={metadata.contractor ?? ''}
@@ -358,6 +369,7 @@ export default function Metadata({ client, onActionsChange }: Props) {
 
 									<div className="relative z-10">
 										<Input
+											copyable
 											label="Architect"
 											placeholder="e.g. Design Studio"
 											value={metadata.architect ?? ''}

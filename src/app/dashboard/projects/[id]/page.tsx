@@ -2,6 +2,7 @@
 'use client';
 
 import {
+	Upload,
 	Cable,
 	Pointer,
 	Plus,
@@ -25,6 +26,7 @@ import {
 	Share,
 	Sun,
 	Ticket,
+	Network,
 } from 'lucide-react';
 import { NotPermitted, usePermissions } from '@/providers/PermissionsProvider';
 import { useEffect, useState } from 'react';
@@ -32,6 +34,7 @@ import { useToast } from '@/providers/ToastProvider';
 
 import Button from '@/components/ui/Button';
 import Canbus from '@/components/projects/Canbus';
+import IpList from '@/components/projects/IpList';
 import Controls from '@/components/projects/Controls';
 import Feed from '@/components/projects/Feed';
 import Documents from '@/components/projects/Document';
@@ -42,6 +45,7 @@ import Metadata from '@/components/projects/Metadata';
 import Pictures from '@/components/projects/Picture';
 import Programmation from '@/components/projects/Programmation';
 import Schemas from '@/components/projects/Schema';
+import ViewToggle from '@/components/ui/ViewToggle';
 import Selector from '@/components/ui/Selector';
 import Solar from '@/components/projects/Solar';
 import Tabs from '@/components/ui/Tabs';
@@ -49,7 +53,7 @@ import Tickets from '@/components/projects/Tickets';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 
-type Tab = 'info' | 'schemas' | 'documents' | 'programmation' | 'pictures' | 'solar' | 'canbus' | 'controls' | 'tickets' | 'feed';
+type Tab = 'info' | 'schemas' | 'documents' | 'programmation' | 'pictures' | 'solar' | 'canbus' | 'ips' | 'controls' | 'tickets' | 'feed';
 
 type Settings = {
 	path: string;
@@ -59,6 +63,16 @@ type Settings = {
 type ControlsActions = {
 	print: () => void;
 	printing: boolean;
+};
+
+type FileTabActions = {
+	view: 'list' | 'grid';
+	setView: (v: 'list' | 'grid') => void;
+	canWrite: boolean;
+	uploading: boolean;
+	clickUpload: () => void;
+	hasNewGroup: boolean;
+	openNewGroup?: () => void;
 };
 
 type TicketsActions = {
@@ -137,6 +151,11 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 	const [feedActions, setFeedActions] = useState<FeedActions | null>(null);
 	const [ticketsActions, setTicketsActions] = useState<TicketsActions | null>(null);
 	const [controlsActions, setControlsActions] = useState<ControlsActions | null>(null);
+	const [schemaActions, setSchemaActions] = useState<FileTabActions | null>(null);
+	const [documentActions, setDocumentActions] = useState<FileTabActions | null>(null);
+	const [programmationActions, setProgrammationActions] = useState<FileTabActions | null>(null);
+	const [picturesActions, setPicturesActions] = useState<FileTabActions | null>(null);
+	const [ipsActions, setIpsActions] = useState<any>(null);
 	const [selectorOpen, setSelectorOpen] = useState(false);
 
 	const allTabs = [
@@ -148,6 +167,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 		{ key: 'solar', label: 'Solar', icon: <Sun /> },
 		{ key: 'programmation', label: 'Programmation', icon: <Code /> },
 		{ key: 'canbus', label: 'Canbus', icon: <Cable /> },
+		{ key: 'ips', label: 'Network', icon: <Network /> },
 		{ key: 'controls', label: 'Controls', icon: <Pointer /> },
 		{ key: 'feed', label: 'Feed', icon: <Terminal /> },
 	] as const;
@@ -268,6 +288,57 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 								)}
 							</>
 						)}
+						{(tab === 'schemas' || tab === 'documents' || tab === 'programmation' || tab === 'pictures') &&
+							(() => {
+								const actions = tab === 'schemas' ? schemaActions : tab === 'documents' ? documentActions : tab === 'pictures' ? picturesActions : programmationActions;
+								if (!actions) return null;
+								return (
+									<>
+										<ViewToggle value={actions.view} onChange={actions.setView} />
+										{actions.canWrite && actions.hasNewGroup && actions.openNewGroup && (
+											<Button onClick={() => actions.openNewGroup!()} icon={<Plus size={16} />}>
+												<span className="hidden sm:inline">New Group</span>
+											</Button>
+										)}
+										{actions.canWrite && (
+											<Button
+												icon={actions.uploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+												onClick={() => actions.clickUpload()}
+												disabled={actions.uploading}
+											>
+												<span className="hidden sm:inline">{actions.uploading ? 'Uploading...' : 'Upload'}</span>
+											</Button>
+										)}
+									</>
+								);
+							})()}
+
+						{tab === 'ips' && (
+							<>
+								{ipsActions?.openNewIp && (
+									<Button onClick={() => ipsActions.openNewIp()} icon={<Plus size={16} />}>
+										<span className="hidden sm:inline">Add IP</span>
+									</Button>
+								)}
+								<Button
+									variant="secondary"
+									onClick={() => ipsActions?.refresh()}
+									disabled={ipsActions?.saving}
+									icon={ipsActions?.saving ? <Loader2 className="animate-spin" size={16} /> : <RefreshCw size={16} />}
+								>
+									Refresh
+								</Button>
+								<Button
+									variant={ipsActions?.hasChanges ? 'primary' : 'secondary'}
+									onClick={() => ipsActions?.save()}
+									disabled={!ipsActions?.hasChanges || ipsActions?.saving}
+									icon={ipsActions?.saving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
+								>
+									{ipsActions?.saving ? 'Saving...' : 'Save'}
+								</Button>
+							</>
+						)}
+
 						{tab === 'controls' && controlsActions && (
 							<Button
 								variant="ghost"
@@ -352,12 +423,13 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 					<motion.div key={tab} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="h-full flex flex-col min-h-0">
 						{tab === 'info' && <Metadata client={client} onActionsChange={setMetadataActions} />}
 						{tab === 'solar' && <Solar client={client} />}
-						{tab === 'schemas' && <Schemas basePath={settings.path} client={client} />}
-						{tab === 'documents' && <Documents basePath={settings.path} client={client} />}
-						{tab === 'programmation' && <Programmation basePath={settings.path} client={client} />}
+						{tab === 'schemas' && <Schemas basePath={settings.path} client={client} onActionsChange={setSchemaActions} />}
+						{tab === 'documents' && <Documents basePath={settings.path} client={client} onActionsChange={setDocumentActions} />}
+						{tab === 'programmation' && <Programmation basePath={settings.path} client={client} onActionsChange={setProgrammationActions} />}
 						{tab === 'canbus' && <Canbus basePath={settings.path} client={client} />}
+						{tab === 'ips' && <IpList client={client} onActionsChange={setIpsActions} />}
 						{tab === 'controls' && <Controls basePath={settings.path} client={client} onActionsChange={setControlsActions} />}
-						{tab === 'pictures' && <Pictures basePath={settings.path} client={client} />}
+						{tab === 'pictures' && <Pictures basePath={settings.path} client={client} onActionsChange={setPicturesActions} />}
 						{tab === 'tickets' && <Tickets client={client} onActionsChange={setTicketsActions} />}
 						{tab === 'feed' && <Feed projectId={metadata?.id} onActionsChange={setFeedActions} />}
 					</motion.div>

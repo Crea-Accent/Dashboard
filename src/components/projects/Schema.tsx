@@ -57,7 +57,7 @@ function getFolderName(file: FileEntry) {
 	return folder;
 }
 
-export default function Schemas({ basePath, client }: { basePath: string; client: string }) {
+export default function Schemas({ basePath, client, onActionsChange }: { basePath: string; client: string; onActionsChange?: (actions: any) => void }) {
 	const inputRef = useRef<HTMLInputElement>(null);
 
 	const { data: session } = useSession();
@@ -94,6 +94,21 @@ export default function Schemas({ basePath, client }: { basePath: string; client
 	const [deletingGroup, setDeletingGroup] = useState(false);
 
 	const canWrite = has('projects.write');
+
+	useEffect(() => {
+		onActionsChange?.({
+			view,
+			setView,
+			canWrite: canWrite,
+			uploading,
+			clickUpload: () => inputRef.current?.click(),
+			hasNewGroup: true,
+			openNewGroup: () => {
+				setNewGroupName('');
+				setNewGroupOpen(true);
+			},
+		});
+	}, [view, setView, canWrite, uploading, onActionsChange]);
 
 	const load = async () => {
 		try {
@@ -372,26 +387,7 @@ export default function Schemas({ basePath, client }: { basePath: string; client
 			/>
 
 			<div className="rounded-3xl p-6 space-y-6 bg-(--foreground)">
-				<div className="flex items-center justify-end gap-2">
-					<ViewToggle value={view ?? 'list'} onChange={setView} />
-
-					{canWrite && (
-						<>
-							<Button
-								onClick={() => {
-									setNewGroupName('');
-									setNewGroupOpen(true);
-								}}
-							>
-								New Group
-							</Button>
-
-							<Button icon={<Upload size={16} />} onClick={() => inputRef.current?.click()} disabled={uploading}>
-								{uploading ? 'Uploading...' : 'Upload'}
-							</Button>
-						</>
-					)}
-				</div>
+				<div className="hidden"></div>
 
 				{groups.length === 0 && files.length === 0 && (
 					<motion.div key="empty-state" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>

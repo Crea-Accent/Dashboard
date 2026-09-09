@@ -171,7 +171,7 @@ export default function Address({ value, onChange }: Props) {
 		<div className="space-y-4">
 			{/* Search */}
 
-			{has('projects.write') && <Input ref={inputRef} value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search address..." icon={<Search size={16} />} />}
+			{has('projects.write') && <Input copyable ref={inputRef} value={search ?? ''} onChange={(e) => setSearch(e.target.value)} placeholder="Search address..." icon={<Search size={16} />} />}
 
 			{/* Map */}
 			<div className="overflow-hidden rounded-2xl bg-(--foreground) ">
@@ -201,13 +201,14 @@ export default function Address({ value, onChange }: Props) {
 			{/* Address */}
 
 			<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-				<Input label="Street" value={address.street} readOnly />
+				<Input copyable label="Street" value={address.street ?? ''} readOnly />
 
-				<Input label="Number" value={address.number} readOnly />
+				<Input copyable label="Number" value={address.number ?? ''} readOnly />
 
 				<Input
+					copyable
 					label="Suite"
-					value={address.suite}
+					value={address.suite ?? ''}
 					readOnly={!has('projects.write')}
 					onChange={(e) => {
 						const nextSuite = e.target.value;
@@ -222,8 +223,9 @@ export default function Address({ value, onChange }: Props) {
 				/>
 
 				<Input
+					copyable
 					label="Building/Block"
-					value={address.building}
+					value={address.building ?? ''}
 					readOnly={!has('projects.write')}
 					onChange={(e) => {
 						const nextBuilding = e.target.value;
@@ -237,17 +239,17 @@ export default function Address({ value, onChange }: Props) {
 					}}
 				/>
 
-				<Input label="Postal Code" value={address.postalCode} readOnly />
+				<Input copyable label="Postal Code" value={address.postalCode ?? ''} readOnly />
 
-				<Input label="City" value={address.city} readOnly />
+				<Input copyable label="City" value={address.city ?? ''} readOnly />
 
 				<div className="md:col-span-2">
-					<Input label="Country" value={address.country} readOnly />
+					<Input copyable label="Country" value={address.country ?? ''} readOnly />
 				</div>
 
-				<Input label="Latitude" value={position.lat.toFixed(6)} readOnly />
+				<Input copyable label="Latitude" value={position.lat.toFixed(6)} readOnly />
 
-				<Input label="Longitude" value={position.lng.toFixed(6)} readOnly />
+				<Input copyable label="Longitude" value={position.lng.toFixed(6)} readOnly />
 			</div>
 		</div>
 	);

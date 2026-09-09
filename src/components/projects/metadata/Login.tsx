@@ -6,6 +6,7 @@ import { Eye, EyeOff, Globe, Link2, Plus, Trash2 } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import Input from '@/components/ui/Input';
+import CopyButton from '@/components/ui/CopyButton';
 import Modal from '@/components/ui/Modal';
 import Toggle from '@/components/ui/Toggle';
 import { usePermissions } from '@/providers/PermissionsProvider';
@@ -31,7 +32,6 @@ export default function Login({ value, onChange }: Props) {
 	const [editing, setEditing] = useState<number | null>(null);
 	const [deleting, setDeleting] = useState<number | null>(null);
 	const [createOpen, setCreateOpen] = useState(false);
-	const [visiblePasswords, setVisiblePasswords] = useState<Record<string, boolean>>({});
 
 	const [newLogin, setNewLogin] = useState<LoginEntry>({
 		id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2),
@@ -91,7 +91,7 @@ export default function Login({ value, onChange }: Props) {
 							<div className="flex-1 min-w-0">
 								<div className="font-medium truncate">{login.label || 'Unnamed Login'}</div>
 
-								<div className="text-xs truncate text-(--text-muted)">{login.username || 'No username'}</div>
+								<div className="text-xs truncate text-(--text-muted)">{login.link || 'No URL'}</div>
 							</div>
 
 							<div className="h-10 w-10 rounded-2xl flex items-center justify-center bg-(--background) text-(--text)">{login.client ? <Eye size={16} /> : <EyeOff size={16} />}</div>
@@ -99,13 +99,13 @@ export default function Login({ value, onChange }: Props) {
 
 						{editing === index ? (
 							<div className="flex flex-col gap-3 flex-1">
-								<Input label="Label" value={login.label} onChange={(e) => updateField(index, 'label', e.target.value)} />
+								<Input copyable label="Label" value={login.label ?? ''} onChange={(e) => updateField(index, 'label', e.target.value)} />
 
-								<Input label="Link" value={login.link} onChange={(e) => updateField(index, 'link', e.target.value)} />
+								<Input copyable label="Link" value={login.link ?? ''} onChange={(e) => updateField(index, 'link', e.target.value)} />
 
-								<Input label="Username" value={login.username} onChange={(e) => updateField(index, 'username', e.target.value)} />
+								<Input copyable label="Username" value={login.username ?? ''} onChange={(e) => updateField(index, 'username', e.target.value)} />
 
-								<Input label="Password" value={login.password} onChange={(e) => updateField(index, 'password', e.target.value)} />
+								<Input copyable viewable={false} label="Password" value={login.password ?? ''} onChange={(e) => updateField(index, 'password', e.target.value)} />
 
 								<Toggle
 									checked={login.client}
@@ -116,22 +116,8 @@ export default function Login({ value, onChange }: Props) {
 							</div>
 						) : (
 							<div className="flex flex-col gap-3 flex-1">
-								<div className="text-sm text-(--text-muted) break-all">{login.link || 'No URL'}</div>
-
-								<div className="flex items-center justify-between rounded-2xl px-3 py-2 bg-(--foreground)">
-									<span>{visiblePasswords[login.id] ? login.password : '••••••••••••'}</span>
-
-									<button
-										onClick={() =>
-											setVisiblePasswords((prev) => ({
-												...prev,
-												[login.id]: !prev[login.id],
-											}))
-										}
-									>
-										{visiblePasswords[login.id] ? <EyeOff size={16} /> : <Eye size={16} />}
-									</button>
-								</div>
+								<Input copyable readOnly value={login.username ?? ''} />
+								<Input copyable viewable={false} readOnly value={login.password ?? ''} />
 							</div>
 						)}
 
@@ -190,13 +176,13 @@ export default function Login({ value, onChange }: Props) {
 				}
 			>
 				<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-					<Input label="Label" value={newLogin.label} onChange={(e) => setNewLogin({ ...newLogin, label: e.target.value })} />
+					<Input copyable label="Label" value={newLogin.label ?? ''} onChange={(e) => setNewLogin({ ...newLogin, label: e.target.value })} />
 
-					<Input label="Link" value={newLogin.link} onChange={(e) => setNewLogin({ ...newLogin, link: e.target.value })} />
+					<Input copyable label="Link" value={newLogin.link ?? ''} onChange={(e) => setNewLogin({ ...newLogin, link: e.target.value })} />
 
-					<Input label="Username" value={newLogin.username} onChange={(e) => setNewLogin({ ...newLogin, username: e.target.value })} />
+					<Input copyable label="Username" value={newLogin.username ?? ''} onChange={(e) => setNewLogin({ ...newLogin, username: e.target.value })} />
 
-					<Input label="Password" value={newLogin.password} onChange={(e) => setNewLogin({ ...newLogin, password: e.target.value })} />
+					<Input copyable viewable={false} label="Password" value={newLogin.password ?? ''} onChange={(e) => setNewLogin({ ...newLogin, password: e.target.value })} />
 
 					<div className="md:col-span-2">
 						<Toggle

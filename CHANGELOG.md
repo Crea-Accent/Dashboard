@@ -1,5 +1,24 @@
 # panel
 
+## 0.9.0
+
+### Minor Changes
+
+- ### Network Management (New Tab)
+    - Added a new **Network Tab** that automatically extracts IP and MAC addresses from uploaded DuoTecno `projectnodeservices.json` and `cameras.json` files.
+    - Grouped IPs intelligently by subnet into collapsible UI cards featuring a clean, borderless "soft pop" aesthetic.
+    - Implemented a secure backend API (`/api/projects/ips`) for persisting manual IP additions and overrides independently from general project metadata.
+    - Enabled manual device renaming for auto-extracted IPs. The system securely links your custom names via MAC addresses so they survive future programmation file updates.
+    - Created a native backend `/api/ping` endpoint to securely bypass browser ICMP restrictions.
+    - Added a **"Ping All"** subnet action and individual ping buttons alongside devices to test live reachability across the network with visual health indicators.
+
+    ### Global Action Dock
+    - Consolidated all contextual actions (Save, Refresh, Upload, New Group, Add IP, etc.) from the individual tab headers down into a unified, floating action dock at the bottom of the project page (`page.tsx`) for cleaner UI navigation.
+
+    ### Input Copy Capabilities
+    - Enhanced the global `Input` UI component with `copyable` and `viewable` props, supported by a new dedicated `CopyButton.tsx`.
+    - Refactored read-only metadata fields across `Login.tsx`, `Address.tsx`, and `Contact.tsx` to use disabled inputs with 1-click clipboard copy support, ensuring visual consistency between edit and view modes.
+
 ## 0.8.1
 
 ### Patch Changes
