@@ -26,7 +26,7 @@ export default function SettingsPage() {
 
 	return (
 		<NotPermitted permission="admin.read">
-			<APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!}>
+			<APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!} libraries={['places']}>
 				<div className="space-y-6">
 					<Tabs
 						value={tab}

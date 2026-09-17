@@ -12,38 +12,6 @@ export default function Page() {
 	const [modalOpen, setModalOpen] = useState(false);
 
 	const toast = useToast();
-	const bannerInputRef = useRef<HTMLInputElement>(null);
-	const ribbonInputRef = useRef<HTMLInputElement>(null);
-	const [uploading, setUploading] = useState(false);
-
-	async function handleUploadBranding(e: React.ChangeEvent<HTMLInputElement>, type: 'banner' | 'ribbon') {
-		const file = e.target.files?.[0];
-		if (!file) return;
-
-		try {
-			setUploading(true);
-			const formData = new FormData();
-			formData.append('file', file);
-			formData.append('type', type);
-
-			const res = await fetch('/api/events/branding', {
-				method: 'POST',
-				body: formData,
-			});
-
-			if (res.ok) {
-				toast('success', `${type} updated successfully!`);
-			} else {
-				toast('error', `Failed to update ${type}`);
-			}
-		} catch (err) {
-			toast('error', `An error occurred while uploading ${type}`);
-		} finally {
-			setUploading(false);
-			// Reset input
-			if (e.target) e.target.value = '';
-		}
-	}
 
 	async function loadEvents() {
 		try {
@@ -104,6 +72,11 @@ export default function Page() {
 								<p className="flex items-center gap-2">
 									<Calendar size={14} className="text-zinc-400" /> {event.date}
 								</p>
+								{event.confirmationDate && (
+									<p className="flex items-center gap-2 text-orange-600 dark:text-orange-500 font-medium bg-orange-50 dark:bg-orange-500/10 px-2 py-0.5 -ml-2 rounded-md w-fit">
+										<Calendar size={14} /> Bevestigen voor {event.confirmationDate}
+									</p>
+								)}
 								<p className="flex items-center gap-2">
 									<Clock size={14} className="text-zinc-400" /> {event.welcomeTime ? `${event.welcomeTime} (Welcome)` : event.time}
 								</p>
@@ -133,26 +106,6 @@ export default function Page() {
 				</div>
 
 				<div className="flex items-center gap-3">
-					<input type="file" accept="image/*" className="hidden" ref={bannerInputRef} onChange={(e) => handleUploadBranding(e, 'banner')} />
-					<input type="file" accept="image/*" className="hidden" ref={ribbonInputRef} onChange={(e) => handleUploadBranding(e, 'ribbon')} />
-
-					<button
-						disabled={uploading}
-						onClick={() => bannerInputRef.current?.click()}
-						className="h-10 px-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 font-medium hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors shrink-0 flex items-center gap-2"
-					>
-						<ImageIcon size={16} />
-						Banner
-					</button>
-					<button
-						disabled={uploading}
-						onClick={() => ribbonInputRef.current?.click()}
-						className="h-10 px-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 font-medium hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors shrink-0 flex items-center gap-2"
-					>
-						<Ribbon size={16} />
-						Ribbon
-					</button>
-
 					<button onClick={() => setModalOpen(true)} className="h-10 px-4 rounded-xl bg-(--accent) text-white font-medium hover:bg-(--hover-accent) transition-colors shrink-0">
 						New Event
 					</button>

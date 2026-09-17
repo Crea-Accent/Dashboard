@@ -560,7 +560,7 @@ export default function Solar({ client }: Props) {
 			{hasAnalysis && (
 				<div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
 					<div className="xl:col-span-2 space-y-6">
-						<APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!}>
+						<APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!} libraries={['places']}>
 							<MapController onMapLoaded={(m) => (mapRef.current = m)} onZoomChanged={setMapZoom} />
 
 							{isMarqueeSelecting && (

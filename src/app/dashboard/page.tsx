@@ -287,7 +287,7 @@ export default function Home() {
 
 			<Card className="overflow-hidden">
 				<div style={{ height: 500 }}>
-					<APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!}>
+					<APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!} libraries={['places']}>
 						<Map
 							mapId={'map'}
 							colorScheme={(resolvedTheme.toUpperCase() as ColorScheme) ?? 'DARK'}

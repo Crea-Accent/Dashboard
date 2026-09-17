@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { Body, Head, Heading, Html, Img, Link, Text } from '@react-email/components';
+import { Body, Head, Heading, Html, Img, Link, Text } from 'react-email';
 import * as React from 'react';
 
 const Spacer = ({ height }: { height: number }) => (
@@ -12,7 +12,10 @@ const Spacer = ({ height }: { height: number }) => (
 	</table>
 );
 
-export default function EventInviteEmail({ event, contact, baseUrl, bannerUrl, ribbonUrl }: { event: any; contact: any; baseUrl: string; bannerUrl?: string; ribbonUrl?: string }) {
+export default function EventInviteEmail({ event, mail, contact, baseUrl, bannerUrl, ribbonUrl, editMode }: any) {
+	const displayTitle = mail?.title || event?.name;
+	const displayDescription = mail?.description || event?.description;
+	const displayGreeting = mail?.greeting || `Beste ${contact?.name || '{name}'},`;
 	const days = ['ZONDAG', 'MAANDAG', 'DINSDAG', 'WOENSDAG', 'DONDERDAG', 'VRIJDAG', 'ZATERDAG'];
 	const months = ['Januari', 'Februari', 'Maart', 'April', 'Mei', 'Juni', 'Juli', 'Augustus', 'September', 'Oktober', 'November', 'December'];
 
@@ -35,7 +38,12 @@ export default function EventInviteEmail({ event, contact, baseUrl, bannerUrl, r
 							<table width="100%" border={0} cellPadding={0} cellSpacing={0} role="presentation" align="center" bgcolor="#F9F7F3" style={{ maxWidth: '800px', margin: '0 auto' }}>
 								<tr>
 									<td align="center" bgcolor="#F9F7F3">
-										<Heading style={styles.title}>{event?.name}</Heading>
+										<Heading
+											style={editMode ? { ...styles.title, cursor: 'text', border: '1px dashed #a4b795', borderRadius: '4px', padding: '4px', minHeight: '40px' } : styles.title}
+											{...(editMode ? { contentEditable: true, suppressContentEditableWarning: true, 'data-field': 'title' } : {})}
+										>
+											{displayTitle}
+										</Heading>
 
 										<Spacer height={50} />
 
@@ -51,28 +59,33 @@ export default function EventInviteEmail({ event, contact, baseUrl, bannerUrl, r
 										>
 											<tr>
 												<td align="center" bgcolor="#F9F7F3">
-													{event?.description ? (
-														event.description.split('\n').map((p: string, i: number) => (
-															<Text key={i} style={styles.text}>
-																{p}
-															</Text>
-														))
-													) : (
-														<>
-															<Text style={styles.text}>
-																Wij nodigen u graag persoonlijk uit voor
-																<br />
-																een exclusieve netwerk- en inspiratieavond in onze showroom.
-															</Text>
-															<Text style={styles.text}>
-																Tijdens deze avond delen we trends en inzichten in high-end interieurprojecten,
-																<br />
-																van ontwerp tot uitvoering, en bieden we de mogelijkheid om te netwerken
-																<br />
-																met andere bouwprofessionals.
-															</Text>
-														</>
-													)}
+													<div
+														style={editMode ? { cursor: 'text', border: '1px dashed #a4b795', borderRadius: '4px', padding: '4px', minHeight: '60px' } : {}}
+														{...(editMode ? { contentEditable: true, suppressContentEditableWarning: true, 'data-field': 'description' } : {})}
+													>
+														{displayDescription ? (
+															displayDescription.split('\n').map((p: string, i: number) => (
+																<Text key={i} style={styles.text}>
+																	{p}
+																</Text>
+															))
+														) : (
+															<>
+																<Text style={styles.text}>
+																	Wij nodigen u graag persoonlijk uit voor
+																	<br />
+																	een exclusieve netwerk- en inspiratieavond in onze showroom.
+																</Text>
+																<Text style={styles.text}>
+																	Tijdens deze avond delen we trends en inzichten in high-end interieurprojecten,
+																	<br />
+																	van ontwerp tot uitvoering, en bieden we de mogelijkheid om te netwerken
+																	<br />
+																	met andere bouwprofessionals.
+																</Text>
+															</>
+														)}
+													</div>
 												</td>
 											</tr>
 										</table>
@@ -104,6 +117,89 @@ export default function EventInviteEmail({ event, contact, baseUrl, bannerUrl, r
 											</tr>
 										</table>
 
+										<Spacer height={30} />
+
+										<table
+											width="100%"
+											border={0}
+											cellPadding={0}
+											cellSpacing={0}
+											role="presentation"
+											align="center"
+											bgcolor="#F9F7F3"
+											style={{ maxWidth: '550px', margin: '0 auto' }}
+										>
+											<tr>
+												<td align="center" bgcolor="#F9F7F3">
+													<div
+														style={editMode ? { cursor: 'text', border: '1px dashed #a4b795', borderRadius: '4px', padding: '4px', minHeight: '30px' } : {}}
+														{...(editMode ? { contentEditable: true, suppressContentEditableWarning: true, 'data-field': 'dateSubText' } : {})}
+													>
+														<Text style={styles.text}>
+															{mail?.dateSubText ? (
+																mail.dateSubText.split('\n').map((p: string, i: number) => (
+																	<React.Fragment key={i}>
+																		{p}
+																		<br />
+																	</React.Fragment>
+																))
+															) : editMode ? (
+																<span style={{ color: '#a4b795', fontStyle: 'italic' }}>Type here to add text under the date...</span>
+															) : null}
+														</Text>
+													</div>
+
+													<Spacer height={30} />
+
+													<div
+														style={editMode ? { cursor: 'text', border: '1px dashed #a4b795', borderRadius: '4px', padding: '4px', minHeight: '30px' } : {}}
+														{...(editMode ? { contentEditable: true, suppressContentEditableWarning: true, 'data-field': 'confirmText' } : {})}
+													>
+														<Text style={styles.text}>
+															{mail?.confirmText ? (
+																mail.confirmText.split('\n').map((p: string, i: number) => (
+																	<React.Fragment key={i}>
+																		{p}
+																		<br />
+																	</React.Fragment>
+																))
+															) : event?.confirmationDate ? (
+																<>
+																	Bevestig uw aanwezigheid uiterlijk voor <strong style={{ color: '#a4b795' }}>{event.confirmationDate}</strong> via deze link:
+																</>
+															) : (
+																<>Bevestig uw aanwezigheid via deze link:</>
+															)}
+														</Text>
+													</div>
+
+													<Spacer height={20} />
+
+													<table border={0} cellPadding={0} cellSpacing={0} role="presentation" align="center" style={{ margin: '0 auto' }}>
+														<tr>
+															<td
+																align="center"
+																bgcolor="#899B73"
+																style={{
+																	borderRadius: '999px',
+																	padding: '16px 40px',
+																}}
+															>
+																<Link href={`${baseUrl}/invite/${event?.id}/${contact?.id}`} style={styles.primaryButton}>
+																	<span
+																		style={editMode ? { cursor: 'text' } : {}}
+																		{...(editMode ? { contentEditable: true, suppressContentEditableWarning: true, 'data-field': 'rsvpButtonText' } : {})}
+																	>
+																		{mail?.rsvpButtonText || 'BEVESTIG AANWEZIGHEID'}
+																	</span>
+																</Link>
+															</td>
+														</tr>
+													</table>
+												</td>
+											</tr>
+										</table>
+
 										<Spacer height={50} />
 
 										<table
@@ -118,10 +214,37 @@ export default function EventInviteEmail({ event, contact, baseUrl, bannerUrl, r
 										>
 											<tr>
 												<td width="55%" valign="middle" align="left" bgcolor="#F9F7F3" style={{ paddingRight: '40px' }}>
-													<Img src={bannerUrl || `${baseUrl}/banner.png`} alt="Event Banner" width="440" style={styles.imageFull} />
+													<div style={editMode ? { position: 'relative', cursor: 'pointer', border: '2px dashed #a4b795' } : {}} data-image-field="banner">
+														{editMode && (
+															<div
+																style={{
+																	position: 'absolute',
+																	top: 0,
+																	left: 0,
+																	right: 0,
+																	bottom: 0,
+																	background: 'rgba(164, 183, 149, 0.15)',
+																	zIndex: 10,
+																	display: 'flex',
+																	alignItems: 'center',
+																	justifyContent: 'center',
+																}}
+															>
+																<span style={{ background: '#a4b795', color: 'white', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold' }}>
+																	Click to Upload Banner
+																</span>
+															</div>
+														)}
+														<Img src={bannerUrl || `${baseUrl}/banner.png${editMode ? '?t=' + Date.now() : ''}`} alt="Event Banner" width="440" style={styles.imageFull} />
+													</div>
 												</td>
 												<td width="45%" valign="middle" align="left" bgcolor="#F9F7F3">
-													<Text style={styles.programTitle}>PROGRAMMA VAN DE AVOND</Text>
+													<div
+														style={editMode ? { cursor: 'text', border: '1px dashed #a4b795', borderRadius: '4px', padding: '4px', minHeight: '30px' } : {}}
+														{...(editMode ? { contentEditable: true, suppressContentEditableWarning: true, 'data-field': 'programTitle' } : {})}
+													>
+														<Text style={styles.programTitle}>{mail?.programTitle || 'PROGRAMMA VAN DE AVOND'}</Text>
+													</div>
 													<table
 														border={0}
 														cellPadding={0}
@@ -155,6 +278,16 @@ export default function EventInviteEmail({ event, contact, baseUrl, bannerUrl, r
 																	</td>
 																</tr>
 															)}
+															{event?.networkTime && (
+																<tr>
+																	<td style={styles.tdLeft} bgcolor="#F9F7F3">
+																		{event.networkTime}
+																	</td>
+																	<td style={styles.tdRight} bgcolor="#F9F7F3">
+																		aanvangstijd netwerken
+																	</td>
+																</tr>
+															)}
 															{event?.endTime && (
 																<tr>
 																	<td style={styles.tdLeft} bgcolor="#F9F7F3">
@@ -185,38 +318,50 @@ export default function EventInviteEmail({ event, contact, baseUrl, bannerUrl, r
 										>
 											<tr>
 												<td align="center" bgcolor="#F9F7F3">
-													<Text style={styles.text}>
-														Het aantal plaatsen is beperkt.
-														<br />
-														We reserveren graag een plekje voor u!
-													</Text>
-													<Text style={styles.text}>
-														Denk jij nog aan iemand die onze showroom ook zeker eens gezien moet hebben?
-														<br />
-														Neem dan gerust 1 of 2 bouw-gerelateerde contacten mee!
-														<br />
-														Gelieve ook hun aanwezigheid te bevestigen.
-													</Text>
-													<Text style={styles.text}>Bevestig uw aanwezigheid uiterlijk via deze link:</Text>
-
-													<Spacer height={20} />
-
-													<table border={0} cellPadding={0} cellSpacing={0} role="presentation" align="center" style={{ margin: '0 auto' }}>
-														<tr>
-															<td
-																align="center"
-																bgcolor="#899B73"
-																style={{
-																	borderRadius: '999px',
-																	padding: '16px 40px',
-																}}
-															>
-																<Link href={`${baseUrl}/invite/${event?.id}/${contact?.id}`} style={styles.primaryButton}>
-																	BEVESTIG AANWEZIGHEID
-																</Link>
-															</td>
-														</tr>
-													</table>
+													<div
+														style={editMode ? { cursor: 'text', border: '1px dashed #a4b795', borderRadius: '4px', padding: '4px', minHeight: '40px' } : {}}
+														{...(editMode ? { contentEditable: true, suppressContentEditableWarning: true, 'data-field': 'closingText1' } : {})}
+													>
+														<Text style={styles.text}>
+															{mail?.closingText1 ? (
+																mail.closingText1.split('\n').map((p: string, i: number) => (
+																	<React.Fragment key={i}>
+																		{p}
+																		<br />
+																	</React.Fragment>
+																))
+															) : (
+																<>
+																	Het aantal plaatsen is beperkt.
+																	<br />
+																	We reserveren graag een plekje voor u!
+																</>
+															)}
+														</Text>
+													</div>
+													<div
+														style={editMode ? { cursor: 'text', border: '1px dashed #a4b795', borderRadius: '4px', padding: '4px', minHeight: '60px' } : {}}
+														{...(editMode ? { contentEditable: true, suppressContentEditableWarning: true, 'data-field': 'closingText2' } : {})}
+													>
+														<Text style={styles.text}>
+															{mail?.closingText2 ? (
+																mail.closingText2.split('\n').map((p: string, i: number) => (
+																	<React.Fragment key={i}>
+																		{p}
+																		<br />
+																	</React.Fragment>
+																))
+															) : (
+																<>
+																	Denk jij nog aan iemand die onze showroom ook zeker eens gezien moet hebben?
+																	<br />
+																	Neem dan gerust 1 of 2 bouw-gerelateerde contacten mee!
+																	<br />
+																	Gelieve ook hun aanwezigheid te bevestigen.
+																</>
+															)}
+														</Text>
+													</div>
 												</td>
 											</tr>
 										</table>
@@ -235,7 +380,34 @@ export default function EventInviteEmail({ event, contact, baseUrl, bannerUrl, r
 										>
 											<tr>
 												<td align="center" bgcolor="#F9F7F3">
-													<Img src={ribbonUrl || `${baseUrl}/ribbon.png`} alt="Inspiration Ribbon" width="800" style={styles.imageFull} />
+													<div style={editMode ? { position: 'relative', cursor: 'pointer', border: '2px dashed #a4b795' } : {}} data-image-field="ribbon">
+														{editMode && (
+															<div
+																style={{
+																	position: 'absolute',
+																	top: 0,
+																	left: 0,
+																	right: 0,
+																	bottom: 0,
+																	background: 'rgba(164, 183, 149, 0.15)',
+																	zIndex: 10,
+																	display: 'flex',
+																	alignItems: 'center',
+																	justifyContent: 'center',
+																}}
+															>
+																<span style={{ background: '#a4b795', color: 'white', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold' }}>
+																	Click to Upload Ribbon
+																</span>
+															</div>
+														)}
+														<Img
+															src={ribbonUrl || `${baseUrl}/ribbon.png${editMode ? '?t=' + Date.now() : ''}`}
+															alt="Inspiration Ribbon"
+															width="800"
+															style={styles.imageFull}
+														/>
+													</div>
 												</td>
 											</tr>
 										</table>
@@ -254,11 +426,27 @@ export default function EventInviteEmail({ event, contact, baseUrl, bannerUrl, r
 										>
 											<tr>
 												<td align="center" bgcolor="#F9F7F3">
-													<Text style={styles.text}>
-														Wij voorzien een hapje en een drankje.
-														<br />
-														Maak daarnaast kennis met andere interessante contacten uit de sector!
-													</Text>
+													<div
+														style={editMode ? { cursor: 'text', border: '1px dashed #a4b795', borderRadius: '4px', padding: '4px', minHeight: '40px' } : {}}
+														{...(editMode ? { contentEditable: true, suppressContentEditableWarning: true, 'data-field': 'drinksText' } : {})}
+													>
+														<Text style={styles.text}>
+															{mail?.drinksText ? (
+																mail.drinksText.split('\n').map((p: string, i: number) => (
+																	<React.Fragment key={i}>
+																		{p}
+																		<br />
+																	</React.Fragment>
+																))
+															) : (
+																<>
+																	Wij voorzien een hapje en een drankje.
+																	<br />
+																	Maak daarnaast kennis met andere interessante contacten uit de sector!
+																</>
+															)}
+														</Text>
+													</div>
 													<Img src={`${baseUrl}/logo.png`} alt="Crea Accent Logo" width="200" style={styles.logo} />
 												</td>
 											</tr>
@@ -278,9 +466,21 @@ export default function EventInviteEmail({ event, contact, baseUrl, bannerUrl, r
 										>
 											<tr>
 												<td align="center" bgcolor="#F9F7F3">
-													<Text style={styles.text}>
-														{event?.location || 'Er is voldoende parkeerplek op het Lodewijk De Vocht plein; dit is op 200m stappen van onze showroom.'}
-													</Text>
+													<div
+														style={editMode ? { cursor: 'text', border: '1px dashed #a4b795', borderRadius: '4px', padding: '4px', minHeight: '40px' } : {}}
+														{...(editMode ? { contentEditable: true, suppressContentEditableWarning: true, 'data-field': 'locationText' } : {})}
+													>
+														<Text style={styles.text}>
+															{mail?.locationText
+																? mail.locationText.split('\n').map((p: string, i: number) => (
+																		<React.Fragment key={i}>
+																			{p}
+																			<br />
+																		</React.Fragment>
+																	))
+																: event?.location || 'Er is voldoende parkeerplek op het Lodewijk De Vocht plein; dit is op 200m stappen van onze showroom.'}
+														</Text>
+													</div>
 
 													<Spacer height={20} />
 
@@ -345,6 +545,42 @@ export default function EventInviteEmail({ event, contact, baseUrl, bannerUrl, r
 						</td>
 					</tr>
 				</table>
+				{editMode && (
+					<script
+						dangerouslySetInnerHTML={{
+							__html: `
+								let timeout;
+								document.addEventListener('input', function(e) {
+									if (e.target.hasAttribute('contenteditable')) {
+										clearTimeout(timeout);
+										timeout = setTimeout(function() {
+											window.parent.postMessage({
+												type: 'MAIL_UPDATE',
+												field: e.target.getAttribute('data-field'),
+												value: e.target.innerText
+											}, '*');
+										}, 300);
+									}
+								});
+
+								document.addEventListener('click', function(e) {
+									if (e.target.closest('a')) {
+										e.preventDefault();
+									}
+									const imgWrap = e.target.closest('[data-image-field]');
+									if (imgWrap) {
+										e.preventDefault();
+										e.stopPropagation();
+										window.parent.postMessage({
+											type: 'IMAGE_CLICK',
+											field: imgWrap.getAttribute('data-image-field')
+										}, '*');
+									}
+								}, true);
+							`,
+						}}
+					/>
+				)}
 			</Body>
 		</Html>
 	);

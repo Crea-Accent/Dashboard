@@ -1,5 +1,17 @@
 # panel
 
+## 0.10.1
+
+### Patch Changes
+
+- Fixed some backend redundancy
+
+## 0.10.0
+
+### Minor Changes
+
+- Vastly upgraded the event section of the app, making it more dynamic and easier to use
+
 ## 0.9.1
 
 ### Patch Changes

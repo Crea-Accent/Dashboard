@@ -45,8 +45,10 @@ function EventModalContent({ open, onClose, onSuccess, eventToEdit }: EventModal
 	const [name, setName] = useState('');
 	const [description, setDescription] = useState('');
 	const [date, setDate] = useState('');
+	const [confirmationDate, setConfirmationDate] = useState('');
 	const [welcomeTime, setWelcomeTime] = useState('');
 	const [startTime, setStartTime] = useState('');
+	const [networkTime, setNetworkTime] = useState('');
 	const [endTime, setEndTime] = useState('');
 	const [location, setLocation] = useState('');
 	const [saving, setSaving] = useState(false);
@@ -56,16 +58,20 @@ function EventModalContent({ open, onClose, onSuccess, eventToEdit }: EventModal
 			setName(eventToEdit.name || '');
 			setDescription(eventToEdit.description || '');
 			setDate(eventToEdit.date || '');
+			setConfirmationDate(eventToEdit.confirmationDate || '');
 			setWelcomeTime(eventToEdit.welcomeTime || eventToEdit.time || '');
 			setStartTime(eventToEdit.startTime || '');
+			setNetworkTime(eventToEdit.networkTime || '');
 			setEndTime(eventToEdit.endTime || '');
 			setLocation(eventToEdit.location || '');
 		} else if (open && !eventToEdit) {
 			setName('');
 			setDescription('');
 			setDate('');
+			setConfirmationDate('');
 			setWelcomeTime('');
 			setStartTime('');
+			setNetworkTime('');
 			setEndTime('');
 			setLocation('');
 		}
@@ -83,8 +89,10 @@ function EventModalContent({ open, onClose, onSuccess, eventToEdit }: EventModal
 							name,
 							description,
 							date,
+							confirmationDate,
 							welcomeTime,
 							startTime,
+							networkTime,
 							endTime,
 							location,
 						},
@@ -94,8 +102,10 @@ function EventModalContent({ open, onClose, onSuccess, eventToEdit }: EventModal
 							name,
 							description,
 							date,
+							confirmationDate,
 							welcomeTime,
 							startTime,
+							networkTime,
 							endTime,
 							location,
 							invites: [],
@@ -114,8 +124,10 @@ function EventModalContent({ open, onClose, onSuccess, eventToEdit }: EventModal
 				setName('');
 				setDescription('');
 				setDate('');
+				setConfirmationDate('');
 				setWelcomeTime('');
 				setStartTime('');
+				setNetworkTime('');
 				setEndTime('');
 				setLocation('');
 			} else {
@@ -153,17 +165,19 @@ function EventModalContent({ open, onClose, onSuccess, eventToEdit }: EventModal
 						value={description}
 						onChange={(e) => setDescription(e.target.value)}
 						placeholder="What is this event about?"
-						className="w-full h-20 bg-transparent border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-(--accent) focus:ring-1 focus:ring-(--accent)"
+						className="w-full h-20 bg-transparent border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-[#a4b795] focus:ring-1 focus:ring-[#a4b795]"
 					/>
 				</div>
 				<div className="grid grid-cols-2 gap-4">
 					<Input label="Date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-					<LocationAutocomplete value={location} onChange={setLocation} />
+					<Input label="RSVP Deadline" type="date" value={confirmationDate} onChange={(e) => setConfirmationDate(e.target.value)} />
 				</div>
-				<div className="grid grid-cols-3 gap-4">
-					<Input label="Welcome" type="time" value={welcomeTime} onChange={(e) => setWelcomeTime(e.target.value)} />
-					<Input label="Start" type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
-					<Input label="End" type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+				<LocationAutocomplete value={location} onChange={setLocation} />
+				<div className="grid grid-cols-2 gap-4">
+					<Input label="Ontvangst" type="time" value={welcomeTime} onChange={(e) => setWelcomeTime(e.target.value)} />
+					<Input label="Welkomstwoord" type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+					<Input label="Aanvangstijd (Netwerken)" type="time" value={networkTime} onChange={(e) => setNetworkTime(e.target.value)} />
+					<Input label="Einde" type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
 				</div>
 			</div>
 		</Modal>

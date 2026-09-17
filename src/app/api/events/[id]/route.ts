@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs/promises';
+import { existsSync } from 'fs';
 import path from 'path';
 
 const eventsDir = path.join(process.cwd(), 'data', 'events');
@@ -7,10 +8,17 @@ const eventsDir = path.join(process.cwd(), 'data', 'events');
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
 	try {
 		const { id } = await params;
-		const content = await fs.readFile(path.join(eventsDir, `${id}.json`), 'utf8');
+		const eventPath = path.join(eventsDir, id, 'details.json');
+		const content = await fs.readFile(eventPath, 'utf8');
 		return NextResponse.json({ event: JSON.parse(content) });
 	} catch (err) {
-		return NextResponse.json({ error: 'Event not found' }, { status: 404 });
+		try {
+			const { id } = await params;
+			const content = await fs.readFile(path.join(eventsDir, `${id}.json`), 'utf8');
+			return NextResponse.json({ event: JSON.parse(content) });
+		} catch (e) {
+			return NextResponse.json({ error: 'Event not found' }, { status: 404 });
+		}
 	}
 }
 
@@ -19,7 +27,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 		const { id } = await params;
 		const { updates } = await req.json();
 
-		const eventPath = path.join(eventsDir, `${id}.json`);
+		let eventPath = path.join(eventsDir, id, 'details.json');
+		if (!existsSync(eventPath)) {
+			eventPath = path.join(eventsDir, `${id}.json`);
+		}
+
 		const content = await fs.readFile(eventPath, 'utf8');
 		const event = JSON.parse(content);
 
@@ -29,5 +41,23 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 		return NextResponse.json({ success: true, event: updatedEvent });
 	} catch (err) {
 		return NextResponse.json({ error: 'Failed to update event' }, { status: 500 });
+	}
+}
+
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
+	try {
+		const { id } = await params;
+		const eventDir = path.join(eventsDir, id);
+		if (existsSync(eventDir)) {
+			await fs.rm(eventDir, { recursive: true, force: true });
+		} else {
+			const flatPath = path.join(eventsDir, `${id}.json`);
+			if (existsSync(flatPath)) {
+				await fs.unlink(flatPath);
+			}
+		}
+		return NextResponse.json({ success: true });
+	} catch (err) {
+		return NextResponse.json({ error: 'Failed to delete event' }, { status: 500 });
 	}
 }

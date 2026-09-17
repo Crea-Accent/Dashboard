@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs/promises';
+import { existsSync } from 'fs';
 import path from 'path';
 import { getContact } from '@/lib/contacts';
 import { render } from '@react-email/render';
@@ -17,11 +18,18 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 		}
 
 		// 1. Load Event
-		const eventPath = path.join(eventsDir, `${id}.json`);
+		const eventPath = path.join(eventsDir, id, 'details.json');
+		const fallbackPath = path.join(eventsDir, `${id}.json`);
 		let event: any;
+		let mail: any = null;
 		try {
-			const content = await fs.readFile(eventPath, 'utf8');
+			const content = await fs.readFile(existsSync(eventPath) ? eventPath : fallbackPath, 'utf8');
 			event = JSON.parse(content);
+
+			const mailPath = path.join(eventsDir, id, 'mail.json');
+			if (existsSync(mailPath)) {
+				mail = JSON.parse(await fs.readFile(mailPath, 'utf8'));
+			}
 		} catch {
 			return NextResponse.json({ error: 'Event not found' }, { status: 404 });
 		}
@@ -60,18 +68,25 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 		let bannerUrl: string | undefined;
 		let ribbonUrl: string | undefined;
 		try {
-			const publicFiles = await fs.readdir(path.join(process.cwd(), 'public'));
-			const bannerFile = publicFiles.find((f) => f.startsWith('banner.'));
-			if (bannerFile) bannerUrl = `${baseUrl}/${bannerFile}`;
+			const eventDir = path.join(eventsDir, id);
+			let targetDir = existsSync(eventDir) ? eventDir : path.join(process.cwd(), 'public');
+			const files = await fs.readdir(targetDir);
 
-			const ribbonFile = publicFiles.find((f) => f.startsWith('ribbon.'));
-			if (ribbonFile) ribbonUrl = `${baseUrl}/${ribbonFile}`;
+			// Always point to our dynamic image serving API so emails load them publicly
+			const bannerFile = files.find((f) => f.startsWith('banner.'));
+			if (bannerFile) bannerUrl = `${baseUrl}/api/events/${id}/image?type=banner`;
+
+			const ribbonFile = files.find((f) => f.startsWith('ribbon.'));
+			if (ribbonFile) ribbonUrl = `${baseUrl}/api/events/${id}/image?type=ribbon`;
 		} catch (e) {
-			console.error('Failed to read public dir for branding files', e);
+			console.error('Failed to read branding files', e);
 		}
 
 		// Generate bulletproof email HTML using react-email
-		const emailHtml = await render(EventInviteEmail({ event, contact, baseUrl, bannerUrl, ribbonUrl }));
+		// @ts-ignore
+		const emailHtml = await render(EventInviteEmail({ event, mail, contact, baseUrl, bannerUrl, ribbonUrl }));
+
+		const subject = mail?.title || `Uitnodiging: ${event.name}`;
 
 		// Send email using Postmark
 		const response = await fetch('https://api.postmarkapp.com/email', {
@@ -84,7 +99,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 			body: JSON.stringify({
 				From: 'events@crea-accent.be',
 				To: contact.email,
-				Subject: `Uitnodiging: ${event.name}`,
+				Subject: subject,
 				TextBody: `Uitnodiging voor ${event.name}. Bevestig uw aanwezigheid via deze link: ${baseUrl}/invite/${event.id}/${contact.id}`,
 				HtmlBody: emailHtml,
 				MessageStream: 'outbound',
@@ -107,7 +122,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 		// 5. Increment count atomically and save
 		if (!testEmail && inviteIndex !== -1) {
 			event.invites[inviteIndex].inviteCount = (event.invites[inviteIndex].inviteCount || 0) + 1;
-			await fs.writeFile(eventPath, JSON.stringify(event, null, 2));
+			await fs.writeFile(existsSync(eventPath) ? eventPath : fallbackPath, JSON.stringify(event, null, 2));
 		}
 
 		return NextResponse.json({ success: true, event });
