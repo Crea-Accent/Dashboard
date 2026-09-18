@@ -1,5 +1,11 @@
 # panel
 
+## 0.11.0
+
+### Minor Changes
+
+- Added Stock
+
 ## 0.10.1
 
 ### Patch Changes

@@ -101,6 +101,16 @@ export const PERMISSIONS = [
 		label: 'Tickets - Write',
 		group: 'Tickets',
 	},
+	{
+		key: 'stock.read',
+		label: 'Stock - Read',
+		group: 'Stock',
+	},
+	{
+		key: 'stock.write',
+		label: 'Stock - Write',
+		group: 'Stock',
+	},
 ] as const;
 
 export function groupPermissions() {

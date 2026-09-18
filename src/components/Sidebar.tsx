@@ -2,7 +2,7 @@
 'use client';
 
 import { AnimatePresence, motion } from 'framer-motion';
-import { ClipboardList, Folder, FolderArchive, FolderKanban, Home, House, KeyRound, ListTodo, LogIn, LogOut, Menu, Network, Package, Settings, User, FileText } from 'lucide-react';
+import { ClipboardList, Folder, FolderArchive, FolderKanban, Home, House, KeyRound, ListTodo, LogIn, LogOut, Menu, Network, Package, Settings, User, FileText, ScanBarcode } from 'lucide-react';
 import { HEADER_HEIGHT, SIDEBAR_WIDTH } from '@/lib/layout';
 import { signIn, signOut, useSession } from 'next-auth/react';
 
@@ -75,6 +75,12 @@ export default function Sidebar({ type = 'dashboard', items = [] }: any) {
 						label: 'Events',
 						icon: Network,
 						permission: 'events.read',
+					},
+					{
+						href: '/dashboard/stock',
+						label: 'Stock',
+						icon: ScanBarcode,
+						permission: 'stock.read',
 					},
 					{
 						href: '/dashboard/settings',

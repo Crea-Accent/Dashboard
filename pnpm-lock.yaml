@@ -76,6 +76,9 @@ importers:
             react-svg:
                 specifier: ^19.1.5
                 version: 19.1.5(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+            react-zxing:
+                specifier: ^3.0.0
+                version: 3.0.0(@types/emscripten@1.41.6)(react@19.2.8)
             tinycolor2:
                 specifier: ^1.6.0
                 version: 1.6.0
@@ -1199,9 +1202,6 @@ packages:
         resolution: { integrity: sha512-bRISgCIjP20/tbWSPWMEi54QVPRZExkuD9lJL+UIxUKtwVJA8wW1Trb1jMs1RFXo1CBTNZ/5hpC9QvmKWdopKw== }
         engines: { node: '>=6.0.0' }
 
-    '@jridgewell/sourcemap-codec@1.5.5':
-        resolution: { integrity: sha512-cYQ9310grqxueWbl+WuIUIaiUaDcj7WOq5fVhEljNVgRfOUhY9fy2zTvfoqWsnebh8Sl70VScFbICvJnLKB0Og== }
-
     '@jridgewell/sourcemap-codec@1.6.0':
         resolution: { integrity: sha512-T7jf+5zgsZHwNJ4lvQ7/aezbyk0nNX+zJVWpmHA7VYsEx7a7qr5Rg5IbtJFqkgze5Y2sruq1RUY8Q837Od7iFw== }
 
@@ -1573,6 +1573,9 @@ packages:
     '@types/cors@2.8.19':
         resolution: { integrity: sha512-mFNylyeyqN93lfe/9CSxOGREz8cpzAhH+E93xJ4xWQf62V8sQ/24reV2nyzUWM6H6Xji+GGHpkbLe7pVoUEskg== }
 
+    '@types/emscripten@1.41.6':
+        resolution: { integrity: sha512-uN+9i8bFT5CUcZfyIEYDrSueACEyKGbUs5kC/72DGlZZoinh84sJfVV0i8UOJD1asdzkvLPBRrKs41kZ8MdEXg== }
+
     '@types/estree@1.0.9':
         resolution: { integrity: sha512-GhdPgy1el4/ImP05X05Uw4cw2/M93BCUmnEvWZNStlCzEKME4Fkk+YpoA5OiHNQmoS7Cafb8Xa3Pya8m1Qrzeg== }
 
@@ -1935,6 +1938,9 @@ packages:
         resolution: { integrity: sha512-BLrgEcRTwX2o6gGxGOCNyMvGSp35YofuYzw9h1IMTRmKqttAZZVU67bdb9Pr2vUHA8+j3i2tJfjO6C6+4myGTA== }
         engines: { node: 18 || 20 || >=22 }
 
+    barcode-detector@3.2.2:
+        resolution: { integrity: sha512-/4QOrrNrCRmDSBWiiP4aC72dnkuXUEdcFRidHgbPRXUpy82XcCMvJssI6fEs6JT42LS7DvBVZO70qasJbYKyrA== }
+
     base64-arraybuffer@1.0.2:
         resolution: { integrity: sha512-I3yl4r9QB5ZRY3XuJVEPfc2XhZO6YweFPI+UovAzn+8/hb3oJ6lnysaFcjVpkCPfVWFUDvoZ8kmVDP7WyRtYtQ== }
         engines: { node: '>= 0.6.0' }
@@ -1974,11 +1980,6 @@ packages:
 
     broker-factory@3.1.15:
         resolution: { integrity: sha512-ko+aWvgNuP49meGrdjUu7rC+Y+Wai3cCPxP3xWwHsHfehFjOh5ZQM2yC4gEB2UddeZ/YXhm0K1eG/L6fxym2Og== }
-
-    browserslist@4.28.2:
-        resolution: { integrity: sha512-48xSriZYYg+8qXna9kwqjIVzuQxi+KYWp2+5nCYnYKPTr0LvD89Jqk2Or5ogxz0NUMfIjhh2lIUX/LyX9B4oIg== }
-        engines: { node: ^6 || ^7 || ^8 || ^9 || ^10 || ^11 || ^12 || >=13.7 }
-        hasBin: true
 
     browserslist@4.29.0:
         resolution: { integrity: sha512-3GSvyjvDI4Dur1Meg2BekJquu5uF+9R9a1+5M1Mde192eZoXbeXjzgOsgqPS2V8D5wrrip0gR5Hf/GhWQ9ZzaA== }
@@ -2239,9 +2240,6 @@ packages:
 
     dxf-parser@1.1.2:
         resolution: { integrity: sha512-GPTumUvRkounlIazLIyJMmTWt+nlg+ksS0Hdm8jWvejmZKBTz6gvHTam76wRm4PQMma5sgKLThblQyeIJcH79Q== }
-
-    electron-to-chromium@1.5.355:
-        resolution: { integrity: sha512-LUPZhKzZPYSPme1jEYohpkA+ybYCJztr1quAdBd7E7h3+VOBVcKkwwtBJu41nrjawrRzfb8mtMfzWozoaK0ZIQ== }
 
     electron-to-chromium@1.5.430:
         resolution: { integrity: sha512-e1QEj72Y4zd8RlNZVmoTg+iCOSVwpk05IOiiQwdrkwCSVlZfPthevErhE+nckGd2YbsXfp1SkisznhGVIXP2NQ== }
@@ -3193,9 +3191,6 @@ packages:
         resolution: { integrity: sha512-LA4ZjwlnUblHVgq0oBF3Jl/6h/Nvs5fzBLwdEF4nuxnFdsfajde4WfxtJr3CaiH+F6ewcIB/q4jQ4UzPyid+CQ== }
         hasBin: true
 
-    node-releases@2.0.44:
-        resolution: { integrity: sha512-5WUyunoPMsvvEhS8AxHtRzP+oA8UCkJ7YRxatWKjngndhDGLiqEVAQKWjFAiAiuL8zMRGzGSJxFnLetoa43qGQ== }
-
     node-releases@2.0.55:
         resolution: { integrity: sha512-mIrE/Cw9y+9Au6dS5vDKDhQza9YvG6w+ZrS6X+ZzA7yFW/soAeaups4Qzn1bL6g5FVy8WtP79+0j82oPIbqRjQ== }
         engines: { node: '>=18' }
@@ -3428,6 +3423,11 @@ packages:
         peerDependencies:
             react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
             react-dom: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+
+    react-zxing@3.0.0:
+        resolution: { integrity: sha512-qCK4hvqY7j0sRoty15N99WDiIUyXK23+JJe9PcuPzO/qkQFrXIBOUwaiG3BeBSvTP2S73ebLpG+ap3D+eA/BcQ== }
+        peerDependencies:
+            react: ^16.8.0  || ^17.0.0 || ^18.0.0 || ^19.0.0
 
     react@19.2.8:
         resolution: { integrity: sha512-PWaYA1L/q9u2u7xYQi+Y3L3Yfnie7XyLeaJICV1MGD6LprsBxcAqGjYyr0eY3p+QdsA+x/Irkt4Qif8D63+Sbw== }
@@ -3835,12 +3835,6 @@ packages:
     unrs-resolver@1.12.2:
         resolution: { integrity: sha512-dmlRxBJJayXjqTwC+JtF1HhJmgf3ftQ3YejFcZrf4+KKtJv0qDsK1pjqaaVjG7wJ5NJ6UVP1OqRMQ71Z4C3rxQ== }
 
-    update-browserslist-db@1.2.3:
-        resolution: { integrity: sha512-Js0m9cx+qOgDxo0eMiFGEueWztz+d4+M3rGlmKPT+T4IS/jP4ylw3Nwpu6cpTTP8R1MAC1kF4VbdLt3ARf209w== }
-        hasBin: true
-        peerDependencies:
-            browserslist: '>= 4.21.0'
-
     update-browserslist-db@1.3.3:
         resolution: { integrity: sha512-pJ2sYawQS0R/WI928Gj5GlPhTGzbMelq0+4INtSYNDV9ErKJcX6xjGWkoG/VnB3dpUm00zALaqkrUD77pO5TDQ== }
         hasBin: true
@@ -3957,6 +3951,11 @@ packages:
     zod@4.6.5:
         resolution: { integrity: sha512-v5l/aFXZQeai4awLbOpSoHecE9UiMrnfx75tEXLjNonXVARxQ5mOeipTjROUchszUNCqnE+hqAMujRsRHsut2Q== }
 
+    zxing-wasm@3.1.3:
+        resolution: { integrity: sha512-3lC9BJk4fR5ZJxcGjb0hVnDFOW7KpLXHIebiBmVd4FDRQZVeObztoTKxRUPxlWwSgxrMRONK0u50hBD1aTYEKg== }
+        peerDependencies:
+            '@types/emscripten': '>=1.39.6'
+
 snapshots:
     '@alloc/quick-lru@5.3.0': {}
 
@@ -4004,7 +4003,7 @@ snapshots:
         dependencies:
             '@babel/compat-data': 7.29.7
             '@babel/helper-validator-option': 7.29.7
-            browserslist: 4.28.2
+            browserslist: 4.29.0
             lru-cache: 5.1.1
             semver: 6.3.1
 
@@ -5138,7 +5137,7 @@ snapshots:
 
     '@jridgewell/gen-mapping@0.3.13':
         dependencies:
-            '@jridgewell/sourcemap-codec': 1.5.5
+            '@jridgewell/sourcemap-codec': 1.6.0
             '@jridgewell/trace-mapping': 0.3.31
 
     '@jridgewell/remapping@2.3.5':
@@ -5148,14 +5147,12 @@ snapshots:
 
     '@jridgewell/resolve-uri@3.1.2': {}
 
-    '@jridgewell/sourcemap-codec@1.5.5': {}
-
     '@jridgewell/sourcemap-codec@1.6.0': {}
 
     '@jridgewell/trace-mapping@0.3.31':
         dependencies:
             '@jridgewell/resolve-uri': 3.1.2
-            '@jridgewell/sourcemap-codec': 1.5.5
+            '@jridgewell/sourcemap-codec': 1.6.0
 
     '@manypkg/find-root@3.1.0':
         dependencies:
@@ -5495,6 +5492,8 @@ snapshots:
     '@types/cors@2.8.19':
         dependencies:
             '@types/node': 26.6.1
+
+    '@types/emscripten@1.41.6': {}
 
     '@types/estree@1.0.9': {}
 
@@ -5870,6 +5869,12 @@ snapshots:
 
     balanced-match@4.0.4: {}
 
+    barcode-detector@3.2.2(@types/emscripten@1.41.6):
+        dependencies:
+            zxing-wasm: 3.1.3(@types/emscripten@1.41.6)
+        transitivePeerDependencies:
+            - '@types/emscripten'
+
     base64-arraybuffer@1.0.2:
         optional: true
 
@@ -5909,14 +5914,6 @@ snapshots:
             fast-unique-numbers: 9.0.27
             tslib: 2.8.1
             worker-factory: 7.0.50
-
-    browserslist@4.28.2:
-        dependencies:
-            baseline-browser-mapping: 2.11.24
-            caniuse-lite: 1.0.30001810
-            electron-to-chromium: 1.5.355
-            node-releases: 2.0.44
-            update-browserslist-db: 1.2.3(browserslist@4.28.2)
 
     browserslist@4.29.0:
         dependencies:
@@ -6200,8 +6197,6 @@ snapshots:
     dxf-parser@1.1.2:
         dependencies:
             loglevel: 1.9.2
-
-    electron-to-chromium@1.5.355: {}
 
     electron-to-chromium@1.5.430: {}
 
@@ -7306,8 +7301,6 @@ snapshots:
     node-gyp-build@4.8.4:
         optional: true
 
-    node-releases@2.0.44: {}
-
     node-releases@2.0.55: {}
 
     normalize-path@3.0.0: {}
@@ -7558,6 +7551,13 @@ snapshots:
             '@tanem/svg-injector': 12.1.3
             react: 19.2.8
             react-dom: 19.2.8(react@19.2.8)
+
+    react-zxing@3.0.0(@types/emscripten@1.41.6)(react@19.2.8):
+        dependencies:
+            barcode-detector: 3.2.2(@types/emscripten@1.41.6)
+            react: 19.2.8
+        transitivePeerDependencies:
+            - '@types/emscripten'
 
     react@19.2.8: {}
 
@@ -8106,12 +8106,6 @@ snapshots:
             '@unrs/resolver-binding-win32-ia32-msvc': 1.12.2
             '@unrs/resolver-binding-win32-x64-msvc': 1.12.2
 
-    update-browserslist-db@1.2.3(browserslist@4.28.2):
-        dependencies:
-            browserslist: 4.28.2
-            escalade: 3.2.0
-            picocolors: 1.1.1
-
     update-browserslist-db@1.3.3(browserslist@4.29.0):
         dependencies:
             browserslist: 4.29.0
@@ -8240,3 +8234,8 @@ snapshots:
             zod: 4.6.5
 
     zod@4.6.5: {}
+
+    zxing-wasm@3.1.3(@types/emscripten@1.41.6):
+        dependencies:
+            '@types/emscripten': 1.41.6
+            type-fest: 5.9.0

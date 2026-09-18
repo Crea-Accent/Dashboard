@@ -1,6 +1,6 @@
 {
 	"name": "panel",
-	"version": "0.10.1",
+	"version": "0.11.0",
 	"private": true,
 	"scripts": {
 		"dev": "pnpm i && next dev",
@@ -34,6 +34,7 @@
 		"react-email": "^6.9.5",
 		"react-icons": "^5.7.0",
 		"react-svg": "^19.1.5",
+		"react-zxing": "^3.0.0",
 		"tinycolor2": "^1.6.0",
 		"xlsx": "^0.18.5"
 	},
