@@ -1,5 +1,11 @@
 # panel
 
+## 0.11.2
+
+### Patch Changes
+
+- Fixed styling and prompt
+
 ## 0.11.1
 
 ### Patch Changes

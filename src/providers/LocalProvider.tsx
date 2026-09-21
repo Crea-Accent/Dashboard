@@ -1,8 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState } from 'react';
-import { Network, X } from 'lucide-react';
-import Button from '@/components/ui/Button';
+import { Network, X, Server, Globe } from 'lucide-react';
 
 type LocalContextType = {
 	local: boolean;
@@ -14,18 +13,30 @@ const LocalContext = createContext<LocalContextType | null>(null);
 export function LocalProvider({ children }: { children: React.ReactNode }) {
 	const [local, setLocal] = useState(false);
 	const [url, setUrl] = useState('');
-	const [localRedirectPrompt, setLocalRedirectPrompt] = useState<string | null>(null);
+	const [serverIp, setServerIp] = useState<string | null>(null);
+	const [isSameNetwork, setIsSameNetwork] = useState(false);
+
+	const [isOpen, setIsOpen] = useState(false);
+	const [tunnelUrl, setTunnelUrl] = useState<string | null>(null);
 
 	useEffect(() => {
+		if (typeof window !== 'undefined') {
+			if (window.location.protocol === 'https:') {
+				localStorage.setItem('tunnel_url', window.location.origin);
+				setTunnelUrl(window.location.origin);
+			} else {
+				setTunnelUrl(localStorage.getItem('tunnel_url'));
+			}
+		}
+
 		(async () => {
 			const server = (await fetch('/api/local')
 				.then((res) => res.json())
 				.catch(() => null)) as { message: string; ip: string; isSameNetwork?: boolean };
 
-			if (server?.isSameNetwork && typeof window !== 'undefined' && window.location.protocol === 'https:') {
-				const redirectUrl = `http://${server.ip}:3000${window.location.pathname}${window.location.search}`;
-				setLocalRedirectPrompt(redirectUrl);
-				// We don't auto-redirect anymore to preserve HTTPS features like camera for the scanner
+			if (server?.ip) {
+				setServerIp(server.ip);
+				setIsSameNetwork(!!server.isSameNetwork);
 			}
 
 			if (!server?.ip) {
@@ -38,7 +49,7 @@ export function LocalProvider({ children }: { children: React.ReactNode }) {
 				server?.ip === '127.0.0.1' && typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
 					? window.location.hostname
 					: server?.ip;
-			const local = await fetch(`http://${actualIpForCheck}:3000/api/local`, { signal: AbortSignal.timeout(1500) })
+			const isLocalAlive = await fetch(`http://${actualIpForCheck}:3000/api/local`, { signal: AbortSignal.timeout(1500) })
 				.then(() => true)
 				.catch(() => false);
 
@@ -46,11 +57,11 @@ export function LocalProvider({ children }: { children: React.ReactNode }) {
 				server?.ip === '127.0.0.1' && typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
 					? window.location.hostname
 					: server?.ip;
-			const localUrl = local ? 'http://' + actualIp + ':3000' : '';
-			setLocal(local);
+			const localUrl = isLocalAlive ? 'http://' + actualIp + ':3000' : '';
+			setLocal(isLocalAlive);
 			setUrl(localUrl);
 
-			if (local && localUrl && typeof window !== 'undefined') {
+			if (isLocalAlive && localUrl && typeof window !== 'undefined') {
 				const originalFetch = window.fetch;
 				window.fetch = async (...args) => {
 					let [resource, config] = args;
@@ -65,41 +76,74 @@ export function LocalProvider({ children }: { children: React.ReactNode }) {
 		})();
 	}, []);
 
+	const isCurrentlyHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
+	const showNetworkButton = isSameNetwork || (!isCurrentlyHttps && tunnelUrl);
+
+	const handleSwitchToLocal = () => {
+		if (serverIp && typeof window !== 'undefined') {
+			window.location.href = `http://${serverIp}:3000${window.location.pathname}${window.location.search}`;
+		}
+	};
+
+	const handleSwitchToTunnel = () => {
+		if (tunnelUrl && typeof window !== 'undefined') {
+			window.location.href = `${tunnelUrl}${window.location.pathname}${window.location.search}`;
+		}
+	};
+
 	return (
-		<LocalContext.Provider
-			value={{
-				local,
-				url,
-			}}
-		>
+		<LocalContext.Provider value={{ local, url }}>
 			{children}
 
-			{localRedirectPrompt && (
-				<div className="fixed bottom-6 right-6 z-50 animate-in slide-in-from-bottom-8 fade-in duration-300">
-					<div className="bg-[var(--background)] border border-[var(--border)]/15 shadow-xl rounded-2xl p-4 flex flex-col gap-3 max-w-sm relative">
-						<button onClick={() => setLocalRedirectPrompt(null)} className="absolute top-2 right-2 p-1 text-[var(--text-muted)] hover:bg-black/5 rounded-full transition-colors">
-							<X size={16} />
-						</button>
-
-						<div className="flex items-center gap-3">
-							<div className="h-10 w-10 bg-blue-500/10 text-blue-500 rounded-full flex items-center justify-center shrink-0">
-								<Network size={20} />
+			{showNetworkButton && (
+				<div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-2">
+					{isOpen && (
+						<div className="bg-[var(--foreground)] border border-[var(--border)]/15 shadow-xl rounded-2xl p-4 flex flex-col gap-4 w-72 animate-in slide-in-from-bottom-2 fade-in duration-200">
+							<div className="flex items-center justify-between">
+								<h3 className="font-semibold text-[var(--text)] text-sm flex items-center gap-2">
+									<Network size={16} className="text-[var(--accent)]" />
+									Connection Type
+								</h3>
+								<button onClick={() => setIsOpen(false)} className="p-1 text-[var(--text-muted)] hover:bg-[var(--border)]/20 rounded-full transition-colors">
+									<X size={16} />
+								</button>
 							</div>
-							<div>
-								<p className="font-semibold text-sm">Local network detected</p>
-								<p className="text-xs text-[var(--text-muted)] mt-0.5">Switch to HTTP for faster local speeds, but some features (like the camera) may be disabled.</p>
+
+							<div className="space-y-2">
+								<button
+									onClick={handleSwitchToLocal}
+									disabled={!isCurrentlyHttps}
+									className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all border text-left ${!isCurrentlyHttps ? 'bg-[var(--accent)]/10 border-[var(--accent)]/30 text-[var(--accent)] cursor-default' : 'bg-[var(--background)] border-[var(--border)]/15 hover:border-[var(--accent)]/50 hover:bg-[var(--accent)]/5 text-[var(--text)]'}`}
+								>
+									<Server size={18} className={!isCurrentlyHttps ? 'text-[var(--accent)]' : 'text-[var(--text-muted)]'} />
+									<div className="flex-1">
+										<p className="text-sm font-medium">Local Network</p>
+										<p className="text-xs opacity-80 mt-0.5">{!isCurrentlyHttps ? 'Currently active' : 'Switch for speed'}</p>
+									</div>
+								</button>
+
+								<button
+									onClick={handleSwitchToTunnel}
+									disabled={isCurrentlyHttps}
+									className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all border text-left ${isCurrentlyHttps ? 'bg-[var(--accent)]/10 border-[var(--accent)]/30 text-[var(--accent)] cursor-default' : 'bg-[var(--background)] border-[var(--border)]/15 hover:border-[var(--accent)]/50 hover:bg-[var(--accent)]/5 text-[var(--text)]'}`}
+								>
+									<Globe size={18} className={isCurrentlyHttps ? 'text-[var(--accent)]' : 'text-[var(--text-muted)]'} />
+									<div className="flex-1">
+										<p className="text-sm font-medium">Secure Tunnel</p>
+										<p className="text-xs opacity-80 mt-0.5">{isCurrentlyHttps ? 'Currently active' : 'Switch for camera access'}</p>
+									</div>
+								</button>
 							</div>
 						</div>
+					)}
 
-						<div className="flex gap-2">
-							<Button variant="ghost" className="flex-1 text-xs h-9" onClick={() => setLocalRedirectPrompt(null)}>
-								Stay on HTTPS
-							</Button>
-							<Button className="flex-1 bg-blue-500 hover:bg-blue-600 border-none text-white text-xs h-9" onClick={() => (window.location.href = localRedirectPrompt)}>
-								Switch to Local
-							</Button>
-						</div>
-					</div>
+					<button
+						onClick={() => setIsOpen(!isOpen)}
+						className="h-12 w-12 bg-[var(--foreground)] border border-[var(--border)]/15 text-[var(--text)] rounded-full shadow-lg flex items-center justify-center hover:scale-105 hover:border-[var(--accent)] active:scale-95 transition-all focus:outline-none"
+						title="Network Connection Settings"
+					>
+						<Network size={22} className={isCurrentlyHttps ? 'text-[var(--text)]' : 'text-[var(--accent)]'} />
+					</button>
 				</div>
 			)}
 		</LocalContext.Provider>
