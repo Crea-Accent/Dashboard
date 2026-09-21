@@ -1,5 +1,11 @@
 # panel
 
+## 0.11.1
+
+### Patch Changes
+
+- Updated the localprovider to prompt to switch to local, rather than force
+
 ## 0.11.0
 
 ### Minor Changes
