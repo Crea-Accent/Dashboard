@@ -1,5 +1,11 @@
 # panel
 
+## 0.11.3
+
+### Patch Changes
+
+- Fixed permission issues and localprovider
+
 ## 0.11.2
 
 ### Patch Changes

@@ -25,7 +25,7 @@ export function LocalProvider({ children }: { children: React.ReactNode }) {
 				localStorage.setItem('tunnel_url', window.location.origin);
 				setTunnelUrl(window.location.origin);
 			} else {
-				setTunnelUrl(localStorage.getItem('tunnel_url'));
+				setTunnelUrl(localStorage.getItem('tunnel_url') || 'https://crea-accent.app');
 			}
 		}
 
@@ -130,7 +130,9 @@ export function LocalProvider({ children }: { children: React.ReactNode }) {
 									<Globe size={18} className={isCurrentlyHttps ? 'text-[var(--accent)]' : 'text-[var(--text-muted)]'} />
 									<div className="flex-1">
 										<p className="text-sm font-medium">Secure Tunnel</p>
-										<p className="text-xs opacity-80 mt-0.5">{isCurrentlyHttps ? 'Currently active' : 'Switch for camera access'}</p>
+										<p className="text-xs opacity-80 mt-0.5">
+											{isCurrentlyHttps ? 'Currently active' : tunnelUrl ? tunnelUrl.replace(/^https?:\/\//, '') : 'Switch for camera access'}
+										</p>
 									</div>
 								</button>
 							</div>
