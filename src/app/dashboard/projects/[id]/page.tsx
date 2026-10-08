@@ -106,7 +106,11 @@ type MetadataActions = {
 	}[];
 };
 
+import { use } from 'react';
+
 export default function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
+	const resolvedParams = use(params);
+	const projectId = decodeURIComponent(resolvedParams.id);
 	const { has } = usePermissions();
 	const router = useRouter();
 	const toast = useToast();
@@ -186,12 +190,11 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 
 	useEffect(() => {
 		(async () => {
-			const id = decodeURIComponent((await params).id);
-			setClient(id);
+			setClient(projectId);
 
 			const [s, m, p] = await Promise.all([
 				fetch('/api/settings/projects').then((r) => r.json()),
-				fetch(`/api/projects/metadata?client=${encodeURIComponent(id)}&reveal=true`)
+				fetch(`/api/projects/metadata?client=${encodeURIComponent(projectId)}&reveal=true`)
 					.then((r) => r.json())
 					.catch(() => null),
 				fetch('/api/projects/map').then((r) => r.json()),
@@ -213,7 +216,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 			setProjects(p);
 			setLoading(false);
 		})();
-	}, [params]);
+	}, [projectId]);
 
 	if (loading) return <Loading title={`Loading ${client || 'project'}`} description="Reading project metadata" />;
 

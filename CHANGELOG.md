@@ -1,5 +1,11 @@
 # panel
 
+## 0.11.4
+
+### Patch Changes
+
+- Fix Access Sessions
+
 ## 0.11.3
 
 ### Patch Changes

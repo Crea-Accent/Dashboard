@@ -60,19 +60,6 @@ export function LocalProvider({ children }: { children: React.ReactNode }) {
 			const localUrl = isLocalAlive ? 'http://' + actualIp + ':3000' : '';
 			setLocal(isLocalAlive);
 			setUrl(localUrl);
-
-			if (isLocalAlive && localUrl && typeof window !== 'undefined') {
-				const originalFetch = window.fetch;
-				window.fetch = async (...args) => {
-					let [resource, config] = args;
-					if (typeof resource === 'string' && resource.startsWith('/api/')) {
-						resource = localUrl + resource;
-					} else if (resource instanceof URL && resource.pathname.startsWith('/api/')) {
-						resource = new URL(localUrl + resource.pathname + resource.search);
-					}
-					return originalFetch(resource, config);
-				};
-			}
 		})();
 	}, []);
 

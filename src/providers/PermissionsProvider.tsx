@@ -35,7 +35,7 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
 
 		/* admin overrides */
 
-		if (perm.endsWith('.read') && (permissions.includes('admin.read') || permissions.includes('admin.write'))) return true;
+		if (perm.endsWith('.read') && permissions.includes('admin.read')) return true;
 		if (perm.endsWith('.write') && permissions.includes('admin.write')) return true;
 
 		return false;
@@ -95,29 +95,12 @@ export function NotPermitted({
 
 	if (loading) return null;
 
-	let allowed = false;
-	let conditionsChecked = false;
+	let allowed = true;
 
-	if (permission) {
-		allowed = allowed || has(permission);
-		conditionsChecked = true;
-	}
-	if (any && any.length > 0) {
-		allowed = allowed || hasAny(any);
-		conditionsChecked = true;
-	}
-	if (all && all.length > 0) {
-		allowed = allowed || hasAll(all);
-		conditionsChecked = true;
-	}
-	if (shareAccess !== undefined) {
-		allowed = allowed || shareAccess;
-		conditionsChecked = true;
-	}
-
-	if (!conditionsChecked) {
-		allowed = true; // Default to allow if no constraints were specified
-	}
+	if (permission) allowed = has(permission);
+	if (any) allowed = hasAny(any);
+	if (all) allowed = hasAll(all);
+	if (shareAccess) allowed = shareAccess;
 
 	if (allowed) return <>{children}</>;
 

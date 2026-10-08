@@ -37,7 +37,11 @@ import { useToast } from '@/providers/ToastProvider';
 import EventModal from '@/components/events/EventModal';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 
+import { use } from 'react';
+
 export default function EventDetail({ params }: { params: Promise<{ id: string }> }) {
+	const resolvedParams = use(params);
+	const resolvedId = decodeURIComponent(resolvedParams.id);
 	const toast = useToast();
 	const { data: session } = useSession();
 
@@ -146,7 +150,6 @@ export default function EventDetail({ params }: { params: Promise<{ id: string }
 
 	async function load() {
 		try {
-			const resolvedId = decodeURIComponent((await params).id);
 			setId(resolvedId);
 
 			const [eventRes, contactsRes, companiesRes] = await Promise.all([fetch(`/api/events/${resolvedId}`), fetch('/api/contacts'), fetch('/api/settings/companies')]);
@@ -187,7 +190,7 @@ export default function EventDetail({ params }: { params: Promise<{ id: string }
 
 	useEffect(() => {
 		load();
-	}, [params]);
+	}, [resolvedId]);
 
 	async function handleAddInvite() {
 		try {

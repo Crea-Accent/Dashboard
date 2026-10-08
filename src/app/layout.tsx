@@ -42,7 +42,7 @@ export default async function RootLayout({
 		<html lang="en" suppressHydrationWarning className="h-full dark">
 			<head></head>
 			<body className={`h-full antialiased font-sans selection:bg-(--accent) selection:text-white transition-colors duration-1000 ${neuton.variable}`}>
-				<SessionProvider>
+				<SessionProvider session={session}>
 					<ThemeProvider>
 						<PermissionsProvider>
 							<DebugProvider>
