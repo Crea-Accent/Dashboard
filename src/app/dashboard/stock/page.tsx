@@ -5,7 +5,7 @@ import { PackageSearch, ScanBarcode, History, Package } from 'lucide-react';
 
 export default function StockMenuPage() {
 	return (
-		<div className="space-y-8 max-w-4xl mx-auto pt-6">
+		<div className="space-y-8 max-w-4xl mx-auto pt-6 px-4 md:px-0">
 			<PageHeader icon={<Package size={24} />} title="Stock Management" description="Manage your inventory, scan items, and view logs" />
 
 			<div className="grid grid-cols-1 md:grid-cols-3 gap-6">

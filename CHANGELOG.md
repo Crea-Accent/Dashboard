@@ -1,5 +1,11 @@
 # panel
 
+## 0.12.0
+
+### Minor Changes
+
+- Added more functionality to the stock section of the app
+
 ## 0.11.4
 
 ### Patch Changes

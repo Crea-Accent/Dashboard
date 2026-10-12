@@ -1,7 +1,7 @@
 /** @format */
 'use client';
 
-import { AlertCircle, AlertTriangle, CheckCircle, HardDrive, Info, Loader2, RefreshCw, Save, SlidersHorizontal } from 'lucide-react';
+import { AlertCircle, AlertTriangle, CheckCircle, HardDrive, Info, Loader2, RefreshCw, Save, SlidersHorizontal, Barcode } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useDebug } from '@/providers/DebugProvider';
 
@@ -34,6 +34,14 @@ export default function GeneralSettings() {
 	});
 
 	const [savingPath, setSavingPath] = useState(false);
+
+	const [eanDbKey, setEanDbKey] = useState('');
+	const [eanDbStatus, setEanDbStatus] = useState<{ hasKey: boolean; maskedKey: string; isEnv: boolean }>({
+		hasKey: false,
+		maskedKey: '',
+		isEnv: false,
+	});
+	const [savingEanKey, setSavingEanKey] = useState(false);
 
 	async function checkVersion() {
 		try {
@@ -129,9 +137,44 @@ export default function GeneralSettings() {
 		setSavingPath(false);
 	}
 
+	async function loadEanDbSettings() {
+		try {
+			const res = await fetch('/api/stock/settings');
+			if (res.ok) {
+				const data = await res.json();
+				setEanDbStatus(data);
+			}
+		} catch (err) {
+			console.error('Failed to load EAN-DB settings:', err);
+		}
+	}
+
+	async function saveEanDbKey() {
+		setSavingEanKey(true);
+		try {
+			const res = await fetch('/api/stock/settings', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ apiKey: eanDbKey }),
+			});
+			if (res.ok) {
+				setEanDbKey('');
+				await loadEanDbSettings();
+				alert('EAN-DB API key opgeslagen!');
+			} else {
+				alert('Opslaan mislukt');
+			}
+		} catch (err) {
+			alert('Er is een fout opgetreden bij het opslaan');
+		} finally {
+			setSavingEanKey(false);
+		}
+	}
+
 	useEffect(() => {
 		checkVersion();
 		loadFilesSettings();
+		loadEanDbSettings();
 	}, []);
 
 	if (loading) {
@@ -255,6 +298,46 @@ export default function GeneralSettings() {
 				<div className="flex justify-end">
 					<Button icon={<Save size={16} />} onClick={saveFilesPath} loading={savingPath}>
 						Save Changes
+					</Button>
+				</div>
+			</Card>
+
+			<Card className="p-6 space-y-6">
+				<div>
+					<h3 className="font-semibold flex items-center gap-2">
+						<Barcode size={18} className="text-(--accent)" />
+						EAN-DB Integratie (Stock Module)
+					</h3>
+					<p className="text-sm text-(--text-muted)">Koppel uw EAN-DB.com account om barcodes automatisch te vertalen naar menselijk leesbare artikelnamen en merken in de stock module.</p>
+				</div>
+
+				<div className="space-y-4">
+					<div className="flex items-center gap-2 text-sm">
+						<span className="text-(--text-muted)">Status:</span>
+						{eanDbStatus.hasKey ? (
+							<span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium">
+								<CheckCircle size={16} /> Ingesteld {eanDbStatus.maskedKey ? `(${eanDbStatus.maskedKey})` : ''}
+								{eanDbStatus.isEnv && <span className="text-xs px-2 py-0.5 rounded bg-[var(--accent)]/10 text-[var(--accent)]">via .env</span>}
+							</span>
+						) : (
+							<span className="flex items-center gap-1.5 text-amber-500 font-medium">
+								<AlertTriangle size={16} /> Nog geen API token ingesteld
+							</span>
+						)}
+					</div>
+
+					<Input
+						label="EAN-DB API Token (JWT)"
+						icon={<Barcode size={16} />}
+						placeholder={eanDbStatus.hasKey ? 'Voer nieuwe token in om te overschrijven...' : 'Plak hier uw JWT Bearer token van ean-db.com...'}
+						value={eanDbKey}
+						onChange={(e) => setEanDbKey(e.target.value)}
+					/>
+				</div>
+
+				<div className="flex justify-end">
+					<Button icon={<Save size={16} />} onClick={saveEanDbKey} loading={savingEanKey} disabled={!eanDbKey.trim()}>
+						API Key Opslaan
 					</Button>
 				</div>
 			</Card>
