@@ -1,12 +1,15 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useZxing } from 'react-zxing';
 import PageHeader from '@/components/ui/PageHeader';
 import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
 import { ScanBarcode, Plus, Trash2, Minus, ArrowLeft, Loader2, Edit2, Tag, Check, Keyboard, Sparkles } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useToast } from '@/providers/ToastProvider';
 import { usePermissions } from '@/providers/PermissionsProvider';
 import { submitStockMutation } from './actions';
 
@@ -39,6 +42,8 @@ function ScannerVideo({ onResult }: { onResult: (text: string) => void }) {
 }
 
 export default function StockPage() {
+	const router = useRouter();
+	const toast = useToast();
 	const { has } = usePermissions();
 	const canWrite = has('stock.write');
 
@@ -65,6 +70,20 @@ export default function StockPage() {
 		eanFound: boolean;
 	} | null>(null);
 	const [isSavingFirstTime, setIsSavingFirstTime] = useState(false);
+
+	// Recently scanned/updated item for pulse animation & highlight
+	const [recentlyChangedCode, setRecentlyChangedCode] = useState<string | null>(null);
+	const highlightTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+	const triggerHighlight = (code: string) => {
+		setRecentlyChangedCode(code);
+		if (highlightTimeoutRef.current) {
+			clearTimeout(highlightTimeoutRef.current);
+		}
+		highlightTimeoutRef.current = setTimeout(() => {
+			setRecentlyChangedCode(null);
+		}, 1600);
+	};
 
 	// Buffer for hardware/USB barcode scanner input on desktop
 	const barcodeBufferRef = useRef<string>('');
@@ -125,12 +144,14 @@ export default function StockPage() {
 		if (!cleanCode) return;
 
 		const delta = scanMode === 'add' ? 1 : -1;
+		triggerHighlight(cleanCode);
+
 		setItems((prev) => {
-			const existing = prev.find((i) => i.code === cleanCode);
-			if (existing) {
-				return prev.map((i) => (i.code === cleanCode ? { ...i, quantity: i.quantity + delta } : i));
+			const existingIndex = prev.findIndex((i) => i.code === cleanCode);
+			if (existingIndex !== -1) {
+				return prev.map((i, idx) => (idx === existingIndex ? { ...i, quantity: i.quantity + delta } : i));
 			}
-			return [...prev, { code: cleanCode, quantity: delta }];
+			return [{ code: cleanCode, quantity: delta }, ...prev];
 		});
 
 		fetchArticleInfo(cleanCode);
@@ -171,23 +192,59 @@ export default function StockPage() {
 	const handleSubmit = async () => {
 		if (items.length === 0) return;
 		setIsSubmitting(true);
+		const count = items.length;
+
 		try {
-			const result = await submitStockMutation(items);
-			if (result.success) {
+			// Call the standard REST API route to avoid Server Action reverse-proxy / CSRF issues
+			const res = await fetch('/api/stock/mutate', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ items }),
+			});
+
+			const data = await res.json().catch(() => ({}));
+
+			if (res.ok && data.success) {
 				setItems([]);
-				alert('Stock mutation saved successfully!');
-			} else {
-				alert('Failed to save stock mutation: ' + result.error);
+				toast('success', `Boeking succesvol opgeslagen (${count} ${count === 1 ? 'artikel' : 'artikelen'})!`);
+				router.push('/dashboard/stock');
+				return;
+			}
+
+			// If REST endpoint failed, attempt fallback to server action
+			try {
+				const fallback = await submitStockMutation(items);
+				if (fallback.success) {
+					setItems([]);
+					toast('success', `Boeking succesvol opgeslagen (${count} ${count === 1 ? 'artikel' : 'artikelen'})!`);
+					router.push('/dashboard/stock');
+					return;
+				}
+				toast('error', 'Opslaan mislukt: ' + (fallback.error || data.error || 'Serverfout'));
+			} catch (fallbackErr: any) {
+				toast('error', 'Opslaan mislukt: ' + (data.error || fallbackErr.message || 'Onbekende fout'));
 			}
 		} catch (error: any) {
-			console.error(error);
-			alert('Failed to save stock mutation: ' + (error.message || 'Network error'));
+			console.error('Submit stock mutation error:', error);
+			try {
+				const fallback = await submitStockMutation(items);
+				if (fallback.success) {
+					setItems([]);
+					toast('success', `Boeking succesvol opgeslagen (${count} ${count === 1 ? 'artikel' : 'artikelen'})!`);
+					router.push('/dashboard/stock');
+					return;
+				}
+				toast('error', 'Fout bij opslaan: ' + (fallback.error || error.message));
+			} catch (fallbackErr: any) {
+				toast('error', 'Fout bij opslaan: ' + (error.message || 'Netwerkfout'));
+			}
 		} finally {
 			setIsSubmitting(false);
 		}
 	};
 
 	const updateQuantityExact = (code: string, newQuantity: number) => {
+		triggerHighlight(code);
 		setItems((prev) => prev.map((i) => (i.code === code ? { ...i, quantity: newQuantity } : i)));
 	};
 
@@ -324,73 +381,132 @@ export default function StockPage() {
 						</div>
 					) : (
 						<div className="space-y-3">
-							{items.map((item) => {
-								const isPositive = item.quantity > 0;
-								const isNegative = item.quantity < 0;
-								const meta = articles[item.code];
-								const hasHumanTitle = Boolean(meta?.title && meta.title !== item.code);
+							<AnimatePresence initial={false} mode="popLayout">
+								{items.map((item) => {
+									const isPositive = item.quantity > 0;
+									const isNegative = item.quantity < 0;
+									const meta = articles[item.code];
+									const hasHumanTitle = Boolean(meta?.title && meta.title !== item.code);
+									const isRecentlyChanged = recentlyChangedCode === item.code;
 
-								return (
-									<div
-										key={item.code}
-										onClick={() => openEditModal(item)}
-										className={`flex items-center justify-between p-3.5 sm:p-4 rounded-2xl shadow-sm cursor-pointer transition-all hover:scale-[1.008] active:scale-[0.99] gap-3 ${
-											isPositive
-												? 'bg-[var(--accent)] text-white border border-[var(--accent)]'
-												: isNegative
-													? 'bg-red-500 text-white border border-red-500'
-													: 'bg-[var(--foreground)] text-[var(--text)] border border-[var(--border)]/10'
-										}`}
-									>
-										<div className="flex-1 min-w-0">
-											{hasHumanTitle ? (
-												<div>
-													<p className="font-semibold text-sm sm:text-base truncate leading-snug">{meta?.title}</p>
-													<div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mt-1">
-														{meta?.brand && <span className="text-[11px] sm:text-xs px-2 py-0.5 rounded-full bg-black/15 font-medium">{meta.brand}</span>}
-														<span className="font-mono text-[11px] sm:text-xs opacity-75">{item.code}</span>
-													</div>
-												</div>
-											) : (
-												<div>
-													<p className="font-mono font-semibold truncate text-base sm:text-lg">{item.code}</p>
-													{meta?.loading && (
-														<span className="text-xs opacity-75 inline-flex items-center gap-1 mt-0.5">
-															<Loader2 size={12} className="animate-spin" /> Zoeken op ean-db...
-														</span>
-													)}
-												</div>
+									return (
+										<motion.div
+											layout
+											key={item.code}
+											initial={{ opacity: 0, scale: 0.88, y: -20 }}
+											animate={{
+												opacity: 1,
+												scale: isRecentlyChanged ? [1, 1.025, 1] : 1,
+												y: 0,
+											}}
+											exit={{ opacity: 0, scale: 0.85, transition: { duration: 0.2 } }}
+											transition={{
+												type: 'spring',
+												stiffness: 420,
+												damping: 28,
+												layout: { duration: 0.25 },
+											}}
+											onClick={() => openEditModal(item)}
+											className={`relative overflow-hidden flex items-center justify-between p-3.5 sm:p-4 rounded-2xl shadow-sm cursor-pointer transition-all gap-3 ${
+												isPositive
+													? 'bg-[var(--accent)] text-white border border-[var(--accent)]'
+													: isNegative
+														? 'bg-red-500 text-white border border-red-500'
+														: 'bg-[var(--foreground)] text-[var(--text)] border border-[var(--border)]/10'
+											} ${isRecentlyChanged ? 'ring-4 ring-white/90 shadow-xl shadow-white/25 brightness-105' : 'hover:scale-[1.008] active:scale-[0.99]'}`}
+										>
+											{/* Highlight Flash Effect */}
+											{isRecentlyChanged && (
+												<motion.div
+													initial={{ opacity: 0.45 }}
+													animate={{ opacity: 0 }}
+													transition={{ duration: 1.2, ease: 'easeOut' }}
+													className="absolute inset-0 bg-white pointer-events-none rounded-2xl"
+												/>
 											)}
-										</div>
 
-										<div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-											<button
-												onClick={(e) => {
-													e.stopPropagation();
-													updateQuantityExact(item.code, item.quantity - 1);
-												}}
-												className="p-1.5 sm:p-2 rounded-xl transition-colors hover:bg-black/10 active:bg-black/20"
-												title="-1"
-											>
-												<Minus size={20} className="sm:w-5 sm:h-5" />
-											</button>
+											<div className="flex-1 min-w-0 z-10">
+												{hasHumanTitle ? (
+													<div>
+														<div className="flex items-center gap-2">
+															<p className="font-semibold text-sm sm:text-base truncate leading-snug">{meta?.title}</p>
+															{isRecentlyChanged && (
+																<motion.span
+																	initial={{ scale: 0, opacity: 0 }}
+																	animate={{ scale: 1, opacity: 1 }}
+																	exit={{ scale: 0, opacity: 0 }}
+																	className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-white/20 text-white shrink-0 shadow-sm"
+																>
+																	<Sparkles size={11} /> Aangepast
+																</motion.span>
+															)}
+														</div>
+														<div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mt-1">
+															{meta?.brand && <span className="text-[11px] sm:text-xs px-2 py-0.5 rounded-full bg-black/15 font-medium">{meta.brand}</span>}
+															<span className="font-mono text-[11px] sm:text-xs opacity-75">{item.code}</span>
+														</div>
+													</div>
+												) : (
+													<div>
+														<div className="flex items-center gap-2">
+															<p className="font-mono font-semibold truncate text-base sm:text-lg">{item.code}</p>
+															{isRecentlyChanged && (
+																<motion.span
+																	initial={{ scale: 0, opacity: 0 }}
+																	animate={{ scale: 1, opacity: 1 }}
+																	exit={{ scale: 0, opacity: 0 }}
+																	className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-white/20 text-white shrink-0 shadow-sm"
+																>
+																	<Sparkles size={11} /> Aangepast
+																</motion.span>
+															)}
+														</div>
+														{meta?.loading && (
+															<span className="text-xs opacity-75 inline-flex items-center gap-1 mt-0.5">
+																<Loader2 size={12} className="animate-spin" /> Zoeken op ean-db...
+															</span>
+														)}
+													</div>
+												)}
+											</div>
 
-											<span className="font-bold text-xl sm:text-2xl min-w-[2.5rem] sm:min-w-[3rem] text-center">{isPositive ? `+${item.quantity}` : item.quantity}</span>
+											<div className="flex items-center gap-1.5 sm:gap-2 shrink-0 z-10">
+												<button
+													onClick={(e) => {
+														e.stopPropagation();
+														updateQuantityExact(item.code, item.quantity - 1);
+													}}
+													className="p-1.5 sm:p-2 rounded-xl transition-colors hover:bg-black/10 active:bg-black/20"
+													title="-1"
+												>
+													<Minus size={20} className="sm:w-5 sm:h-5" />
+												</button>
 
-											<button
-												onClick={(e) => {
-													e.stopPropagation();
-													updateQuantityExact(item.code, item.quantity + 1);
-												}}
-												className="p-1.5 sm:p-2 rounded-xl transition-colors hover:bg-black/10 active:bg-black/20"
-												title="+1"
-											>
-												<Plus size={20} className="sm:w-5 sm:h-5" />
-											</button>
-										</div>
-									</div>
-								);
-							})}
+												<motion.span
+													key={item.quantity}
+													initial={{ scale: 1.45, y: -2 }}
+													animate={{ scale: 1, y: 0 }}
+													transition={{ type: 'spring', stiffness: 500, damping: 20 }}
+													className="font-bold text-xl sm:text-2xl min-w-[2.5rem] sm:min-w-[3rem] text-center inline-block"
+												>
+													{isPositive ? `+${item.quantity}` : item.quantity}
+												</motion.span>
+
+												<button
+													onClick={(e) => {
+														e.stopPropagation();
+														updateQuantityExact(item.code, item.quantity + 1);
+													}}
+													className="p-1.5 sm:p-2 rounded-xl transition-colors hover:bg-black/10 active:bg-black/20"
+													title="+1"
+												>
+													<Plus size={20} className="sm:w-5 sm:h-5" />
+												</button>
+											</div>
+										</motion.div>
+									);
+								})}
+							</AnimatePresence>
 						</div>
 					)}
 				</div>

@@ -1,5 +1,11 @@
 # panel
 
+## 0.12.2
+
+### Patch Changes
+
+- Added more confirmity to items in stock and fixed a booking error
+
 ## 0.12.1
 
 ### Patch Changes

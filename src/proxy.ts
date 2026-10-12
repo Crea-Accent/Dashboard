@@ -1,7 +1,7 @@
-﻿import type { NextRequest } from 'next/server';
+import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
-const allowedOrigins = ['http://localhost:3000', 'https://crea.dummi.me', 'https://crea-accent.app', 'https://www.crea-accent.app'];
+const allowedOrigins = ['http://localhost:3000', 'https://crea.dummi.me', 'https://crea-accent.app', 'https://www.crea-accent.app', 'https://crea-accept.app', 'https://www.crea-accept.app'];
 
 export function proxy(request: NextRequest) {
 	const headers = new Headers(request.headers);
