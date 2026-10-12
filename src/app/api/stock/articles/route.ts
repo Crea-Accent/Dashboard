@@ -3,7 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authConfig } from '@/lib/auth';
-import { getArticle, getArticles, saveArticle, StockArticle } from '@/lib/eandb';
+import { getArticle, getArticles, saveArticle, getAllCachedArticles, normalizeBarcode, StockArticle } from '@/lib/eandb';
 
 export async function GET(req: NextRequest) {
 	const session = await getServerSession(authConfig);
@@ -16,10 +16,14 @@ export async function GET(req: NextRequest) {
 		return NextResponse.json({ error: 'Barcode parameter is required' }, { status: 400 });
 	}
 
-	const forceRefresh = req.nextUrl.searchParams.get('refresh') === 'true';
-	const article = await getArticle(barcode, { forceRefresh });
+	const cleanCode = normalizeBarcode(barcode);
+	const cached = await getAllCachedArticles();
+	const isFirstTime = !cached[cleanCode];
 
-	return NextResponse.json({ article });
+	const forceRefresh = req.nextUrl.searchParams.get('refresh') === 'true';
+	const article = await getArticle(cleanCode, { forceRefresh });
+
+	return NextResponse.json({ article, isFirstTime });
 }
 
 export async function POST(req: NextRequest) {

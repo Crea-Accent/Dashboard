@@ -1,5 +1,11 @@
 # panel
 
+## 0.12.1
+
+### Patch Changes
+
+- Added new modal
+
 ## 0.12.0
 
 ### Minor Changes
