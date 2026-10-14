@@ -6,12 +6,13 @@ import { useZxing } from 'react-zxing';
 import PageHeader from '@/components/ui/PageHeader';
 import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
-import { ScanBarcode, Plus, Trash2, Minus, ArrowLeft, Loader2, Edit2, Tag, Check, Keyboard, Sparkles } from 'lucide-react';
+import { ScanBarcode, Plus, Trash2, Minus, ArrowLeft, Loader2, Edit2, Tag, Check, Keyboard, Sparkles, BarChart3 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/providers/ToastProvider';
 import { usePermissions } from '@/providers/PermissionsProvider';
 import { submitStockMutation } from './actions';
+import ArticleHistoryModal from '@/components/stock/ArticleHistoryModal';
 
 type StockItem = {
 	code: string;
@@ -59,6 +60,9 @@ export default function StockPage() {
 	const [customMax, setCustomMax] = useState('');
 	const [isEditingMeta, setIsEditingMeta] = useState(false);
 	const [isSubmitting, setIsSubmitting] = useState(false);
+
+	// History modal state
+	const [historyBarcode, setHistoryBarcode] = useState<string | null>(null);
 
 	// First time scanned article setup modal
 	const [firstTimeModal, setFirstTimeModal] = useState<{
@@ -206,7 +210,7 @@ export default function StockPage() {
 
 			if (res.ok && data.success) {
 				setItems([]);
-				toast('success', `Boeking succesvol opgeslagen (${count} ${count === 1 ? 'artikel' : 'artikelen'})!`);
+				toast('success', `Stock mutation saved successfully (${count} ${count === 1 ? 'item' : 'items'})!`);
 				router.push('/dashboard/stock');
 				return;
 			}
@@ -216,13 +220,13 @@ export default function StockPage() {
 				const fallback = await submitStockMutation(items);
 				if (fallback.success) {
 					setItems([]);
-					toast('success', `Boeking succesvol opgeslagen (${count} ${count === 1 ? 'artikel' : 'artikelen'})!`);
+					toast('success', `Stock mutation saved successfully (${count} ${count === 1 ? 'item' : 'items'})!`);
 					router.push('/dashboard/stock');
 					return;
 				}
-				toast('error', 'Opslaan mislukt: ' + (fallback.error || data.error || 'Serverfout'));
+				toast('error', 'Failed to save: ' + (fallback.error || data.error || 'Server error'));
 			} catch (fallbackErr: any) {
-				toast('error', 'Opslaan mislukt: ' + (data.error || fallbackErr.message || 'Onbekende fout'));
+				toast('error', 'Failed to save: ' + (data.error || fallbackErr.message || 'Unknown error'));
 			}
 		} catch (error: any) {
 			console.error('Submit stock mutation error:', error);
@@ -230,13 +234,13 @@ export default function StockPage() {
 				const fallback = await submitStockMutation(items);
 				if (fallback.success) {
 					setItems([]);
-					toast('success', `Boeking succesvol opgeslagen (${count} ${count === 1 ? 'artikel' : 'artikelen'})!`);
+					toast('success', `Stock mutation saved successfully (${count} ${count === 1 ? 'item' : 'items'})!`);
 					router.push('/dashboard/stock');
 					return;
 				}
-				toast('error', 'Fout bij opslaan: ' + (fallback.error || error.message));
+				toast('error', 'Error saving mutation: ' + (fallback.error || error.message));
 			} catch (fallbackErr: any) {
-				toast('error', 'Fout bij opslaan: ' + (error.message || 'Netwerkfout'));
+				toast('error', 'Error saving mutation: ' + (error.message || 'Network error'));
 			}
 		} finally {
 			setIsSubmitting(false);
@@ -366,7 +370,7 @@ export default function StockPage() {
 						</Button>
 					</div>
 
-					<PageHeader icon={<ScanBarcode size={24} />} title="Stock Inventory" description="Scan of voer barcodes in om artikelen toe te voegen of te verwijderen" />
+					<PageHeader icon={<ScanBarcode size={24} />} title="Stock Inventory" description="Scan or enter barcodes to add or remove articles" />
 
 					{/* Scanned Items List */}
 					{items.length === 0 ? (
@@ -374,10 +378,8 @@ export default function StockPage() {
 							<div className="h-12 w-12 rounded-full bg-[var(--foreground)] flex items-center justify-center text-[var(--accent)] shadow-sm">
 								<ScanBarcode size={24} />
 							</div>
-							<p className="font-semibold text-base text-[var(--text)]">Nog geen artikelen gescand</p>
-							<p className="text-xs sm:text-sm text-[var(--text-muted)] max-w-sm">
-								Gebruik de knoppen onderaan om via camera te scannen, voer handmatig een barcode in, of gebruik een USB barcodescanner.
-							</p>
+							<p className="font-semibold text-base text-[var(--text)]">No items scanned yet</p>
+							<p className="text-xs sm:text-sm text-[var(--text-muted)] max-w-sm">Use the buttons below to scan with camera, enter a barcode manually, or use a USB barcode scanner.</p>
 						</div>
 					) : (
 						<div className="space-y-3">
@@ -437,7 +439,7 @@ export default function StockPage() {
 																	exit={{ scale: 0, opacity: 0 }}
 																	className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-white/20 text-white shrink-0 shadow-sm"
 																>
-																	<Sparkles size={11} /> Aangepast
+																	<Sparkles size={11} /> Updated
 																</motion.span>
 															)}
 														</div>
@@ -457,13 +459,13 @@ export default function StockPage() {
 																	exit={{ scale: 0, opacity: 0 }}
 																	className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-white/20 text-white shrink-0 shadow-sm"
 																>
-																	<Sparkles size={11} /> Aangepast
+																	<Sparkles size={11} /> Updated
 																</motion.span>
 															)}
 														</div>
 														{meta?.loading && (
 															<span className="text-xs opacity-75 inline-flex items-center gap-1 mt-0.5">
-																<Loader2 size={12} className="animate-spin" /> Zoeken op ean-db...
+																<Loader2 size={12} className="animate-spin" /> Searching ean-db...
 															</span>
 														)}
 													</div>
@@ -535,7 +537,7 @@ export default function StockPage() {
 						className="flex-1 h-12 bg-red-500 text-white rounded-xl flex items-center justify-center gap-2 font-semibold text-sm active:scale-95 transition-all shadow-sm"
 					>
 						<Minus size={20} />
-						Scan Uit (-1)
+						Scan Out (-1)
 					</button>
 				</div>
 			</div>
@@ -561,7 +563,7 @@ export default function StockPage() {
 					icon={<Minus size={18} />}
 					variant="danger"
 				>
-					Scan Uit (-1)
+					Scan Out (-1)
 				</Button>
 
 				<div className="w-px h-6 bg-[var(--border)]/20 mx-1" />
@@ -574,23 +576,23 @@ export default function StockPage() {
 						setScanMode('add');
 						setIsScanning(true);
 					}}
-					title="Barcode handmatig typen"
+					title="Manually enter barcode"
 				>
-					Handmatig
+					Manual
 				</Button>
 			</div>
 
 			{/* Scanner Modal */}
-			<Modal open={isScanning} onClose={() => setIsScanning(false)} title={scanMode === 'add' ? 'Scan item in (+1)' : 'Scan item uit (-1)'} size="md">
+			<Modal open={isScanning} onClose={() => setIsScanning(false)} title={scanMode === 'add' ? 'Scan item in (+1)' : 'Scan item out (-1)'} size="md">
 				<div className="space-y-4">
 					<p className="text-xs sm:text-sm text-[var(--text-muted)]">
-						Richt de camera op een barcode of voer deze handmatig in. Het artikel wordt automatisch {scanMode === 'add' ? 'toegevoegd (+1)' : 'afgetrokken (-1)'}.
+						Point the camera at a barcode or enter it manually. The article will automatically be {scanMode === 'add' ? 'added (+1)' : 'deducted (-1)'}.
 					</p>
 
 					{isScanning && <ScannerVideo onResult={handleScan} />}
 
 					<div className="pt-2 border-t border-[var(--border)]/10 space-y-2">
-						<p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">Handmatige barcode invoer</p>
+						<p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">Manual barcode entry</p>
 						<form
 							onSubmit={(e) => {
 								e.preventDefault();
@@ -600,14 +602,14 @@ export default function StockPage() {
 						>
 							<input
 								type="text"
-								placeholder="Typ barcode..."
+								placeholder="Enter barcode..."
 								value={manualCode}
 								onChange={(e) => setManualCode(e.target.value)}
 								autoFocus
 								className="flex-1 h-11 px-3.5 rounded-xl border border-[var(--border)]/15 bg-[var(--background)] font-mono text-sm focus:outline-none focus:border-[var(--accent)]"
 							/>
 							<Button type="submit" disabled={!manualCode.trim()}>
-								Invoeren
+								Submit
 							</Button>
 						</form>
 					</div>
@@ -615,14 +617,14 @@ export default function StockPage() {
 			</Modal>
 
 			{/* Edit Item Modal */}
-			<Modal open={!!editingItem} onClose={() => setEditingItem(null)} title="Artikel bewerken" size="sm">
+			<Modal open={!!editingItem} onClose={() => setEditingItem(null)} title="Edit Article" size="sm">
 				{editingItem && (
 					<div className="space-y-5 pt-1">
 						{/* Article Meta Info */}
 						<div className="p-3.5 bg-[var(--background)] rounded-xl border border-[var(--border)]/10 space-y-2">
 							<div className="flex items-start justify-between gap-2">
 								<div className="min-w-0">
-									<p className="text-xs text-[var(--text-muted)] mb-0.5">Artikelnaam</p>
+									<p className="text-xs text-[var(--text-muted)] mb-0.5">Article Name</p>
 									<p className="font-semibold text-sm text-[var(--text)] leading-snug">{articles[editingItem.code]?.title || editingItem.code}</p>
 									{articles[editingItem.code]?.brand && (
 										<p className="text-xs text-[var(--text-muted)] mt-1 flex items-center gap-1">
@@ -630,15 +632,24 @@ export default function StockPage() {
 										</p>
 									)}
 								</div>
-								{canWrite && (
+								<div className="flex items-center gap-1 shrink-0">
 									<button
-										onClick={() => setIsEditingMeta(!isEditingMeta)}
-										className="p-1.5 rounded-lg hover:bg-[var(--border)]/15 text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors shrink-0"
-										title="Naam & instellingen aanpassen"
+										onClick={() => setHistoryBarcode(editingItem.code)}
+										className="p-1.5 rounded-lg hover:bg-[var(--border)]/15 text-[var(--text-muted)] hover:text-emerald-500 transition-colors"
+										title="View in & out history graph"
 									>
-										<Edit2 size={16} />
+										<BarChart3 size={16} />
 									</button>
-								)}
+									{canWrite && (
+										<button
+											onClick={() => setIsEditingMeta(!isEditingMeta)}
+											className="p-1.5 rounded-lg hover:bg-[var(--border)]/15 text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors"
+											title="Edit name & settings"
+										>
+											<Edit2 size={16} />
+										</button>
+									)}
+								</div>
 							</div>
 
 							<div className="pt-2 border-t border-[var(--border)]/10">
@@ -650,57 +661,57 @@ export default function StockPage() {
 						{/* Custom Name & Limits Edit Section */}
 						{isEditingMeta && (
 							<div className="p-3.5 bg-[var(--foreground)] rounded-xl border border-[var(--border)]/15 space-y-3 animate-in fade-in duration-200">
-								<p className="text-xs font-semibold text-[var(--text)]">Artikelgegevens & limieten aanpassen</p>
+								<p className="text-xs font-semibold text-[var(--text)]">Edit article details & limits</p>
 								<div>
-									<label className="block text-xs text-[var(--text-muted)] mb-1">Naam</label>
+									<label className="block text-xs text-[var(--text-muted)] mb-1">Name</label>
 									<input
 										type="text"
 										value={customTitle}
 										onChange={(e) => setCustomTitle(e.target.value)}
-										placeholder="Artikelnaam..."
+										placeholder="Article name..."
 										className="w-full h-10 px-3 rounded-lg border border-[var(--border)]/15 bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)]"
 									/>
 								</div>
 								<div>
-									<label className="block text-xs text-[var(--text-muted)] mb-1">Merk (optioneel)</label>
+									<label className="block text-xs text-[var(--text-muted)] mb-1">Brand (optional)</label>
 									<input
 										type="text"
 										value={customBrand}
 										onChange={(e) => setCustomBrand(e.target.value)}
-										placeholder="Merk..."
+										placeholder="Brand..."
 										className="w-full h-10 px-3 rounded-lg border border-[var(--border)]/15 bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)]"
 									/>
 								</div>
 								<div className="grid grid-cols-2 gap-2">
 									<div>
-										<label className="block text-xs text-[var(--text-muted)] mb-1">Min. Voorraad</label>
+										<label className="block text-xs text-[var(--text-muted)] mb-1">Min. Stock</label>
 										<input
 											type="number"
 											min="0"
 											value={customMin}
 											onChange={(e) => setCustomMin(e.target.value)}
-											placeholder="bv. 5"
+											placeholder="e.g. 5"
 											className="w-full h-10 px-3 rounded-lg border border-[var(--border)]/15 bg-[var(--background)] text-sm font-mono focus:outline-none focus:border-[var(--accent)]"
 										/>
 									</div>
 									<div>
-										<label className="block text-xs text-[var(--text-muted)] mb-1">Max. Voorraad</label>
+										<label className="block text-xs text-[var(--text-muted)] mb-1">Max. Stock</label>
 										<input
 											type="number"
 											min="0"
 											value={customMax}
 											onChange={(e) => setCustomMax(e.target.value)}
-											placeholder="bv. 20"
+											placeholder="e.g. 20"
 											className="w-full h-10 px-3 rounded-lg border border-[var(--border)]/15 bg-[var(--background)] text-sm font-mono focus:outline-none focus:border-[var(--accent)]"
 										/>
 									</div>
 								</div>
 								<div className="flex justify-end gap-2 pt-1">
 									<Button size="sm" variant="ghost" onClick={() => setIsEditingMeta(false)}>
-										Annuleren
+										Cancel
 									</Button>
 									<Button size="sm" onClick={handleSaveCustomMeta}>
-										Opslaan
+										Save
 									</Button>
 								</div>
 							</div>
@@ -708,7 +719,7 @@ export default function StockPage() {
 
 						{/* Quantity Input */}
 						<div>
-							<label className="block text-sm font-medium text-[var(--text)] mb-2">Aantal</label>
+							<label className="block text-sm font-medium text-[var(--text)] mb-2">Quantity</label>
 							<input
 								type="number"
 								value={editingItem.quantity}
@@ -730,7 +741,7 @@ export default function StockPage() {
 								}}
 							>
 								<Trash2 size={16} className="mr-1.5" />
-								Verwijderen
+								Delete
 							</Button>
 							<Button
 								className="flex-1 bg-[var(--accent)] hover:bg-[var(--accent)] hover:brightness-90 text-white border-none"
@@ -739,7 +750,7 @@ export default function StockPage() {
 									setEditingItem(null);
 								}}
 							>
-								Opslaan
+								Save
 							</Button>
 						</div>
 					</div>
@@ -747,7 +758,7 @@ export default function StockPage() {
 			</Modal>
 
 			{/* First Time Scanned Article Setup Modal */}
-			<Modal open={!!firstTimeModal} onClose={() => setFirstTimeModal(null)} title="Nieuw artikel instellen" size="md">
+			<Modal open={!!firstTimeModal} onClose={() => setFirstTimeModal(null)} title="Configure New Article" size="md">
 				{firstTimeModal && (
 					<form
 						onSubmit={(e) => {
@@ -760,11 +771,11 @@ export default function StockPage() {
 						<div className="p-3.5 bg-[var(--accent)]/10 rounded-xl border border-[var(--accent)]/20 text-xs text-[var(--text)] flex items-start gap-2.5">
 							<Sparkles size={18} className="text-[var(--accent)] shrink-0 mt-0.5" />
 							<div>
-								<p className="font-semibold text-[var(--text)]">Eerste keer gescand</p>
+								<p className="font-semibold text-[var(--text)]">First time scanned</p>
 								<p className="text-[var(--text-muted)] mt-0.5">
 									{firstTimeModal.eanFound
-										? 'Gegevens gevonden via de barcode-database. Pas eventueel de naam aan en stel minimale/maximale voorraad in.'
-										: 'Dit artikel is nog onbekend in het systeem. Geef het artikel een duidelijke naam en stel optioneel min/max bestelniveaus in.'}
+										? 'Details found via barcode database. Adjust the name if needed and set minimum/maximum stock levels.'
+										: 'This article is not yet in the system. Give it a recognizable name and optionally set min/max order levels.'}
 								</p>
 							</div>
 						</div>
@@ -778,14 +789,14 @@ export default function StockPage() {
 						{/* Title */}
 						<div>
 							<label className="block text-xs font-semibold text-[var(--text)] mb-1">
-								Artikelnaam <span className="text-red-500">*</span>
+								Article Name <span className="text-red-500">*</span>
 							</label>
 							<input
 								type="text"
 								autoFocus
 								value={firstTimeModal.title}
 								onChange={(e) => setFirstTimeModal({ ...firstTimeModal, title: e.target.value })}
-								placeholder="Voer herkenbare artikelnaam in..."
+								placeholder="Enter recognizable article name..."
 								className="w-full h-11 px-3.5 rounded-xl border border-[var(--border)]/15 bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)]"
 							/>
 						</div>
@@ -793,13 +804,13 @@ export default function StockPage() {
 						{/* Brand */}
 						<div>
 							<label className="block text-xs font-semibold text-[var(--text)] mb-1">
-								Merk <span className="text-[var(--text-muted)] font-normal">(optioneel)</span>
+								Brand <span className="text-[var(--text-muted)] font-normal">(optional)</span>
 							</label>
 							<input
 								type="text"
 								value={firstTimeModal.brand}
 								onChange={(e) => setFirstTimeModal({ ...firstTimeModal, brand: e.target.value })}
-								placeholder="bv. Niko, Legrand, Schneider..."
+								placeholder="e.g. Niko, Legrand, Schneider..."
 								className="w-full h-11 px-3.5 rounded-xl border border-[var(--border)]/15 bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)]"
 							/>
 						</div>
@@ -808,30 +819,30 @@ export default function StockPage() {
 						<div className="grid grid-cols-2 gap-3 pt-1">
 							<div>
 								<label className="block text-xs font-semibold text-[var(--text)] mb-1">
-									Min. Voorraad
-									<span className="text-[var(--text-muted)] font-normal block sm:inline sm:ml-1 text-[11px]">(drempel)</span>
+									Min. Stock
+									<span className="text-[var(--text-muted)] font-normal block sm:inline sm:ml-1 text-[11px]">(threshold)</span>
 								</label>
 								<input
 									type="number"
 									min="0"
 									value={firstTimeModal.min}
 									onChange={(e) => setFirstTimeModal({ ...firstTimeModal, min: e.target.value })}
-									placeholder="bv. 5"
+									placeholder="e.g. 5"
 									className="w-full h-11 px-3.5 rounded-xl border border-[var(--border)]/15 bg-[var(--background)] text-sm font-mono focus:outline-none focus:border-[var(--accent)]"
 								/>
 							</div>
 
 							<div>
 								<label className="block text-xs font-semibold text-[var(--text)] mb-1">
-									Max. Voorraad
-									<span className="text-[var(--text-muted)] font-normal block sm:inline sm:ml-1 text-[11px]">(doelniveau)</span>
+									Max. Stock
+									<span className="text-[var(--text-muted)] font-normal block sm:inline sm:ml-1 text-[11px]">(target level)</span>
 								</label>
 								<input
 									type="number"
 									min="0"
 									value={firstTimeModal.max}
 									onChange={(e) => setFirstTimeModal({ ...firstTimeModal, max: e.target.value })}
-									placeholder="bv. 20"
+									placeholder="e.g. 20"
 									className="w-full h-11 px-3.5 rounded-xl border border-[var(--border)]/15 bg-[var(--background)] text-sm font-mono focus:outline-none focus:border-[var(--accent)]"
 								/>
 							</div>
@@ -840,15 +851,18 @@ export default function StockPage() {
 						{/* Actions */}
 						<div className="flex justify-end gap-2.5 pt-3">
 							<Button type="button" variant="secondary" onClick={() => setFirstTimeModal(null)} disabled={isSavingFirstTime}>
-								Overslaan
+								Skip
 							</Button>
 							<Button type="submit" loading={isSavingFirstTime} className="bg-[var(--accent)] hover:brightness-90 text-white">
-								Opslaan & Toepassen
+								Save & Apply
 							</Button>
 						</div>
 					</form>
 				)}
 			</Modal>
+
+			{/* Article History & In/Out Graph Modal */}
+			<ArticleHistoryModal barcode={historyBarcode} onClose={() => setHistoryBarcode(null)} />
 		</div>
 	);
 }

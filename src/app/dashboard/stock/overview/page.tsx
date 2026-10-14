@@ -6,9 +6,10 @@ import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 import Modal from '@/components/ui/Modal';
 import Loading from '@/components/ui/Loading';
-import { PackageSearch, ArrowLeft, ScanBarcode, Search, RefreshCw, AlertTriangle, CheckCircle, Package, FileSpreadsheet, Edit2, ShoppingCart, Tag, TrendingDown } from 'lucide-react';
+import { PackageSearch, ArrowLeft, ScanBarcode, Search, RefreshCw, AlertTriangle, CheckCircle, Package, FileSpreadsheet, Edit2, ShoppingCart, Tag, TrendingDown, BarChart3 } from 'lucide-react';
 import Link from 'next/link';
 import * as XLSX from 'xlsx';
+import ArticleHistoryModal from '@/components/stock/ArticleHistoryModal';
 
 type StockOverviewItem = {
 	barcode: string;
@@ -39,6 +40,10 @@ export default function StockOverviewPage() {
 	const [loading, setLoading] = useState(true);
 	const [search, setSearch] = useState('');
 	const [filter, setFilter] = useState<'all' | 'needsOrder' | 'positive' | 'negative' | 'zero'>('all');
+
+	// History modal state
+	const [historyBarcode, setHistoryBarcode] = useState<string | null>(null);
+	const [historyTitle, setHistoryTitle] = useState<string | undefined>(undefined);
 
 	// Edit article modal state
 	const [editingItem, setEditingItem] = useState<StockOverviewItem | null>(null);
@@ -126,11 +131,11 @@ export default function StockOverviewPage() {
 				);
 				setEditingItem(null);
 			} else {
-				alert('Opslaan van artikel mislukt');
+				alert('Failed to save article');
 			}
 		} catch (err) {
 			console.error('Failed to update article:', err);
-			alert('Er is een fout opgetreden bij het opslaan.');
+			alert('An error occurred while saving.');
 		} finally {
 			setIsSavingArticle(false);
 		}
@@ -141,12 +146,12 @@ export default function StockOverviewPage() {
 		const itemsToOrder = items.filter((i) => i.min !== undefined && i.min > 0 && i.quantity < i.min);
 
 		if (itemsToOrder.length === 0) {
-			alert('Alle artikelen zijn voldoende op voorraad (geen enkel artikel staat onder het minimum).');
+			alert('All articles are sufficiently in stock (no articles below minimum).');
 			return;
 		}
 
 		const worksheetData = [
-			['Barcode', 'Artikelnaam', 'Merk', 'Categorie', 'Huidige Voorraad', 'Minimum', 'Maximum', 'Te Bestellen Aantal'],
+			['Barcode', 'Article Name', 'Brand', 'Category', 'Current Stock', 'Minimum', 'Maximum', 'Order Quantity'],
 			...itemsToOrder.map((item) => {
 				const target = item.max && item.max > item.min! ? item.max : item.min!;
 				const orderQty = Math.max(1, target - item.quantity);
@@ -157,20 +162,20 @@ export default function StockOverviewPage() {
 		const ws = XLSX.utils.aoa_to_sheet(worksheetData);
 		ws['!cols'] = [
 			{ wch: 18 }, // Barcode
-			{ wch: 42 }, // Artikelnaam
-			{ wch: 20 }, // Merk
-			{ wch: 22 }, // Categorie
-			{ wch: 18 }, // Huidige Voorraad
+			{ wch: 42 }, // Article Name
+			{ wch: 20 }, // Brand
+			{ wch: 22 }, // Category
+			{ wch: 18 }, // Current Stock
 			{ wch: 12 }, // Minimum
 			{ wch: 12 }, // Maximum
-			{ wch: 20 }, // Te Bestellen Aantal
+			{ wch: 20 }, // Order Quantity
 		];
 
 		const wb = XLSX.utils.book_new();
-		XLSX.utils.book_append_sheet(wb, ws, 'Bestellijst');
+		XLSX.utils.book_append_sheet(wb, ws, 'Order List');
 
 		const todayStr = new Date().toISOString().split('T')[0];
-		XLSX.writeFile(wb, `Bestellijst_Stock_${todayStr}.xlsx`);
+		XLSX.writeFile(wb, `Order_List_Stock_${todayStr}.xlsx`);
 	};
 
 	const filteredItems = items.filter((item) => {
@@ -196,14 +201,14 @@ export default function StockOverviewPage() {
 				<Link
 					href="/dashboard/stock"
 					className="p-2.5 sm:p-3 bg-[var(--foreground)] hover:bg-[var(--border)]/20 rounded-full transition-colors shadow-sm text-[var(--text)] shrink-0"
-					title="Terug naar Stock"
+					title="Back to Stock"
 				>
 					<ArrowLeft size={20} className="sm:w-6 sm:h-6" />
 				</Link>
 
 				<div className="flex flex-wrap items-center gap-2">
-					<Button variant="secondary" icon={<RefreshCw size={16} />} onClick={loadOverview} disabled={loading} title="Vernieuwen">
-						<span className="hidden sm:inline">Vernieuwen</span>
+					<Button variant="secondary" icon={<RefreshCw size={16} />} onClick={loadOverview} disabled={loading} title="Refresh">
+						<span className="hidden sm:inline">Refresh</span>
 					</Button>
 
 					{/* Order Button (Excel Export) */}
@@ -211,23 +216,23 @@ export default function StockOverviewPage() {
 						variant={itemsNeedingOrderCount > 0 ? 'primary' : 'secondary'}
 						icon={<FileSpreadsheet size={16} />}
 						onClick={handleExportOrderExcel}
-						title="Exporteer Excel bestellijst voor artikelen onder minimum"
+						title="Export Excel order list for articles below minimum"
 						className={itemsNeedingOrderCount > 0 ? 'bg-amber-600 hover:bg-amber-700 text-white' : ''}
 					>
-						<span className="hidden sm:inline">Bestelling ({itemsNeedingOrderCount})</span>
-						<span className="sm:hidden">Bestel ({itemsNeedingOrderCount})</span>
+						<span className="hidden sm:inline">Order ({itemsNeedingOrderCount})</span>
+						<span className="sm:hidden">Order ({itemsNeedingOrderCount})</span>
 					</Button>
 
 					<Link href="/dashboard/stock/mutate">
 						<Button icon={<ScanBarcode size={16} />}>
-							<span className="hidden sm:inline">Scannen & Muteren</span>
-							<span className="sm:hidden">Muteren</span>
+							<span className="hidden sm:inline">Scan & Mutate</span>
+							<span className="sm:hidden">Mutate</span>
 						</Button>
 					</Link>
 				</div>
 			</div>
 
-			<PageHeader icon={<PackageSearch size={24} />} title="Stock Overview" description="Volledig voorraadoverzicht met automatische bestelniveaus (Min / Max)" />
+			<PageHeader icon={<PackageSearch size={24} />} title="Stock Overview" description="Complete inventory overview with automatic reorder levels (Min / Max)" />
 
 			{/* Stats Bar */}
 			{stats && (
@@ -237,7 +242,7 @@ export default function StockOverviewPage() {
 							<Package size={20} />
 						</div>
 						<div className="min-w-0">
-							<p className="text-xs text-[var(--text-muted)] font-medium">Artikelen</p>
+							<p className="text-xs text-[var(--text-muted)] font-medium">Articles</p>
 							<p className="text-lg sm:text-xl font-bold text-[var(--text)] truncate">{stats.totalArticles}</p>
 						</div>
 					</Card>
@@ -247,7 +252,7 @@ export default function StockOverviewPage() {
 							<CheckCircle size={20} />
 						</div>
 						<div className="min-w-0">
-							<p className="text-xs text-[var(--text-muted)] font-medium">In voorraad</p>
+							<p className="text-xs text-[var(--text-muted)] font-medium">In Stock</p>
 							<p className="text-lg sm:text-xl font-bold text-emerald-600 dark:text-emerald-400 truncate">{stats.positiveStock}</p>
 						</div>
 					</Card>
@@ -261,7 +266,7 @@ export default function StockOverviewPage() {
 							<ShoppingCart size={20} />
 						</div>
 						<div className="min-w-0">
-							<p className="text-xs text-[var(--text-muted)] font-medium">Te bestellen</p>
+							<p className="text-xs text-[var(--text-muted)] font-medium">To Order</p>
 							<p className="text-lg sm:text-xl font-bold text-amber-600 dark:text-amber-400 truncate">{stats.needsOrder}</p>
 						</div>
 					</Card>
@@ -271,7 +276,7 @@ export default function StockOverviewPage() {
 							<AlertTriangle size={20} />
 						</div>
 						<div className="min-w-0">
-							<p className="text-xs text-[var(--text-muted)] font-medium">Negatief</p>
+							<p className="text-xs text-[var(--text-muted)] font-medium">Negative</p>
 							<p className="text-lg sm:text-xl font-bold text-red-500 truncate">{stats.negativeStock}</p>
 						</div>
 					</Card>
@@ -281,7 +286,7 @@ export default function StockOverviewPage() {
 							<PackageSearch size={20} />
 						</div>
 						<div className="min-w-0">
-							<p className="text-xs text-[var(--text-muted)] font-medium">Totale stuks</p>
+							<p className="text-xs text-[var(--text-muted)] font-medium">Total Units</p>
 							<p className="text-lg sm:text-xl font-bold text-[var(--text)] truncate">{stats.totalItems}</p>
 						</div>
 					</Card>
@@ -296,7 +301,7 @@ export default function StockOverviewPage() {
 						type="text"
 						value={search}
 						onChange={(e) => setSearch(e.target.value)}
-						placeholder="Zoek op artikelnaam, merk of barcode..."
+						placeholder="Search by article name, brand or barcode..."
 						className="w-full h-11 pl-10 pr-4 rounded-xl border border-[var(--border)]/15 bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)]"
 					/>
 				</div>
@@ -308,7 +313,7 @@ export default function StockOverviewPage() {
 							filter === 'all' ? 'bg-[var(--accent)] text-white' : 'text-[var(--text-muted)] hover:text-[var(--text)]'
 						}`}
 					>
-						Alles ({items.length})
+						All ({items.length})
 					</button>
 
 					<button
@@ -318,7 +323,7 @@ export default function StockOverviewPage() {
 						}`}
 					>
 						<ShoppingCart size={12} />
-						Te Bestellen ({itemsNeedingOrderCount})
+						To Order ({itemsNeedingOrderCount})
 					</button>
 
 					<button
@@ -327,7 +332,7 @@ export default function StockOverviewPage() {
 							filter === 'positive' ? 'bg-[var(--accent)] text-white' : 'text-[var(--text-muted)] hover:text-[var(--text)]'
 						}`}
 					>
-						Voorraad ({stats?.positiveStock ?? 0})
+						In Stock ({stats?.positiveStock ?? 0})
 					</button>
 
 					<button
@@ -336,7 +341,7 @@ export default function StockOverviewPage() {
 							filter === 'negative' ? 'bg-[var(--accent)] text-white' : 'text-[var(--text-muted)] hover:text-[var(--text)]'
 						}`}
 					>
-						Negatief ({stats?.negativeStock ?? 0})
+						Negative ({stats?.negativeStock ?? 0})
 					</button>
 
 					<button
@@ -345,30 +350,30 @@ export default function StockOverviewPage() {
 							filter === 'zero' ? 'bg-[var(--accent)] text-white' : 'text-[var(--text-muted)] hover:text-[var(--text)]'
 						}`}
 					>
-						Nul ({stats?.zeroStock ?? 0})
+						Zero ({stats?.zeroStock ?? 0})
 					</button>
 				</div>
 			</div>
 
 			{/* Full Screen Desktop & Mobile Articles Table */}
 			{loading ? (
-				<Loading title="Voorraad laden" description="Artikelen en voorraadniveaus ophalen..." />
+				<Loading title="Loading inventory" description="Fetching articles and stock levels..." />
 			) : filteredItems.length === 0 ? (
 				<div className="flex flex-col items-center justify-center border-2 border-dashed border-[var(--border)]/10 rounded-2xl bg-[var(--background)] p-12 text-center space-y-3">
 					<PackageSearch size={40} className="text-[var(--text-muted)] opacity-50" />
-					<p className="font-semibold text-[var(--text)]">Geen artikelen gevonden</p>
-					<p className="text-sm text-[var(--text-muted)]">{search ? 'Probeer een andere zoekterm of filter.' : 'Scan eerst artikelen via Scannen & Muteren.'}</p>
+					<p className="font-semibold text-[var(--text)]">No articles found</p>
+					<p className="text-sm text-[var(--text-muted)]">{search ? 'Try another search term or filter.' : 'Scan items first via Scan & Mutate.'}</p>
 				</div>
 			) : (
 				<div className="bg-[var(--background)] border border-[var(--border)]/10 rounded-2xl overflow-hidden shadow-sm">
 					{/* Desktop Table Header */}
-					<div className="hidden lg:grid grid-cols-[minmax(280px,2fr)_minmax(140px,1fr)_130px_130px_130px_80px] bg-[var(--foreground)] px-4 py-3 border-b border-[var(--border)]/10 font-medium text-[var(--text-muted)] text-xs uppercase tracking-wider">
-						<div>Artikel & Barcode</div>
-						<div>Merk / Categorie</div>
+					<div className="hidden lg:grid grid-cols-[minmax(260px,2fr)_minmax(130px,1fr)_120px_130px_130px_90px] bg-[var(--foreground)] px-4 py-3 border-b border-[var(--border)]/10 font-medium text-[var(--text-muted)] text-xs uppercase tracking-wider">
+						<div>Article & Barcode</div>
+						<div>Brand / Category</div>
 						<div className="text-center">Min / Max</div>
-						<div className="text-center">Huidige Voorraad</div>
-						<div className="text-center">Bestelstatus</div>
-						<div className="text-right">Bewerken</div>
+						<div className="text-center">Current Stock</div>
+						<div className="text-center">Order Status</div>
+						<div className="text-right">Actions</div>
 					</div>
 
 					<div className="divide-y divide-[var(--border)]/10">
@@ -382,7 +387,7 @@ export default function StockOverviewPage() {
 							return (
 								<div key={item.barcode} className={`p-3.5 sm:p-4 hover:bg-[var(--foreground)]/40 transition-colors ${item.needsOrder ? 'bg-amber-500/[0.03]' : ''}`}>
 									{/* Desktop Row */}
-									<div className="hidden lg:grid grid-cols-[minmax(280px,2fr)_minmax(140px,1fr)_130px_130px_130px_80px] items-center gap-3">
+									<div className="hidden lg:grid grid-cols-[minmax(260px,2fr)_minmax(130px,1fr)_120px_130px_130px_90px] items-center gap-3">
 										{/* Title & Barcode */}
 										<div className="min-w-0 pr-2">
 											<p className="font-semibold text-sm text-[var(--text)] truncate" title={item.title}>
@@ -419,17 +424,26 @@ export default function StockOverviewPage() {
 
 										{/* Current Stock */}
 										<div className="text-center">
-											<span
-												className={`inline-block px-3 py-1 rounded-xl font-bold text-sm min-w-[3.5rem] ${
-													isPositive
-														? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-														: isNegative
-															? 'bg-red-500/10 text-red-500 border border-red-500/20'
-															: 'bg-zinc-500/10 text-zinc-500 border border-zinc-500/20'
-												}`}
+											<button
+												onClick={() => {
+													setHistoryBarcode(item.barcode);
+													setHistoryTitle(item.title);
+												}}
+												className="cursor-pointer group inline-block"
+												title="Click to view in/out stock history graph"
 											>
-												{isPositive ? `+${item.quantity}` : item.quantity}
-											</span>
+												<span
+													className={`inline-block px-3 py-1 rounded-xl font-bold text-sm min-w-[3.5rem] transition-transform group-hover:scale-105 ${
+														isPositive
+															? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 group-hover:bg-emerald-500/20'
+															: isNegative
+																? 'bg-red-500/10 text-red-500 border border-red-500/20 group-hover:bg-red-500/20'
+																: 'bg-zinc-500/10 text-zinc-500 border border-zinc-500/20 group-hover:bg-zinc-500/20'
+													}`}
+												>
+													{isPositive ? `+${item.quantity}` : item.quantity}
+												</span>
+											</button>
 										</div>
 
 										{/* Order Status */}
@@ -437,21 +451,31 @@ export default function StockOverviewPage() {
 											{item.needsOrder ? (
 												<span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 font-semibold border border-amber-500/20">
 													<TrendingDown size={12} />
-													Bestel +{item.orderQty}
+													Order +{item.orderQty}
 												</span>
 											) : hasMin ? (
-												<span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">Op peil</span>
+												<span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">Optimal</span>
 											) : (
-												<span className="text-xs text-[var(--text-muted)] opacity-50">Geen min</span>
+												<span className="text-xs text-[var(--text-muted)] opacity-50">No min</span>
 											)}
 										</div>
 
-										{/* Action Button */}
-										<div className="text-right">
+										{/* Action Buttons */}
+										<div className="flex items-center justify-end gap-1">
+											<button
+												onClick={() => {
+													setHistoryBarcode(item.barcode);
+													setHistoryTitle(item.title);
+												}}
+												className="p-2 rounded-xl text-[var(--text-muted)] hover:text-emerald-500 hover:bg-[var(--border)]/20 transition-colors"
+												title="View in & out history graph"
+											>
+												<BarChart3 size={16} />
+											</button>
 											<button
 												onClick={() => openEditModal(item)}
 												className="p-2 rounded-xl text-[var(--text-muted)] hover:text-[var(--accent)] hover:bg-[var(--border)]/20 transition-colors"
-												title="Artikel & drempelwaarden bewerken"
+												title="Edit article & stock limits"
 											>
 												<Edit2 size={16} />
 											</button>
@@ -470,8 +494,13 @@ export default function StockOverviewPage() {
 											</div>
 
 											{/* Current Quantity Badge */}
-											<div
-												className={`px-3 py-1.5 rounded-xl font-bold text-sm min-w-[3.25rem] text-center shrink-0 ${
+											<button
+												onClick={() => {
+													setHistoryBarcode(item.barcode);
+													setHistoryTitle(item.title);
+												}}
+												title="Click to view history"
+												className={`px-3 py-1.5 rounded-xl font-bold text-sm min-w-[3.25rem] text-center shrink-0 cursor-pointer active:scale-95 transition-transform ${
 													isPositive
 														? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
 														: isNegative
@@ -480,10 +509,10 @@ export default function StockOverviewPage() {
 												}`}
 											>
 												{isPositive ? `+${item.quantity}` : item.quantity}
-											</div>
+											</button>
 										</div>
 
-										{/* Mobile Subline with Min/Max, Order status, and Edit button */}
+										{/* Mobile Subline with Min/Max, Order status, and Action buttons */}
 										<div className="flex items-center justify-between pt-1 border-t border-[var(--border)]/10 text-xs">
 											<div className="flex items-center gap-3">
 												<span className="text-[var(--text-muted)]">
@@ -493,18 +522,32 @@ export default function StockOverviewPage() {
 
 												{item.needsOrder && (
 													<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 font-semibold text-[11px]">
-														Bestel +{item.orderQty}
+														Order +{item.orderQty}
 													</span>
 												)}
 											</div>
 
-											<button
-												onClick={() => openEditModal(item)}
-												className="p-1.5 text-[var(--accent)] hover:bg-[var(--accent)]/10 rounded-lg flex items-center gap-1 font-medium"
-											>
-												<Edit2 size={14} />
-												Bewerken
-											</button>
+											<div className="flex items-center gap-1">
+												<button
+													onClick={() => {
+														setHistoryBarcode(item.barcode);
+														setHistoryTitle(item.title);
+													}}
+													className="p-1.5 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 rounded-lg flex items-center gap-1 font-medium"
+													title="View in/out history graph"
+												>
+													<BarChart3 size={14} />
+													History
+												</button>
+
+												<button
+													onClick={() => openEditModal(item)}
+													className="p-1.5 text-[var(--accent)] hover:bg-[var(--accent)]/10 rounded-lg flex items-center gap-1 font-medium"
+												>
+													<Edit2 size={14} />
+													Edit
+												</button>
+											</div>
 										</div>
 									</div>
 								</div>
@@ -515,7 +558,7 @@ export default function StockOverviewPage() {
 			)}
 
 			{/* Edit Article & Min/Max Modal */}
-			<Modal open={!!editingItem} onClose={() => setEditingItem(null)} title="Artikel & Voorraadlimieten bewerken" size="md">
+			<Modal open={!!editingItem} onClose={() => setEditingItem(null)} title="Edit Article & Stock Limits" size="md">
 				{editingItem && (
 					<div className="space-y-4 pt-1">
 						{/* Barcode Display */}
@@ -526,24 +569,24 @@ export default function StockOverviewPage() {
 
 						{/* Title Input */}
 						<div>
-							<label className="block text-xs font-semibold text-[var(--text)] mb-1">Artikelnaam</label>
+							<label className="block text-xs font-semibold text-[var(--text)] mb-1">Article Name</label>
 							<input
 								type="text"
 								value={editTitle}
 								onChange={(e) => setEditTitle(e.target.value)}
-								placeholder="Voer herkenbare artikelnaam in..."
+								placeholder="Enter recognizable article name..."
 								className="w-full h-11 px-3.5 rounded-xl border border-[var(--border)]/15 bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)]"
 							/>
 						</div>
 
 						{/* Brand Input */}
 						<div>
-							<label className="block text-xs font-semibold text-[var(--text)] mb-1">Merk (optioneel)</label>
+							<label className="block text-xs font-semibold text-[var(--text)] mb-1">Brand (optional)</label>
 							<input
 								type="text"
 								value={editBrand}
 								onChange={(e) => setEditBrand(e.target.value)}
-								placeholder="bv. Legrand, Schneider, Wago..."
+								placeholder="e.g. Legrand, Schneider, Wago..."
 								className="w-full h-11 px-3.5 rounded-xl border border-[var(--border)]/15 bg-[var(--background)] text-sm focus:outline-none focus:border-[var(--accent)]"
 							/>
 						</div>
@@ -552,30 +595,30 @@ export default function StockOverviewPage() {
 						<div className="grid grid-cols-2 gap-3 pt-1">
 							<div>
 								<label className="block text-xs font-semibold text-[var(--text)] mb-1">
-									Min. Voorraad
-									<span className="text-[var(--text-muted)] font-normal block sm:inline sm:ml-1 text-[11px]">(drempel voor bestelling)</span>
+									Min. Stock
+									<span className="text-[var(--text-muted)] font-normal block sm:inline sm:ml-1 text-[11px]">(reorder threshold)</span>
 								</label>
 								<input
 									type="number"
 									min="0"
 									value={editMin}
 									onChange={(e) => setEditMin(e.target.value)}
-									placeholder="bv. 5"
+									placeholder="e.g. 5"
 									className="w-full h-11 px-3.5 rounded-xl border border-[var(--border)]/15 bg-[var(--background)] text-sm font-mono focus:outline-none focus:border-[var(--accent)]"
 								/>
 							</div>
 
 							<div>
 								<label className="block text-xs font-semibold text-[var(--text)] mb-1">
-									Max. Voorraad
-									<span className="text-[var(--text-muted)] font-normal block sm:inline sm:ml-1 text-[11px]">(doelniveau bij bestelling)</span>
+									Max. Stock
+									<span className="text-[var(--text-muted)] font-normal block sm:inline sm:ml-1 text-[11px]">(target replenishment level)</span>
 								</label>
 								<input
 									type="number"
 									min="0"
 									value={editMax}
 									onChange={(e) => setEditMax(e.target.value)}
-									placeholder="bv. 20"
+									placeholder="e.g. 20"
 									className="w-full h-11 px-3.5 rounded-xl border border-[var(--border)]/15 bg-[var(--background)] text-sm font-mono focus:outline-none focus:border-[var(--accent)]"
 								/>
 							</div>
@@ -585,26 +628,43 @@ export default function StockOverviewPage() {
 						<div className="p-3 bg-[var(--foreground)] rounded-xl border border-[var(--border)]/10 text-xs text-[var(--text-muted)] space-y-1">
 							<p className="font-semibold text-[var(--text)] flex items-center gap-1.5">
 								<ShoppingCart size={14} className="text-amber-500" />
-								Automatische Bestelregel:
+								Automatic Reorder Rule:
 							</p>
 							<p>
-								Wanneer de voorraad onder het <strong>Minimum</strong> valt, wordt dit artikel automatisch opgenomen in de Excel bestellijst en aangevuld tot het{' '}
-								<strong>Maximum</strong> (of tot Minimum als geen Maximum is ingesteld).
+								When stock falls below the <strong>Minimum</strong>, this article is automatically included in the Excel order list and replenished up to the <strong>Maximum</strong>{' '}
+								(or to Minimum if no Maximum is set).
 							</p>
 						</div>
 
 						{/* Modal Actions */}
-						<div className="flex justify-end gap-2.5 pt-2">
-							<Button variant="secondary" onClick={() => setEditingItem(null)} disabled={isSavingArticle}>
-								Annuleren
+						<div className="flex items-center justify-between gap-2.5 pt-2">
+							<Button
+								type="button"
+								variant="secondary"
+								icon={<BarChart3 size={16} />}
+								onClick={() => {
+									setHistoryBarcode(editingItem.barcode);
+									setHistoryTitle(editingItem.title);
+								}}
+							>
+								History
 							</Button>
-							<Button onClick={handleSaveArticle} loading={isSavingArticle}>
-								Opslaan
-							</Button>
+
+							<div className="flex gap-2">
+								<Button variant="secondary" onClick={() => setEditingItem(null)} disabled={isSavingArticle}>
+									Cancel
+								</Button>
+								<Button onClick={handleSaveArticle} loading={isSavingArticle}>
+									Save
+								</Button>
+							</div>
 						</div>
 					</div>
 				)}
 			</Modal>
+
+			{/* Article History & In/Out Graph Modal */}
+			<ArticleHistoryModal barcode={historyBarcode} fallbackTitle={historyTitle} onClose={() => setHistoryBarcode(null)} />
 		</div>
 	);
 }

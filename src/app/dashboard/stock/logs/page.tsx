@@ -24,14 +24,14 @@ function formatLogDate(dateStr: string, timeStr: string) {
 		if (!year || !month || !day) return `${dateStr} ${time}`;
 
 		const dateObj = new Date(`${dateStr}T${time}`);
-		if (isNaN(dateObj.getTime())) return `${dateStr} om ${time}`;
+		if (isNaN(dateObj.getTime())) return `${dateStr} at ${time}`;
 
 		return (
-			dateObj.toLocaleDateString('nl-BE', {
+			dateObj.toLocaleDateString('en-GB', {
 				day: 'numeric',
 				month: 'short',
 				year: 'numeric',
-			}) + ` om ${time}`
+			}) + ` at ${time}`
 		);
 	} catch {
 		return `${dateStr} ${timeStr.replace(/-/g, ':')}`;
@@ -49,11 +49,11 @@ export default async function StockLogsPage() {
 				<div className="h-12 w-12 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center">
 					<History size={24} />
 				</div>
-				<div className="text-lg font-semibold text-[var(--text)]">Geen toegang</div>
-				<p className="text-sm text-[var(--text-muted)]">U heeft stock.write rechten nodig om de historiek te bekijken.</p>
+				<div className="text-lg font-semibold text-[var(--text)]">Access Denied</div>
+				<p className="text-sm text-[var(--text-muted)]">You need stock.write permissions to view history logs.</p>
 				<Link href="/dashboard/stock">
 					<Button variant="secondary" icon={<ArrowLeft size={16} />}>
-						Terug naar Stock
+						Back to Stock
 					</Button>
 				</Link>
 			</div>
@@ -142,20 +142,20 @@ export default async function StockLogsPage() {
 				<Link
 					href="/dashboard/stock"
 					className="p-2.5 sm:p-3 bg-[var(--foreground)] hover:bg-[var(--border)]/20 rounded-full transition-colors shadow-sm text-[var(--text)] shrink-0"
-					title="Terug naar Stock"
+					title="Back to Stock"
 				>
 					<ArrowLeft size={20} className="sm:w-6 sm:h-6" />
 				</Link>
 
 				<Link href="/dashboard/stock/mutate">
 					<Button icon={<ScanBarcode size={16} />}>
-						<span className="hidden sm:inline">Nieuwe Mutatie</span>
-						<span className="sm:hidden">Muteren</span>
+						<span className="hidden sm:inline">New Mutation</span>
+						<span className="sm:hidden">Mutate</span>
 					</Button>
 				</Link>
 			</div>
 
-			<PageHeader icon={<History size={24} />} title="History Logs" description="Chronologisch overzicht van alle uitgevoerde voorraadmutaties" />
+			<PageHeader icon={<History size={24} />} title="History Logs" description="Chronological overview of all recorded stock mutations" />
 
 			{/* Quick Summary Stats Bar */}
 			{logSummaries.length > 0 && (
@@ -165,7 +165,7 @@ export default async function StockLogsPage() {
 							<FileJson size={20} />
 						</div>
 						<div className="min-w-0">
-							<p className="text-xs text-[var(--text-muted)] font-medium">Mutatielogs</p>
+							<p className="text-xs text-[var(--text-muted)] font-medium">Mutation Logs</p>
 							<p className="text-lg sm:text-xl font-bold text-[var(--text)] truncate">{logSummaries.length}</p>
 						</div>
 					</Card>
@@ -175,7 +175,7 @@ export default async function StockLogsPage() {
 							<Package size={20} />
 						</div>
 						<div className="min-w-0">
-							<p className="text-xs text-[var(--text-muted)] font-medium">Gemuteerde stuks</p>
+							<p className="text-xs text-[var(--text-muted)] font-medium">Mutated Units</p>
 							<p className="text-lg sm:text-xl font-bold text-[var(--text)] truncate">{totalArticlesMutated}</p>
 						</div>
 					</Card>
@@ -185,7 +185,7 @@ export default async function StockLogsPage() {
 							<Calendar size={20} />
 						</div>
 						<div className="min-w-0">
-							<p className="text-xs text-[var(--text-muted)] font-medium">Laatste mutatie</p>
+							<p className="text-xs text-[var(--text-muted)] font-medium">Latest Mutation</p>
 							<p className="text-xs sm:text-sm font-semibold text-[var(--text)] truncate">{logSummaries[0]?.date || '-'}</p>
 						</div>
 					</Card>
@@ -198,10 +198,10 @@ export default async function StockLogsPage() {
 					<div className="h-12 w-12 rounded-full bg-[var(--foreground)] flex items-center justify-center text-[var(--text-muted)]">
 						<History size={24} />
 					</div>
-					<p className="font-semibold text-[var(--text)]">Nog geen mutaties gelogd</p>
-					<p className="text-xs sm:text-sm text-[var(--text-muted)] max-w-sm">Wanneer u artikelen boekt via Scannen & Muteren, worden de transacties hier automatisch bewaard.</p>
+					<p className="font-semibold text-[var(--text)]">No mutations logged yet</p>
+					<p className="text-xs sm:text-sm text-[var(--text-muted)] max-w-sm">When you book items via Scan & Mutate, transactions are automatically recorded here.</p>
 					<Link href="/dashboard/stock/mutate" className="pt-2">
-						<Button icon={<ScanBarcode size={16} />}>Eerste mutatie boeken</Button>
+						<Button icon={<ScanBarcode size={16} />}>Book first mutation</Button>
 					</Link>
 				</div>
 			) : (
@@ -223,7 +223,7 @@ export default async function StockLogsPage() {
 											<User size={12} /> {log.submitterName}
 										</span>
 										<span className="text-xs px-2 py-0.5 rounded-full bg-[var(--foreground)] border border-[var(--border)]/10 text-[var(--text-muted)] font-medium">
-											{log.articleCount} {log.articleCount === 1 ? 'artikel' : 'artikelen'}
+											{log.articleCount} {log.articleCount === 1 ? 'item' : 'items'}
 										</span>
 									</div>
 								</div>

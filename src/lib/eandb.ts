@@ -113,8 +113,8 @@ function extractTitle(product: any, barcode: string): string {
 	if (!product) return barcode;
 
 	const titles = product.titles || {};
-	// Prioritize Dutch, then English, then French, German, or any available title
-	const preferred = titles.nl || titles.en || titles.fr || titles.de;
+	// Prioritize English, then Dutch, then French, German, or any available title
+	const preferred = titles.en || titles.nl || titles.fr || titles.de;
 	if (preferred && typeof preferred === 'string' && preferred.trim()) {
 		return preferred.trim();
 	}

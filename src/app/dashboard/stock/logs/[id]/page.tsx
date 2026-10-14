@@ -25,14 +25,14 @@ function formatLogDate(dateStr: string, timeStr: string) {
 		if (!year || !month || !day) return `${dateStr} ${time}`;
 
 		const dateObj = new Date(`${dateStr}T${time}`);
-		if (isNaN(dateObj.getTime())) return `${dateStr} om ${time}`;
+		if (isNaN(dateObj.getTime())) return `${dateStr} at ${time}`;
 
 		return (
-			dateObj.toLocaleDateString('nl-BE', {
+			dateObj.toLocaleDateString('en-GB', {
 				day: 'numeric',
 				month: 'long',
 				year: 'numeric',
-			}) + ` om ${time}`
+			}) + ` at ${time}`
 		);
 	} catch {
 		return `${dateStr} ${timeStr.replace(/-/g, ':')}`;
@@ -47,11 +47,11 @@ export default async function StockLogDetailPage(props: { params: Promise<{ id: 
 	if (!hasWrite) {
 		return (
 			<div className="p-8 sm:p-12 flex flex-col items-center justify-center text-center space-y-3 max-w-md mx-auto">
-				<div className="text-lg font-semibold text-[var(--text)]">Geen toegang</div>
-				<p className="text-sm text-[var(--text-muted)]">U heeft stock.write rechten nodig om deze log te bekijken.</p>
+				<div className="text-lg font-semibold text-[var(--text)]">Access Denied</div>
+				<p className="text-sm text-[var(--text-muted)]">You need stock.write permissions to view this log.</p>
 				<Link href="/dashboard/stock/logs">
 					<Button variant="secondary" icon={<ArrowLeft size={16} />}>
-						Terug naar Logs
+						Back to Logs
 					</Button>
 				</Link>
 			</div>
@@ -101,27 +101,27 @@ export default async function StockLogDetailPage(props: { params: Promise<{ id: 
 				<Link
 					href="/dashboard/stock/logs"
 					className="p-2.5 sm:p-3 bg-[var(--foreground)] hover:bg-[var(--border)]/20 rounded-full transition-colors shadow-sm text-[var(--text)] shrink-0"
-					title="Terug naar overzicht"
+					title="Back to logs"
 				>
 					<ArrowLeft size={20} className="sm:w-6 sm:h-6" />
 				</Link>
 
 				<Link href="/dashboard/stock/mutate">
 					<Button icon={<ScanBarcode size={16} />}>
-						<span className="hidden sm:inline">Nieuwe Mutatie</span>
-						<span className="sm:hidden">Muteren</span>
+						<span className="hidden sm:inline">New Mutation</span>
+						<span className="sm:hidden">Mutate</span>
 					</Button>
 				</Link>
 			</div>
 
-			<PageHeader icon={<FileJson size={24} />} title={`Log: ${formattedDate}`} description={`Geboekt door ${submitterName} (${initials})`} />
+			<PageHeader icon={<FileJson size={24} />} title={`Log: ${formattedDate}`} description={`Booked by ${submitterName} (${initials})`} />
 
 			{!payload ? (
 				<div className="flex flex-col items-center justify-center border-2 border-dashed border-red-500/20 rounded-2xl bg-[var(--background)] p-8 sm:p-12 text-center space-y-3">
-					<p className="text-red-500 font-semibold">Logbestand niet gevonden of beschadigd.</p>
+					<p className="text-red-500 font-semibold">Log file not found or corrupted.</p>
 					<Link href="/dashboard/stock/logs">
 						<Button variant="secondary" icon={<ArrowLeft size={16} />}>
-							Terug naar overzicht
+							Back to logs
 						</Button>
 					</Link>
 				</div>
@@ -130,17 +130,17 @@ export default async function StockLogDetailPage(props: { params: Promise<{ id: 
 					{/* Stat Metrics Bar */}
 					<div className="grid grid-cols-3 gap-2.5 sm:gap-4">
 						<Card className="p-3 sm:p-4 text-center">
-							<p className="text-[11px] sm:text-xs text-[var(--text-muted)] font-medium">Artikelen</p>
+							<p className="text-[11px] sm:text-xs text-[var(--text-muted)] font-medium">Articles</p>
 							<p className="text-lg sm:text-2xl font-bold text-[var(--text)] mt-0.5">{entries.length}</p>
 						</Card>
 
 						<Card className="p-3 sm:p-4 text-center">
-							<p className="text-[11px] sm:text-xs text-emerald-600 dark:text-emerald-400 font-medium">Bijgeboekt</p>
+							<p className="text-[11px] sm:text-xs text-emerald-600 dark:text-emerald-400 font-medium">Added (+In)</p>
 							<p className="text-lg sm:text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">+{totalAdded}</p>
 						</Card>
 
 						<Card className="p-3 sm:p-4 text-center">
-							<p className="text-[11px] sm:text-xs text-red-500 font-medium">Afgeboekt</p>
+							<p className="text-[11px] sm:text-xs text-red-500 font-medium">Removed (-Out)</p>
 							<p className="text-lg sm:text-2xl font-bold text-red-500 mt-0.5">-{totalRemoved}</p>
 						</Card>
 					</div>
@@ -148,8 +148,8 @@ export default async function StockLogDetailPage(props: { params: Promise<{ id: 
 					{/* Mutation Items Card */}
 					<div className="bg-[var(--background)] border border-[var(--border)]/10 rounded-2xl overflow-hidden shadow-sm">
 						<div className="grid grid-cols-[1fr_auto] bg-[var(--foreground)] px-4 py-3 border-b border-[var(--border)]/10 font-medium text-[var(--text-muted)] text-xs sm:text-sm">
-							<div>Artikel & Barcode</div>
-							<div className="text-right">Mutatie</div>
+							<div>Article & Barcode</div>
+							<div className="text-right">Mutation</div>
 						</div>
 
 						<div className="divide-y divide-[var(--border)]/10">

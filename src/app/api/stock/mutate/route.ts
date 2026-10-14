@@ -10,14 +10,14 @@ export async function POST(req: NextRequest) {
 	try {
 		const session = await getServerSession(authConfig);
 		if (!session || !session.user) {
-			return NextResponse.json({ error: 'Niet geautoriseerd: geen actieve sessie gevonden.' }, { status: 401 });
+			return NextResponse.json({ error: 'Unauthorized: No active session found.' }, { status: 401 });
 		}
 
 		const body = await req.json().catch(() => ({}));
 		const items: { code: string; quantity: number }[] = body.items;
 
 		if (!Array.isArray(items) || items.length === 0) {
-			return NextResponse.json({ error: 'Geen artikelen opgegeven om te boeken.' }, { status: 400 });
+			return NextResponse.json({ error: 'No items specified to book.' }, { status: 400 });
 		}
 
 		const name = session.user.name || session.user.email || 'XX';
@@ -52,6 +52,6 @@ export async function POST(req: NextRequest) {
 		});
 	} catch (err: any) {
 		console.error('Stock Mutation API Error:', err);
-		return NextResponse.json({ error: err.message || 'Onbekende fout opgetreden bij het opslaan.' }, { status: 500 });
+		return NextResponse.json({ error: err.message || 'An unknown error occurred while saving.' }, { status: 500 });
 	}
 }

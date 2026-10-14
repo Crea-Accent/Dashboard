@@ -1,5 +1,11 @@
 # panel
 
+## 0.12.3
+
+### Patch Changes
+
+- Added a history modal viewer for articles
+
 ## 0.12.2
 
 ### Patch Changes
