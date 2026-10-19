@@ -53,9 +53,12 @@ export async function GET() {
 		const quantity = totals[code] || 0;
 		const min = detail?.min;
 		const max = detail?.max;
-		const needsOrder = min !== undefined && min > 0 && quantity < min;
+		const orderedQty = detail?.orderedQty && detail.orderedQty > 0 ? detail.orderedQty : undefined;
+		const orderedAt = detail?.orderedAt;
+		const belowMin = min !== undefined && min > 0 && quantity < min;
 		const target = max !== undefined && max > (min || 0) ? max : min || 0;
-		const orderQty = needsOrder ? Math.max(1, target - quantity) : 0;
+		const orderQty = belowMin ? Math.max(1, target - quantity) : 0;
+		const needsOrder = belowMin && !orderedQty;
 
 		return {
 			barcode: code,
@@ -68,14 +71,18 @@ export async function GET() {
 			quantity,
 			needsOrder,
 			orderQty,
+			orderedQty,
+			orderedAt,
 			lastMutated: lastMutatedMap[code],
 		};
 	});
 
-	// Sort items: items needing order first, then positive stock, then alphabetically
+	// Sort items: items needing order first, then ordered items, then positive stock, then alphabetically
 	items.sort((a, b) => {
 		if (a.needsOrder && !b.needsOrder) return -1;
 		if (!a.needsOrder && b.needsOrder) return 1;
+		if (Boolean(a.orderedQty) && !Boolean(b.orderedQty)) return -1;
+		if (!Boolean(a.orderedQty) && Boolean(b.orderedQty)) return 1;
 		if (b.quantity !== a.quantity) return b.quantity - a.quantity;
 		return a.title.localeCompare(b.title);
 	});
@@ -87,6 +94,7 @@ export async function GET() {
 		negativeStock: items.filter((i) => i.quantity < 0).length,
 		zeroStock: items.filter((i) => i.quantity === 0).length,
 		needsOrder: items.filter((i) => i.needsOrder).length,
+		orderedCount: items.filter((i) => (i.orderedQty || 0) > 0).length,
 	};
 
 	return NextResponse.json({ items, stats });

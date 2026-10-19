@@ -268,7 +268,59 @@ export default function Page() {
 		});
 
 		return list;
-	}, [projects, query, labelFilters, projectFilters, statusFilters, sortKey, sortAsc]);
+	}, [projects, query, labelFilters, projectFilters, contractorFilters, architectFilters, statusFilters, sortKey, sortAsc]);
+
+	const activeFilterCount = labelFilters.length + projectFilters.length + contractorFilters.length + architectFilters.length + statusFilters.length;
+
+	const resetAllFilters = () => {
+		setQuery('');
+		setLabelFilters([]);
+		setProjectFilters([]);
+		setContractorFilters([]);
+		setArchitectFilters([]);
+		setStatusFilters([]);
+	};
+
+	const [filtersRestored, setFiltersRestored] = useState(false);
+
+	useEffect(() => {
+		try {
+			const raw = sessionStorage.getItem('projects_filter_state_v1');
+			if (raw) {
+				const parsed = JSON.parse(raw);
+				if (typeof parsed.query === 'string') setQuery(parsed.query);
+				if (Array.isArray(parsed.labelFilters)) setLabelFilters(parsed.labelFilters);
+				if (Array.isArray(parsed.projectFilters)) setProjectFilters(parsed.projectFilters);
+				if (Array.isArray(parsed.contractorFilters)) setContractorFilters(parsed.contractorFilters);
+				if (Array.isArray(parsed.architectFilters)) setArchitectFilters(parsed.architectFilters);
+				if (Array.isArray(parsed.statusFilters)) setStatusFilters(parsed.statusFilters);
+				if (parsed.sortKey) setSortKey(parsed.sortKey);
+				if (typeof parsed.sortAsc === 'boolean') setSortAsc(parsed.sortAsc);
+				if (typeof parsed.showFilters === 'boolean') setShowFilters(parsed.showFilters);
+			}
+		} catch {}
+		setFiltersRestored(true);
+	}, []);
+
+	useEffect(() => {
+		if (!filtersRestored) return;
+		try {
+			sessionStorage.setItem(
+				'projects_filter_state_v1',
+				JSON.stringify({
+					query,
+					labelFilters,
+					projectFilters,
+					contractorFilters,
+					architectFilters,
+					statusFilters,
+					sortKey,
+					sortAsc,
+					showFilters,
+				})
+			);
+		} catch {}
+	}, [filtersRestored, query, labelFilters, projectFilters, contractorFilters, architectFilters, statusFilters, sortKey, sortAsc, showFilters]);
 
 	useEffect(() => {
 		async function load() {
@@ -344,11 +396,19 @@ export default function Page() {
 						</div>
 
 						<div className="flex gap-2 shrink-0">
+							{(activeFilterCount > 0 || query.trim()) && (
+								<Button variant="secondary" onClick={resetAllFilters} title="Clear all filters and search">
+									Reset {activeFilterCount > 0 ? `(${activeFilterCount})` : ''}
+								</Button>
+							)}
+
 							<Button variant="secondary" icon={sortAsc ? <ArrowUpAZ size={16} /> : <ArrowDownAZ size={16} />} onClick={() => setSortAsc(!sortAsc)} />
 
 							<ViewToggle value={view} onChange={setView} />
 
-							<Button variant="secondary" icon={<Filter size={16} />} onClick={() => setShowFilters(!showFilters)} />
+							<Button variant={activeFilterCount > 0 ? 'primary' : 'secondary'} icon={<Filter size={16} />} onClick={() => setShowFilters(!showFilters)}>
+								{activeFilterCount > 0 ? `${activeFilterCount}` : ''}
+							</Button>
 						</div>
 					</div>
 

@@ -1,9 +1,9 @@
 /** @format */
 'use client';
 
-import { CheckCircle2, Circle, ClipboardList, Clock, Edit3, FolderOpen, Search, Package, Filter, Ban } from 'lucide-react';
+import { CheckCircle2, Circle, ClipboardList, Clock, Edit3, FolderOpen, Search, Package, Filter, Ban, Layers } from 'lucide-react';
 import { NotPermitted, usePermissions } from '@/providers/PermissionsProvider';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
@@ -45,6 +45,8 @@ type Task = {
 	cancelReason?: string;
 };
 
+const TASKS_FILTER_STORAGE_KEY = 'tasks_filter_state_v1';
+
 export default function TasksPage() {
 	const { data: session } = useSession();
 	const { has } = usePermissions();
@@ -62,11 +64,45 @@ export default function TasksPage() {
 	const [materialStatusFilters, setMaterialStatusFilters] = useState<string[]>([]);
 	const [showFilters, setShowFilters] = useState(false);
 	const [seeAllTasks, setSeeAllTasks] = useState(false);
+	const [groupByProject, setGroupByProject] = useState(false);
+	const [filtersRestored, setFiltersRestored] = useState(false);
 	const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
 	const [allUsers, setAllUsers] = useState<{ label: string; value: string }[]>([]);
 	const [loadingUsers, setLoadingUsers] = useState(false);
 
 	const username = session?.user?.name || session?.user?.email || '';
+
+	// Restore filter preferences from sessionStorage on mount
+	useEffect(() => {
+		try {
+			const saved = sessionStorage.getItem(TASKS_FILTER_STORAGE_KEY);
+			if (saved) {
+				const parsed = JSON.parse(saved);
+				if (Array.isArray(parsed.stateFilters)) setStateFilters(parsed.stateFilters);
+				if (Array.isArray(parsed.materialStatusFilters)) setMaterialStatusFilters(parsed.materialStatusFilters);
+				if (typeof parsed.seeAllTasks === 'boolean') setSeeAllTasks(parsed.seeAllTasks);
+				if (typeof parsed.groupByProject === 'boolean') setGroupByProject(parsed.groupByProject);
+				if (typeof parsed.showFilters === 'boolean') setShowFilters(parsed.showFilters);
+			}
+		} catch {}
+		setFiltersRestored(true);
+	}, []);
+
+	useEffect(() => {
+		if (!filtersRestored) return;
+		try {
+			sessionStorage.setItem(
+				TASKS_FILTER_STORAGE_KEY,
+				JSON.stringify({
+					stateFilters,
+					materialStatusFilters,
+					seeAllTasks,
+					groupByProject,
+					showFilters,
+				})
+			);
+		} catch {}
+	}, [stateFilters, materialStatusFilters, seeAllTasks, groupByProject, showFilters, filtersRestored]);
 
 	const load = async () => {
 		if (!username) return;
@@ -86,10 +122,10 @@ export default function TasksPage() {
 	};
 
 	useEffect(() => {
-		if (session) {
+		if (session && filtersRestored) {
 			load();
 		}
-	}, [session, seeAllTasks]);
+	}, [session, seeAllTasks, filtersRestored]);
 
 	useEffect(() => {
 		if (has('tasks.write') && seeAllTasks && allUsers.length === 0) {
@@ -212,6 +248,16 @@ export default function TasksPage() {
 		return true;
 	});
 
+	const groupedTasks = useMemo(() => {
+		const map: Record<string, Task[]> = {};
+		for (const t of filteredTasks) {
+			const key = t.projectName || 'Unassigned Project';
+			if (!map[key]) map[key] = [];
+			map[key].push(t);
+		}
+		return Object.entries(map).sort(([a], [b]) => a.localeCompare(b));
+	}, [filteredTasks]);
+
 	if (loading) return <Loading title="Loading tasks" />;
 
 	return (
@@ -225,6 +271,9 @@ export default function TasksPage() {
 							<Input icon={<Search size={16} />} placeholder="Search tasks or projects..." value={query} onChange={(e) => setQuery(e.target.value)} />
 						</div>
 						<div className="flex gap-2 shrink-0">
+							<Button variant={groupByProject ? 'primary' : 'secondary'} icon={<Layers size={16} />} onClick={() => setGroupByProject(!groupByProject)} title="Group tasks by project">
+								<span className="hidden sm:inline">By Project</span>
+							</Button>
 							<Button variant="secondary" icon={<Filter size={16} />} onClick={() => setShowFilters(!showFilters)} />
 						</div>
 					</div>
@@ -280,151 +329,185 @@ export default function TasksPage() {
 				{filteredTasks.length === 0 ? (
 					<EmptyState title="No Tasks Found" description="You don't have any tasks matching your filters." />
 				) : (
-					<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-						{filteredTasks.map((task, i) => (
-							<motion.div key={task.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }} className="min-w-0">
-								<Card className="flex flex-col h-full hover:border-(--accent) transition-colors overflow-hidden min-w-0">
-									<div className="p-4 flex-1 space-y-4 min-w-0">
-										<div className="flex items-start justify-between gap-2 min-w-0">
-											<div className="flex items-center gap-2 text-sm text-(--text-muted) font-medium min-w-0">
-												<FolderOpen size={16} className="shrink-0" />
-												<Link href={`/dashboard/projects/${encodeURIComponent(task.projectName)}`} className="hover:text-(--accent) transition-colors truncate">
-													{task.projectName}
-												</Link>
-											</div>
-											<span className="px-2 py-0.5 rounded-full text-xs font-medium capitalize shrink-0 bg-zinc-500/10 text-zinc-500 font-mono">#{task.importance || '-'}</span>
-										</div>
-
-										<div className={`text-sm wrap-break-word whitespace-normal space-y-1`}>
-											<p className={`${task.state === 'finished' || task.state === 'canceled' ? 'line-through text-(--text-muted)' : ''}`}>{task.description}</p>
-											{task.state === 'finished' && task.completedBy && <p className="text-xs font-medium text-green-500">Completed by: {task.completedBy}</p>}
-											{task.state === 'canceled' && <p className="text-xs font-medium text-red-500">Not Needed: {task.cancelReason || 'No reason provided'}</p>}
-										</div>
-
-										{task.imagePath && (
-											<div className="relative w-full overflow-hidden min-w-0">
-												<File
-													file={{
-														name: task.imagePath.split(/[/\\]/).pop() || 'POI.jpg',
-														path: task.imagePath,
-														type: 'file',
-													}}
-													image
-												/>
-											</div>
-										)}
-
-										{task.finishedImagePath && (
-											<div className="relative w-full overflow-hidden min-w-0">
-												<File
-													file={{
-														name: task.finishedImagePath.split(/[/\\]/).pop() || 'Proof.jpg',
-														path: task.finishedImagePath,
-														type: 'file',
-													}}
-													image
-												/>
-												<div className="absolute top-2 right-2 bg-green-500/90 backdrop-blur-md text-white px-2 py-1 rounded-lg text-xs font-medium flex items-center gap-1.5 shadow-sm pointer-events-none">
-													<CheckCircle2 size={12} />
-													Proof
-												</div>
-											</div>
-										)}
-
-										{task.proofDescription && (
-											<div className="bg-zinc-50 dark:bg-zinc-800/50 p-3 rounded-lg border border-zinc-200 dark:border-zinc-800/50 text-sm italic text-zinc-600 dark:text-zinc-400">
-												{task.proofDescription}
-											</div>
-										)}
-
-										<div className="text-xs text-[var(--text-muted)] flex items-center gap-2 min-w-0 flex-wrap">
-											<Clock size={12} className="shrink-0" />
-											<span className="truncate min-w-0 flex-1">
-												Opened {new Date(task.ticketCreatedAt).toLocaleDateString()} by {task.ticketOpenedBy}
-											</span>
-										</div>
-
-										{task.requiresMaterials && (
-											<div
-												className={`mt-2 p-2 rounded border flex flex-col sm:flex-row sm:items-center justify-between gap-2 ${
-													task.materialState === 'in_stock'
-														? 'bg-green-500/10 border-green-500/20 text-green-700 dark:text-green-400'
-														: task.materialState === 'ordered'
-															? 'bg-blue-500/10 border-blue-500/20 text-blue-700 dark:text-blue-400'
-															: 'bg-orange-500/10 border-orange-500/20 text-orange-700 dark:text-orange-400'
-												}`}
-											>
-												<span className="text-xs font-semibold flex items-center gap-1.5">
-													Materials:{' '}
-													{task.materialState === 'ordered'
-														? `Ordered by ${task.materialOrderedBy || task.materialAssignee || 'Unassigned'}`
-														: task.materialState === 'in_stock'
-															? `In Stock (received by ${task.materialStockedBy || task.materialAssignee || 'Unassigned'})`
-															: `Needs Ordering (assigned to ${task.materialAssignee || 'Unassigned'})`}
-												</span>
-												{task.state !== 'finished' && task.state !== 'canceled' && (!task.materialState || task.materialState === 'needs_ordering') ? (
-													<Button
-														size="sm"
-														variant="secondary"
-														className="h-7 text-xs px-2 bg-[var(--background)] shadow-sm"
-														disabled={!(username === task.materialAssignee || has('tasks.write'))}
-														onClick={() => setMaterialStateConfirm({ task, newState: 'ordered' })}
-													>
-														Mark as Ordered
-													</Button>
-												) : task.state !== 'finished' && task.state !== 'canceled' && task.materialState === 'ordered' ? (
-													<Button
-														size="sm"
-														variant="secondary"
-														className="h-7 text-xs px-2 bg-[var(--background)] shadow-sm"
-														disabled={!(username === task.materialAssignee || has('tasks.write'))}
-														onClick={() => setMaterialStateConfirm({ task, newState: 'in_stock' })}
-													>
-														Mark as In Stock
-													</Button>
-												) : null}
-											</div>
-										)}
-									</div>
-
-									<div className="p-3 border-t border-[var(--border)]/10 bg-[var(--background)] flex items-center justify-between min-w-0 gap-2">
-										<div className="flex items-center gap-2">
-											<div className="text-xs font-medium text-[var(--text-muted)]">
-												{task.state === 'finished' ? 'Completed' : task.state === 'canceled' ? 'Not Needed' : 'Pending'}
-											</div>
-											{has('tasks.write') && (
-												<button onClick={() => setTaskToEdit(task)} className="text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors p-1" title="Edit Task">
-													<Edit3 size={14} />
-												</button>
-											)}
-										</div>
-										<Button
-											size="sm"
-											variant={task.state === 'finished' || task.state === 'canceled' ? 'ghost' : 'primary'}
-											disabled={task.state === 'finished' || task.state === 'canceled' || (task.requiresMaterials && task.materialState !== 'in_stock')}
-											onClick={() => setTaskToComplete(task)}
-											icon={
-												task.state === 'finished' ? (
-													<CheckCircle2 size={16} className="text-green-500" />
-												) : task.state === 'canceled' ? (
-													<Ban size={16} className="text-red-500" />
-												) : (
-													<Circle size={16} />
-												)
-											}
-											title={
-												task.state === 'canceled'
-													? 'Task marked as Not Needed'
-													: task.requiresMaterials && task.materialState !== 'in_stock'
-														? 'Materials are not in stock yet.'
-														: ''
-											}
+					<div className="space-y-6">
+						{(groupByProject ? groupedTasks : ([['__all__', filteredTasks]] as [string, Task[]][])).map(([groupName, groupList]) => (
+							<div key={groupName} className="space-y-3">
+								{groupByProject && (
+									<div className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl bg-[var(--foreground)] border border-[var(--border)]/15">
+										<Link
+											href={`/dashboard/projects/${encodeURIComponent(groupName)}`}
+											className="flex items-center gap-2 font-bold text-sm text-[var(--text)] hover:text-[var(--accent)] transition-colors"
 										>
-											{task.state === 'finished' ? 'Done' : task.state === 'canceled' ? 'Disregarded' : 'Mark as Done'}
-										</Button>
+											<FolderOpen size={16} className="text-[var(--accent)]" />
+											{groupName}
+											<span className="text-xs font-mono px-2 py-0.5 rounded-full bg-[var(--background)] text-[var(--text-muted)] border border-[var(--border)]/15">
+												{groupList.length} {groupList.length === 1 ? 'task' : 'tasks'}
+											</span>
+										</Link>
+										<Link
+											href={`/dashboard/stock/mutate?project=${encodeURIComponent(groupName)}&mode=remove`}
+											className="text-xs font-medium text-[var(--accent)] hover:underline flex items-center gap-1"
+										>
+											<Package size={13} />
+											Book Materials
+										</Link>
 									</div>
-								</Card>
-							</motion.div>
+								)}
+
+								<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+									{groupList.map((task, i) => (
+										<motion.div key={task.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }} className="min-w-0">
+											<Card className="flex flex-col h-full hover:border-(--accent) transition-colors overflow-hidden min-w-0">
+												<div className="p-4 flex-1 space-y-4 min-w-0">
+													<div className="flex items-start justify-between gap-2 min-w-0">
+														<div className="flex items-center gap-2 text-sm text-(--text-muted) font-medium min-w-0">
+															<FolderOpen size={16} className="shrink-0" />
+															<Link href={`/dashboard/projects/${encodeURIComponent(task.projectName)}`} className="hover:text-(--accent) transition-colors truncate">
+																{task.projectName}
+															</Link>
+														</div>
+														<span className="px-2 py-0.5 rounded-full text-xs font-medium capitalize shrink-0 bg-zinc-500/10 text-zinc-500 font-mono">
+															#{task.importance || '-'}
+														</span>
+													</div>
+
+													<div className={`text-sm wrap-break-word whitespace-normal space-y-1`}>
+														<p className={`${task.state === 'finished' || task.state === 'canceled' ? 'line-through text-(--text-muted)' : ''}`}>{task.description}</p>
+														{task.state === 'finished' && task.completedBy && <p className="text-xs font-medium text-green-500">Completed by: {task.completedBy}</p>}
+														{task.state === 'canceled' && <p className="text-xs font-medium text-red-500">Not Needed: {task.cancelReason || 'No reason provided'}</p>}
+													</div>
+
+													{task.imagePath && (
+														<div className="relative w-full overflow-hidden min-w-0">
+															<File
+																file={{
+																	name: task.imagePath.split(/[/\\]/).pop() || 'POI.jpg',
+																	path: task.imagePath,
+																	type: 'file',
+																}}
+																image
+															/>
+														</div>
+													)}
+
+													{task.finishedImagePath && (
+														<div className="relative w-full overflow-hidden min-w-0">
+															<File
+																file={{
+																	name: task.finishedImagePath.split(/[/\\]/).pop() || 'Proof.jpg',
+																	path: task.finishedImagePath,
+																	type: 'file',
+																}}
+																image
+															/>
+															<div className="absolute top-2 right-2 bg-green-500/90 backdrop-blur-md text-white px-2 py-1 rounded-lg text-xs font-medium flex items-center gap-1.5 shadow-sm pointer-events-none">
+																<CheckCircle2 size={12} />
+																Proof
+															</div>
+														</div>
+													)}
+
+													{task.proofDescription && (
+														<div className="bg-zinc-50 dark:bg-zinc-800/50 p-3 rounded-lg border border-zinc-200 dark:border-zinc-800/50 text-sm italic text-zinc-600 dark:text-zinc-400">
+															{task.proofDescription}
+														</div>
+													)}
+
+													<div className="text-xs text-[var(--text-muted)] flex items-center gap-2 min-w-0 flex-wrap">
+														<Clock size={12} className="shrink-0" />
+														<span className="truncate min-w-0 flex-1">
+															Opened {new Date(task.ticketCreatedAt).toLocaleDateString()} by {task.ticketOpenedBy}
+														</span>
+													</div>
+
+													{task.requiresMaterials && (
+														<div
+															className={`mt-2 p-2 rounded border flex flex-col sm:flex-row sm:items-center justify-between gap-2 ${
+																task.materialState === 'in_stock'
+																	? 'bg-green-500/10 border-green-500/20 text-green-700 dark:text-green-400'
+																	: task.materialState === 'ordered'
+																		? 'bg-blue-500/10 border-blue-500/20 text-blue-700 dark:text-blue-400'
+																		: 'bg-orange-500/10 border-orange-500/20 text-orange-700 dark:text-orange-400'
+															}`}
+														>
+															<span className="text-xs font-semibold flex items-center gap-1.5">
+																Materials:{' '}
+																{task.materialState === 'ordered'
+																	? `Ordered by ${task.materialOrderedBy || task.materialAssignee || 'Unassigned'}`
+																	: task.materialState === 'in_stock'
+																		? `In Stock (received by ${task.materialStockedBy || task.materialAssignee || 'Unassigned'})`
+																		: `Needs Ordering (assigned to ${task.materialAssignee || 'Unassigned'})`}
+															</span>
+															{task.state !== 'finished' && task.state !== 'canceled' && (!task.materialState || task.materialState === 'needs_ordering') ? (
+																<Button
+																	size="sm"
+																	variant="secondary"
+																	className="h-7 text-xs px-2 bg-[var(--background)] shadow-sm"
+																	disabled={!(username === task.materialAssignee || has('tasks.write'))}
+																	onClick={() => setMaterialStateConfirm({ task, newState: 'ordered' })}
+																>
+																	Mark as Ordered
+																</Button>
+															) : task.state !== 'finished' && task.state !== 'canceled' && task.materialState === 'ordered' ? (
+																<Button
+																	size="sm"
+																	variant="secondary"
+																	className="h-7 text-xs px-2 bg-[var(--background)] shadow-sm"
+																	disabled={!(username === task.materialAssignee || has('tasks.write'))}
+																	onClick={() => setMaterialStateConfirm({ task, newState: 'in_stock' })}
+																>
+																	Mark as In Stock
+																</Button>
+															) : null}
+														</div>
+													)}
+												</div>
+
+												<div className="p-3 border-t border-[var(--border)]/10 bg-[var(--background)] flex items-center justify-between min-w-0 gap-2">
+													<div className="flex items-center gap-2">
+														<div className="text-xs font-medium text-[var(--text-muted)]">
+															{task.state === 'finished' ? 'Completed' : task.state === 'canceled' ? 'Not Needed' : 'Pending'}
+														</div>
+														{has('tasks.write') && (
+															<button
+																onClick={() => setTaskToEdit(task)}
+																className="text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors p-1"
+																title="Edit Task"
+															>
+																<Edit3 size={14} />
+															</button>
+														)}
+													</div>
+													<Button
+														size="sm"
+														variant={task.state === 'finished' || task.state === 'canceled' ? 'ghost' : 'primary'}
+														disabled={task.state === 'finished' || task.state === 'canceled' || (task.requiresMaterials && task.materialState !== 'in_stock')}
+														onClick={() => setTaskToComplete(task)}
+														icon={
+															task.state === 'finished' ? (
+																<CheckCircle2 size={16} className="text-green-500" />
+															) : task.state === 'canceled' ? (
+																<Ban size={16} className="text-red-500" />
+															) : (
+																<Circle size={16} />
+															)
+														}
+														title={
+															task.state === 'canceled'
+																? 'Task marked as Not Needed'
+																: task.requiresMaterials && task.materialState !== 'in_stock'
+																	? 'Materials are not in stock yet.'
+																	: ''
+														}
+													>
+														{task.state === 'finished' ? 'Done' : task.state === 'canceled' ? 'Disregarded' : 'Mark as Done'}
+													</Button>
+												</div>
+											</Card>
+										</motion.div>
+									))}
+								</div>
+							</div>
 						))}
 					</div>
 				)}

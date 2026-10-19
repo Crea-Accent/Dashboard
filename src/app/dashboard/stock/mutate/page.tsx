@@ -6,9 +6,29 @@ import { useZxing } from 'react-zxing';
 import PageHeader from '@/components/ui/PageHeader';
 import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
-import { ScanBarcode, Plus, Trash2, Minus, ArrowLeft, Loader2, Edit2, Tag, Check, Keyboard, Sparkles, BarChart3 } from 'lucide-react';
+import {
+	ScanBarcode,
+	Plus,
+	Trash2,
+	Minus,
+	ArrowLeft,
+	Loader2,
+	Edit2,
+	Tag,
+	Check,
+	Keyboard,
+	Sparkles,
+	BarChart3,
+	FolderKanban,
+	FileText,
+	Search,
+	Volume2,
+	VolumeX,
+	Repeat,
+	AlertTriangle,
+} from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useToast } from '@/providers/ToastProvider';
 import { usePermissions } from '@/providers/PermissionsProvider';
 import { submitStockMutation } from './actions';
@@ -25,32 +45,98 @@ type ArticleMeta = {
 	category?: string;
 	min?: number;
 	max?: number;
+	currentStock?: number;
 	loading?: boolean;
 };
 
+type CatalogEntry = {
+	barcode: string;
+	title: string;
+	brand?: string;
+	category?: string;
+	min?: number;
+	max?: number;
+	quantity: number;
+};
+
+function playScanBeep(mode: 'add' | 'remove') {
+	try {
+		if (typeof navigator !== 'undefined' && navigator.vibrate) {
+			navigator.vibrate(mode === 'add' ? 50 : [40, 30, 40]);
+		}
+		const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+		if (!AudioCtx) return;
+		const ctx = new AudioCtx();
+		const osc = ctx.createOscillator();
+		const gain = ctx.createGain();
+		osc.type = 'sine';
+		osc.frequency.setValueAtTime(mode === 'add' ? 880 : 520, ctx.currentTime);
+		if (mode === 'remove') {
+			osc.frequency.setValueAtTime(420, ctx.currentTime + 0.07);
+		}
+		gain.gain.setValueAtTime(0.12, ctx.currentTime);
+		gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.14);
+		osc.connect(gain);
+		gain.connect(ctx.destination);
+		osc.start();
+		osc.stop(ctx.currentTime + 0.15);
+	} catch {}
+}
+
 function ScannerVideo({ onResult }: { onResult: (text: string) => void }) {
+	const lastScanRef = useRef<{ code: string; time: number }>({ code: '', time: 0 });
+
 	const { ref } = useZxing({
 		onDecodeResult(result: any) {
-			onResult(result.rawValue || result.getText?.() || '');
+			const text = (result.rawValue || result.getText?.() || '').trim();
+			if (!text) return;
+			const now = Date.now();
+			// 1.5s cooldown on the same barcode to prevent rapid duplicate scans in continuous mode
+			if (lastScanRef.current.code === text && now - lastScanRef.current.time < 1500) {
+				return;
+			}
+			lastScanRef.current = { code: text, time: now };
+			onResult(text);
 		},
 	});
 
 	return (
-		<div className="overflow-hidden rounded-xl bg-black aspect-video max-h-[45vh] relative flex flex-col mt-2">
+		<div className="overflow-hidden rounded-xl bg-black aspect-video max-h-[45vh] relative flex flex-col mt-2 border border-[var(--border)]/20">
 			<video ref={ref as any} className="w-full h-full object-cover" />
+			<div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+				<div className="w-3/5 h-1/2 border-2 border-white/50 rounded-xl relative">
+					<div className="absolute inset-x-2 top-1/2 h-0.5 bg-red-500/70 animate-pulse" />
+				</div>
+			</div>
 		</div>
 	);
 }
 
+const DRAFT_STORAGE_KEY = 'stock_mutation_draft_v1';
+
 export default function StockPage() {
 	const router = useRouter();
+	const searchParams = useSearchParams();
 	const toast = useToast();
 	const { has } = usePermissions();
 	const canWrite = has('stock.write');
 
 	const [items, setItems] = useState<StockItem[]>([]);
 	const [articles, setArticles] = useState<Record<string, ArticleMeta>>({});
+	const [catalog, setCatalog] = useState<CatalogEntry[]>([]);
+	const [selectedProject, setSelectedProject] = useState<string>('');
+	const [note, setNote] = useState<string>('');
+	const [projectsList, setProjectsList] = useState<string[]>([]);
+	const [draftLoaded, setDraftLoaded] = useState(false);
+
+	// Inline quick-search & autocomplete state
+	const [quickQuery, setQuickQuery] = useState('');
+	const [quickDropdownOpen, setQuickDropdownOpen] = useState(false);
+
 	const [isScanning, setIsScanning] = useState(false);
+	const [continuousScan, setContinuousScan] = useState(true);
+	const [soundEnabled, setSoundEnabled] = useState(true);
+	const [lastScannedBanner, setLastScannedBanner] = useState<{ code: string; delta: number } | null>(null);
 	const [manualCode, setManualCode] = useState('');
 	const [scanMode, setScanMode] = useState<'add' | 'remove'>('add');
 	const [editingItem, setEditingItem] = useState<StockItem | null>(null);
@@ -98,7 +184,7 @@ export default function StockPage() {
 
 		setArticles((prev) => ({
 			...prev,
-			[barcode]: { title: barcode, loading: true },
+			[barcode]: { ...prev[barcode], title: prev[barcode]?.title || barcode, loading: true },
 		}));
 
 		try {
@@ -110,6 +196,7 @@ export default function StockPage() {
 					setArticles((prev) => ({
 						...prev,
 						[barcode]: {
+							...prev[barcode],
 							title: data.article.title || barcode,
 							brand: data.article.brand,
 							category: data.article.category,
@@ -139,16 +226,20 @@ export default function StockPage() {
 
 		setArticles((prev) => ({
 			...prev,
-			[barcode]: { title: barcode, loading: false },
+			[barcode]: { ...prev[barcode], title: prev[barcode]?.title || barcode, loading: false },
 		}));
 	};
 
-	const handleScan = (code: string) => {
+	const handleScan = (code: string, closeCameraOverride?: boolean) => {
 		const cleanCode = code.trim();
 		if (!cleanCode) return;
 
 		const delta = scanMode === 'add' ? 1 : -1;
+		if (soundEnabled) {
+			playScanBeep(scanMode);
+		}
 		triggerHighlight(cleanCode);
+		setLastScannedBanner({ code: cleanCode, delta });
 
 		setItems((prev) => {
 			const existingIndex = prev.findIndex((i) => i.code === cleanCode);
@@ -159,16 +250,97 @@ export default function StockPage() {
 		});
 
 		fetchArticleInfo(cleanCode);
-		setIsScanning(false);
+		if (closeCameraOverride || !continuousScan) {
+			setIsScanning(false);
+		}
 		setManualCode('');
 	};
+
+	// Load projects list, stock catalog (for live stock & autocomplete), and restore saved draft on mount
+	useEffect(() => {
+		fetch('/api/projects/map')
+			.then((r) => (r.ok ? r.json() : []))
+			.then((data) => {
+				if (Array.isArray(data)) {
+					const names = Array.from(new Set(data.map((p: any) => p.name).filter(Boolean))).sort((a: any, b: any) => a.localeCompare(b));
+					setProjectsList(names as string[]);
+				}
+			})
+			.catch(() => {});
+
+		fetch('/api/stock/overview')
+			.then((r) => (r.ok ? r.json() : null))
+			.then((data) => {
+				if (data?.items && Array.isArray(data.items)) {
+					setCatalog(data.items);
+					setArticles((prev) => {
+						const next = { ...prev };
+						for (const entry of data.items) {
+							next[entry.barcode] = {
+								title: entry.title || entry.barcode,
+								brand: entry.brand,
+								category: entry.category,
+								min: entry.min,
+								max: entry.max,
+								currentStock: entry.quantity,
+								loading: false,
+							};
+						}
+						return next;
+					});
+				}
+			})
+			.catch(() => {});
+
+		try {
+			const rawDraft = localStorage.getItem(DRAFT_STORAGE_KEY);
+			if (rawDraft) {
+				const parsed = JSON.parse(rawDraft);
+				if (Array.isArray(parsed.items) && parsed.items.length > 0) {
+					setItems(parsed.items);
+					for (const item of parsed.items) {
+						if (item?.code) fetchArticleInfo(item.code);
+					}
+				}
+				if (typeof parsed.project === 'string') setSelectedProject(parsed.project);
+				if (typeof parsed.note === 'string') setNote(parsed.note);
+			}
+		} catch {}
+
+		// Allow URL query parameters (?project=...&mode=remove) to override project/scanMode
+		const urlProject = searchParams?.get('project');
+		const urlMode = searchParams?.get('mode');
+		if (urlProject) setSelectedProject(urlProject);
+		if (urlMode === 'remove' || urlMode === 'add') setScanMode(urlMode);
+
+		setDraftLoaded(true);
+	}, []);
+
+	// Persist draft to localStorage so technicians don't lose scanned items on refresh
+	useEffect(() => {
+		if (!draftLoaded) return;
+		try {
+			if (items.length === 0 && !selectedProject && !note) {
+				localStorage.removeItem(DRAFT_STORAGE_KEY);
+			} else {
+				localStorage.setItem(
+					DRAFT_STORAGE_KEY,
+					JSON.stringify({
+						items,
+						project: selectedProject,
+						note,
+					})
+				);
+			}
+		} catch {}
+	}, [items, selectedProject, note, draftLoaded]);
 
 	// Global keyboard barcode scanner support for desktop
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
 			// Ignore if typing in an input or textarea
 			const target = e.target as HTMLElement;
-			if (target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.isContentEditable) {
+			if (target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.tagName === 'SELECT' || target?.isContentEditable) {
 				return;
 			}
 
@@ -191,25 +363,46 @@ export default function StockPage() {
 
 		window.addEventListener('keydown', handleKeyDown);
 		return () => window.removeEventListener('keydown', handleKeyDown);
-	}, [scanMode]);
+	}, [scanMode, soundEnabled, continuousScan]);
+
+	const quickSuggestions = catalog
+		.filter((c) => {
+			const q = quickQuery.toLowerCase().trim();
+			if (!q) return false;
+			return c.barcode.toLowerCase().includes(q) || (c.title && c.title.toLowerCase().includes(q)) || (c.brand && c.brand.toLowerCase().includes(q));
+		})
+		.slice(0, 6);
+
+	const clearDraft = () => {
+		setItems([]);
+		setSelectedProject('');
+		setNote('');
+		try {
+			localStorage.removeItem(DRAFT_STORAGE_KEY);
+		} catch {}
+	};
 
 	const handleSubmit = async () => {
 		if (items.length === 0) return;
 		setIsSubmitting(true);
 		const count = items.length;
+		const metaPayload = {
+			project: selectedProject.trim() || undefined,
+			note: note.trim() || undefined,
+		};
 
 		try {
 			// Call the standard REST API route to avoid Server Action reverse-proxy / CSRF issues
 			const res = await fetch('/api/stock/mutate', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ items }),
+				body: JSON.stringify({ items, ...metaPayload }),
 			});
 
 			const data = await res.json().catch(() => ({}));
 
 			if (res.ok && data.success) {
-				setItems([]);
+				clearDraft();
 				toast('success', `Stock mutation saved successfully (${count} ${count === 1 ? 'item' : 'items'})!`);
 				router.push('/dashboard/stock');
 				return;
@@ -217,9 +410,9 @@ export default function StockPage() {
 
 			// If REST endpoint failed, attempt fallback to server action
 			try {
-				const fallback = await submitStockMutation(items);
+				const fallback = await submitStockMutation(items, metaPayload);
 				if (fallback.success) {
-					setItems([]);
+					clearDraft();
 					toast('success', `Stock mutation saved successfully (${count} ${count === 1 ? 'item' : 'items'})!`);
 					router.push('/dashboard/stock');
 					return;
@@ -231,9 +424,9 @@ export default function StockPage() {
 		} catch (error: any) {
 			console.error('Submit stock mutation error:', error);
 			try {
-				const fallback = await submitStockMutation(items);
+				const fallback = await submitStockMutation(items, metaPayload);
 				if (fallback.success) {
-					setItems([]);
+					clearDraft();
 					toast('success', `Stock mutation saved successfully (${count} ${count === 1 ? 'item' : 'items'})!`);
 					router.push('/dashboard/stock');
 					return;
@@ -357,20 +550,164 @@ export default function StockPage() {
 							<ArrowLeft size={20} className="sm:w-6 sm:h-6" />
 						</Link>
 
-						{/* Submit / Book Button */}
-						<Button
-							onClick={handleSubmit}
-							disabled={items.length === 0 || isSubmitting}
-							loading={isSubmitting}
-							icon={<Check size={18} />}
-							className="bg-[var(--accent)] text-white hover:brightness-90 disabled:opacity-50"
-						>
-							<span className="hidden sm:inline">Book</span>
-							<span className="sm:hidden">Book ({items.length})</span>
-						</Button>
+						<div className="flex items-center gap-2">
+							{items.length > 0 && (
+								<Button variant="secondary" onClick={clearDraft} disabled={isSubmitting} icon={<Trash2 size={16} />} title="Clear scanned items">
+									<span className="hidden sm:inline">Clear</span>
+								</Button>
+							)}
+
+							{/* Submit / Book Button */}
+							<Button
+								onClick={handleSubmit}
+								disabled={items.length === 0 || isSubmitting}
+								loading={isSubmitting}
+								icon={<Check size={18} />}
+								className="bg-[var(--accent)] text-white hover:brightness-90 disabled:opacity-50"
+							>
+								<span className="hidden sm:inline">Book ({items.length})</span>
+								<span className="sm:hidden">Book ({items.length})</span>
+							</Button>
+						</div>
 					</div>
 
 					<PageHeader icon={<ScanBarcode size={24} />} title="Stock Inventory" description="Scan or enter barcodes to add or remove articles" />
+
+					{/* Optional Project & Note Assignment Bar */}
+					<div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 bg-[var(--foreground)] rounded-2xl border border-[var(--border)]/15">
+						<div>
+							<label className="flex items-center gap-1.5 text-xs font-semibold text-[var(--text-muted)] mb-1.5">
+								<FolderKanban size={13} className="text-[var(--accent)]" />
+								Link to Project <span className="font-normal opacity-75">(optional)</span>
+							</label>
+							<select
+								value={selectedProject}
+								onChange={(e) => setSelectedProject(e.target.value)}
+								className="w-full h-10 px-3 rounded-xl border border-[var(--border)]/15 bg-[var(--background)] text-sm text-[var(--text)] focus:outline-none focus:border-[var(--accent)]"
+							>
+								<option value="">General Stock (No project)</option>
+								{projectsList.map((proj) => (
+									<option key={proj} value={proj}>
+										{proj}
+									</option>
+								))}
+							</select>
+						</div>
+
+						<div>
+							<label className="flex items-center gap-1.5 text-xs font-semibold text-[var(--text-muted)] mb-1.5">
+								<FileText size={13} className="text-[var(--accent)]" />
+								Note / Reference <span className="font-normal opacity-75">(optional)</span>
+							</label>
+							<input
+								type="text"
+								value={note}
+								onChange={(e) => setNote(e.target.value)}
+								placeholder="e.g. Cabinet build, supplier delivery..."
+								className="w-full h-10 px-3 rounded-xl border border-[var(--border)]/15 bg-[var(--background)] text-sm text-[var(--text)] focus:outline-none focus:border-[var(--accent)]"
+							/>
+						</div>
+					</div>
+
+					{/* Inline Smart Search & Barcode Entry Bar */}
+					<div className="relative">
+						<div className="flex flex-col sm:flex-row gap-2">
+							{/* Mode Toggle Pill */}
+							<div className="flex p-1 bg-[var(--foreground)] rounded-xl border border-[var(--border)]/15 shrink-0">
+								<button
+									type="button"
+									onClick={() => setScanMode('add')}
+									className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 transition-colors cursor-pointer ${
+										scanMode === 'add' ? 'bg-[var(--accent)] text-white shadow-xs' : 'text-[var(--text-muted)] hover:text-[var(--text)]'
+									}`}
+								>
+									<Plus size={14} />
+									Stock In (+1)
+								</button>
+								<button
+									type="button"
+									onClick={() => setScanMode('remove')}
+									className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 transition-colors cursor-pointer ${
+										scanMode === 'remove' ? 'bg-red-500 text-white shadow-xs' : 'text-[var(--text-muted)] hover:text-[var(--text)]'
+									}`}
+								>
+									<Minus size={14} />
+									Stock Out (-1)
+								</button>
+							</div>
+
+							{/* Search / Barcode Input */}
+							<form
+								onSubmit={(e) => {
+									e.preventDefault();
+									const q = quickQuery.trim();
+									if (!q) return;
+									if (quickSuggestions.length === 1) {
+										handleScan(quickSuggestions[0].barcode, true);
+									} else {
+										handleScan(q, true);
+									}
+									setQuickQuery('');
+									setQuickDropdownOpen(false);
+								}}
+								className="relative flex-1 flex gap-2"
+							>
+								<div className="relative flex-1">
+									<Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+									<input
+										type="text"
+										value={quickQuery}
+										onFocus={() => setQuickDropdownOpen(true)}
+										onBlur={() => setTimeout(() => setQuickDropdownOpen(false), 180)}
+										onChange={(e) => {
+											setQuickQuery(e.target.value);
+											setQuickDropdownOpen(true);
+										}}
+										placeholder="Search article by name, brand, or type barcode..."
+										className="w-full h-11 pl-10 pr-4 rounded-xl border border-[var(--border)]/15 bg-[var(--foreground)] text-sm text-[var(--text)] focus:outline-none focus:border-[var(--accent)]"
+									/>
+								</div>
+								<Button type="submit" disabled={!quickQuery.trim()} variant="secondary" className="shrink-0">
+									{scanMode === 'add' ? 'Add +1' : 'Take -1'}
+								</Button>
+							</form>
+						</div>
+
+						{/* Autocomplete Suggestions Dropdown */}
+						{quickDropdownOpen && quickSuggestions.length > 0 && (
+							<div className="absolute left-0 right-0 top-full mt-1.5 z-50 bg-[var(--foreground)] border border-[var(--border)]/20 rounded-2xl shadow-2xl overflow-hidden divide-y divide-[var(--border)]/10">
+								{quickSuggestions.map((entry) => (
+									<button
+										key={entry.barcode}
+										type="button"
+										onMouseDown={(e) => {
+											e.preventDefault();
+											handleScan(entry.barcode, true);
+											setQuickQuery('');
+											setQuickDropdownOpen(false);
+										}}
+										className="w-full px-4 py-2.5 flex items-center justify-between gap-3 hover:bg-[var(--background)] text-left transition-colors cursor-pointer"
+									>
+										<div className="min-w-0">
+											<p className="text-sm font-semibold text-[var(--text)] truncate">{entry.title !== entry.barcode ? entry.title : entry.barcode}</p>
+											<div className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
+												{entry.brand && <span className="text-[var(--accent)] font-medium">{entry.brand}</span>}
+												<span className="font-mono">{entry.barcode}</span>
+											</div>
+										</div>
+										<div className="flex items-center gap-2 shrink-0">
+											<span className="text-xs px-2 py-0.5 rounded-lg bg-[var(--background)] border border-[var(--border)]/15 font-mono text-[var(--text-muted)]">
+												Stock: <strong className="text-[var(--text)]">{entry.quantity}</strong>
+											</span>
+											<span className={`text-xs font-bold px-2.5 py-1 rounded-lg text-white ${scanMode === 'add' ? 'bg-[var(--accent)]' : 'bg-red-500'}`}>
+												{scanMode === 'add' ? '+1' : '-1'}
+											</span>
+										</div>
+									</button>
+								))}
+							</div>
+						)}
+					</div>
 
 					{/* Scanned Items List */}
 					{items.length === 0 ? (
@@ -379,7 +716,9 @@ export default function StockPage() {
 								<ScanBarcode size={24} />
 							</div>
 							<p className="font-semibold text-base text-[var(--text)]">No items scanned yet</p>
-							<p className="text-xs sm:text-sm text-[var(--text-muted)] max-w-sm">Use the buttons below to scan with camera, enter a barcode manually, or use a USB barcode scanner.</p>
+							<p className="text-xs sm:text-sm text-[var(--text-muted)] max-w-sm">
+								Search an article by name above, scan with your camera below, or scan directly with a USB barcode scanner.
+							</p>
 						</div>
 					) : (
 						<div className="space-y-3">
@@ -390,6 +729,9 @@ export default function StockPage() {
 									const meta = articles[item.code];
 									const hasHumanTitle = Boolean(meta?.title && meta.title !== item.code);
 									const isRecentlyChanged = recentlyChangedCode === item.code;
+									const hasCurrentStock = meta?.currentStock !== undefined && meta?.currentStock !== null;
+									const resultingStock = hasCurrentStock ? (meta.currentStock || 0) + item.quantity : null;
+									const dropsBelowMin = resultingStock !== null && meta?.min !== undefined && meta?.min !== null && resultingStock < meta.min;
 
 									return (
 										<motion.div
@@ -446,6 +788,16 @@ export default function StockPage() {
 														<div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mt-1">
 															{meta?.brand && <span className="text-[11px] sm:text-xs px-2 py-0.5 rounded-full bg-black/15 font-medium">{meta.brand}</span>}
 															<span className="font-mono text-[11px] sm:text-xs opacity-75">{item.code}</span>
+															{hasCurrentStock && (
+																<span className="text-[11px] sm:text-xs px-2 py-0.5 rounded-full bg-black/20 font-mono">
+																	Stock: {meta?.currentStock} → <strong>{resultingStock}</strong>
+																</span>
+															)}
+															{dropsBelowMin && (
+																<span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-amber-300 text-amber-950 font-bold">
+																	<AlertTriangle size={11} /> Below Min ({meta?.min})
+																</span>
+															)}
 														</div>
 													</div>
 												) : (
@@ -463,11 +815,18 @@ export default function StockPage() {
 																</motion.span>
 															)}
 														</div>
-														{meta?.loading && (
-															<span className="text-xs opacity-75 inline-flex items-center gap-1 mt-0.5">
-																<Loader2 size={12} className="animate-spin" /> Searching ean-db...
-															</span>
-														)}
+														<div className="flex flex-wrap items-center gap-2 mt-0.5">
+															{meta?.loading && (
+																<span className="text-xs opacity-75 inline-flex items-center gap-1">
+																	<Loader2 size={12} className="animate-spin" /> Searching ean-db...
+																</span>
+															)}
+															{hasCurrentStock && (
+																<span className="text-[11px] px-2 py-0.5 rounded-full bg-black/20 font-mono">
+																	Stock: {meta?.currentStock} → <strong>{resultingStock}</strong>
+																</span>
+															)}
+														</div>
 													</div>
 												)}
 											</div>
@@ -578,18 +937,75 @@ export default function StockPage() {
 					}}
 					title="Manually enter barcode"
 				>
-					Manual
+					Camera / Manual
 				</Button>
 			</div>
 
 			{/* Scanner Modal */}
 			<Modal open={isScanning} onClose={() => setIsScanning(false)} title={scanMode === 'add' ? 'Scan item in (+1)' : 'Scan item out (-1)'} size="md">
-				<div className="space-y-4">
-					<p className="text-xs sm:text-sm text-[var(--text-muted)]">
-						Point the camera at a barcode or enter it manually. The article will automatically be {scanMode === 'add' ? 'added (+1)' : 'deducted (-1)'}.
-					</p>
+				<div className="space-y-3.5">
+					<div className="flex flex-wrap items-center justify-between gap-2">
+						<div className="flex items-center gap-1.5">
+							<button
+								type="button"
+								onClick={() => setScanMode('add')}
+								className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors ${
+									scanMode === 'add' ? 'bg-[var(--accent)] text-white' : 'bg-[var(--background)] text-[var(--text-muted)]'
+								}`}
+							>
+								+1 Stock In
+							</button>
+							<button
+								type="button"
+								onClick={() => setScanMode('remove')}
+								className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors ${
+									scanMode === 'remove' ? 'bg-red-500 text-white' : 'bg-[var(--background)] text-[var(--text-muted)]'
+								}`}
+							>
+								-1 Stock Out
+							</button>
+						</div>
 
-					{isScanning && <ScannerVideo onResult={handleScan} />}
+						<div className="flex items-center gap-1.5">
+							<button
+								type="button"
+								onClick={() => setContinuousScan(!continuousScan)}
+								className={`px-2.5 py-1 rounded-lg text-xs font-medium flex items-center gap-1 border transition-colors ${
+									continuousScan
+										? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
+										: 'bg-[var(--background)] text-[var(--text-muted)] border-[var(--border)]/15'
+								}`}
+								title="Keep camera open to scan multiple items in a row"
+							>
+								<Repeat size={12} />
+								{continuousScan ? 'Continuous: ON' : 'Single Scan'}
+							</button>
+
+							<button
+								type="button"
+								onClick={() => setSoundEnabled(!soundEnabled)}
+								className="p-1.5 rounded-lg bg-[var(--background)] border border-[var(--border)]/15 text-[var(--text-muted)] hover:text-[var(--text)]"
+								title={soundEnabled ? 'Sound & vibration enabled' : 'Muted'}
+							>
+								{soundEnabled ? <Volume2 size={14} /> : <VolumeX size={14} />}
+							</button>
+						</div>
+					</div>
+
+					{isScanning && <ScannerVideo onResult={(code) => handleScan(code)} />}
+
+					{/* Live Scanned Feedback Pill inside Continuous Camera Modal */}
+					{lastScannedBanner && (
+						<div className="px-3.5 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-between text-xs">
+							<span className="font-medium text-[var(--text)] truncate">
+								Last scanned: <strong>{articles[lastScannedBanner.code]?.title || lastScannedBanner.code}</strong>
+							</span>
+							<span className="font-bold text-emerald-600 dark:text-emerald-400 shrink-0 ml-2">
+								{lastScannedBanner.delta > 0 ? `+${lastScannedBanner.delta}` : lastScannedBanner.delta} (Total:{' '}
+								{items.find((i) => i.code === lastScannedBanner.code)?.quantity ?? lastScannedBanner.delta})
+							</span>
+						</div>
+					)}
 
 					<div className="pt-2 border-t border-[var(--border)]/10 space-y-2">
 						<p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">Manual barcode entry</p>
@@ -609,7 +1025,7 @@ export default function StockPage() {
 								className="flex-1 h-11 px-3.5 rounded-xl border border-[var(--border)]/15 bg-[var(--background)] font-mono text-sm focus:outline-none focus:border-[var(--accent)]"
 							/>
 							<Button type="submit" disabled={!manualCode.trim()}>
-								Submit
+								Add
 							</Button>
 						</form>
 					</div>

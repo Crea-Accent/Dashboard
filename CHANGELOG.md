@@ -1,5 +1,11 @@
 # panel
 
+## 0.13.0
+
+### Minor Changes
+
+- Added new features and commandpallette
+
 ## 0.12.3
 
 ### Patch Changes

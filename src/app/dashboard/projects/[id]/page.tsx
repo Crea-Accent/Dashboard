@@ -27,6 +27,7 @@ import {
 	Sun,
 	Ticket,
 	Network,
+	ScanBarcode,
 } from 'lucide-react';
 import { NotPermitted, usePermissions } from '@/providers/PermissionsProvider';
 import { useEffect, useState } from 'react';
@@ -44,6 +45,7 @@ import Loading from '@/components/ui/Loading';
 import Metadata from '@/components/projects/Metadata';
 import Pictures from '@/components/projects/Picture';
 import Programmation from '@/components/projects/Programmation';
+import ProjectStock from '@/components/projects/ProjectStock';
 import Schemas from '@/components/projects/Schema';
 import ViewToggle from '@/components/ui/ViewToggle';
 import Selector from '@/components/ui/Selector';
@@ -53,7 +55,7 @@ import Tickets from '@/components/projects/Tickets';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 
-type Tab = 'info' | 'schemas' | 'documents' | 'programmation' | 'pictures' | 'solar' | 'canbus' | 'ips' | 'controls' | 'tickets' | 'feed';
+type Tab = 'info' | 'schemas' | 'documents' | 'programmation' | 'pictures' | 'solar' | 'canbus' | 'ips' | 'controls' | 'tickets' | 'stock' | 'feed';
 
 type Settings = {
 	path: string;
@@ -165,6 +167,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 	const allTabs = [
 		{ key: 'info', label: 'Info', icon: <Folder /> },
 		{ key: 'tickets', label: 'Tickets', icon: <Ticket /> },
+		{ key: 'stock', label: 'Stock', icon: <ScanBarcode /> },
 		{ key: 'schemas', label: 'Schemas', icon: <FileText /> },
 		{ key: 'documents', label: 'Documents', icon: <File /> },
 		{ key: 'pictures', label: 'Media', icon: <ImageIcon /> },
@@ -176,7 +179,11 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 		{ key: 'feed', label: 'Feed', icon: <Terminal /> },
 	] as const;
 
-	const tabs = allTabs.filter((t) => t.key !== 'tickets' || has('tickets.read'));
+	const tabs = allTabs.filter((t) => {
+		if (t.key === 'tickets') return has('tickets.read');
+		if (t.key === 'stock') return has('stock.read');
+		return true;
+	});
 
 	const isAllowed = has('projects.write');
 
@@ -200,10 +207,11 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 				fetch('/api/projects/map').then((r) => r.json()),
 			]);
 
-			const code = new URL(window.location.href).searchParams.get('code');
-			const initialView = new URL(window.location.href).searchParams.get('view') as Tab;
+			const searchParams = new URL(window.location.href).searchParams;
+			const code = searchParams.get('code');
+			const initialView = (searchParams.get('view') || searchParams.get('tab')) as Tab;
 
-			if (initialView && tabs.some((t) => t.key === initialView)) {
+			if (initialView && allTabs.some((t) => t.key === initialView)) {
 				setTab(initialView);
 			}
 
@@ -233,7 +241,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 						className="min-w-0 w-fit -ml-4 [&>button]:bg-transparent [&>button]:border-transparent [&>button]:shadow-none [&>button:hover]:bg-black/5 [&>button]:!justify-start [&>button]:!text-2xl [&>button]:!font-semibold [&>button]:!tracking-tight [&_svg]:opacity-50 [&_svg]:ml-2"
 						value={client ?? ''}
 						options={projects.map((p) => ({ label: p.name, value: p.name }))}
-						onChange={(val) => router.push(`/dashboard/projects/${encodeURIComponent(val)}`)}
+						onChange={(val) => router.push(`/dashboard/projects/${encodeURIComponent(val)}?view=${tab}`)}
 					/>
 
 					<Tabs
@@ -434,6 +442,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 						{tab === 'controls' && <Controls basePath={settings.path} client={client} onActionsChange={setControlsActions} />}
 						{tab === 'pictures' && <Pictures basePath={settings.path} client={client} onActionsChange={setPicturesActions} />}
 						{tab === 'tickets' && <Tickets client={client} onActionsChange={setTicketsActions} />}
+						{tab === 'stock' && <ProjectStock client={client} />}
 						{tab === 'feed' && <Feed projectId={metadata?.id} onActionsChange={setFeedActions} />}
 					</motion.div>
 				</div>

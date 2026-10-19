@@ -16,6 +16,8 @@ export type StockArticle = {
 	isCustom?: boolean;
 	min?: number;
 	max?: number;
+	orderedQty?: number;
+	orderedAt?: string;
 	updatedAt: string;
 };
 
@@ -50,6 +52,20 @@ async function ensureDataDir() {
 	}
 }
 
+export async function writeFileAtomic(filePath: string, content: string): Promise<void> {
+	const tmpPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
+	try {
+		await fs.writeFile(tmpPath, content, 'utf-8');
+		await fs.rename(tmpPath, filePath);
+	} catch {
+		// Fallback to direct write if rename across locks fails on Windows
+		await fs.writeFile(filePath, content, 'utf-8');
+		try {
+			if (existsSync(tmpPath)) await fs.unlink(tmpPath);
+		} catch {}
+	}
+}
+
 export async function getStockSettings(): Promise<StockSettings> {
 	await ensureDataDir();
 	try {
@@ -65,7 +81,7 @@ export async function getStockSettings(): Promise<StockSettings> {
 
 export async function saveStockSettings(settings: StockSettings): Promise<void> {
 	await ensureDataDir();
-	await fs.writeFile(SETTINGS_PATH, JSON.stringify(settings, null, 2), 'utf-8');
+	await writeFileAtomic(SETTINGS_PATH, JSON.stringify(settings, null, 2));
 }
 
 export function getEanDbApiKey(settings?: StockSettings): string | undefined {
@@ -87,7 +103,7 @@ export async function getAllCachedArticles(): Promise<Record<string, StockArticl
 
 export async function saveCachedArticles(articles: Record<string, StockArticle>): Promise<void> {
 	await ensureDataDir();
-	await fs.writeFile(ARTICLES_CACHE_PATH, JSON.stringify(articles, null, 2), 'utf-8');
+	await writeFileAtomic(ARTICLES_CACHE_PATH, JSON.stringify(articles, null, 2));
 }
 
 export async function saveArticle(article: StockArticle): Promise<void> {
@@ -235,6 +251,8 @@ export async function getArticle(rawBarcode: string, options?: { forceRefresh?: 
 			notFound: false,
 			min: cached?.min,
 			max: cached?.max,
+			orderedQty: cached?.orderedQty,
+			orderedAt: cached?.orderedAt,
 			updatedAt: new Date().toISOString(),
 		};
 

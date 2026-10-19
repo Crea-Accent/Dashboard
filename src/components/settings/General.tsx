@@ -1,7 +1,7 @@
 /** @format */
 'use client';
 
-import { AlertCircle, AlertTriangle, CheckCircle, HardDrive, Info, Loader2, RefreshCw, Save, SlidersHorizontal, Barcode } from 'lucide-react';
+import { AlertCircle, AlertTriangle, CheckCircle, HardDrive, Info, Loader2, RefreshCw, Save, SlidersHorizontal, Barcode, Download, Database } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useDebug } from '@/providers/DebugProvider';
 
@@ -160,12 +160,12 @@ export default function GeneralSettings() {
 			if (res.ok) {
 				setEanDbKey('');
 				await loadEanDbSettings();
-				alert('EAN-DB API key opgeslagen!');
+				alert('EAN-DB API key saved!');
 			} else {
-				alert('Opslaan mislukt');
+				alert('Failed to save API key');
 			}
 		} catch (err) {
-			alert('Er is een fout opgetreden bij het opslaan');
+			alert('An error occurred while saving');
 		} finally {
 			setSavingEanKey(false);
 		}
@@ -306,9 +306,9 @@ export default function GeneralSettings() {
 				<div>
 					<h3 className="font-semibold flex items-center gap-2">
 						<Barcode size={18} className="text-(--accent)" />
-						EAN-DB Integratie (Stock Module)
+						EAN-DB Integration (Stock Module)
 					</h3>
-					<p className="text-sm text-(--text-muted)">Koppel uw EAN-DB.com account om barcodes automatisch te vertalen naar menselijk leesbare artikelnamen en merken in de stock module.</p>
+					<p className="text-sm text-(--text-muted)">Connect your EAN-DB.com account to automatically translate barcodes into human-readable article names and brands in the stock module.</p>
 				</div>
 
 				<div className="space-y-4">
@@ -316,12 +316,12 @@ export default function GeneralSettings() {
 						<span className="text-(--text-muted)">Status:</span>
 						{eanDbStatus.hasKey ? (
 							<span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium">
-								<CheckCircle size={16} /> Ingesteld {eanDbStatus.maskedKey ? `(${eanDbStatus.maskedKey})` : ''}
+								<CheckCircle size={16} /> Configured {eanDbStatus.maskedKey ? `(${eanDbStatus.maskedKey})` : ''}
 								{eanDbStatus.isEnv && <span className="text-xs px-2 py-0.5 rounded bg-[var(--accent)]/10 text-[var(--accent)]">via .env</span>}
 							</span>
 						) : (
 							<span className="flex items-center gap-1.5 text-amber-500 font-medium">
-								<AlertTriangle size={16} /> Nog geen API token ingesteld
+								<AlertTriangle size={16} /> No API token configured yet
 							</span>
 						)}
 					</div>
@@ -329,7 +329,7 @@ export default function GeneralSettings() {
 					<Input
 						label="EAN-DB API Token (JWT)"
 						icon={<Barcode size={16} />}
-						placeholder={eanDbStatus.hasKey ? 'Voer nieuwe token in om te overschrijven...' : 'Plak hier uw JWT Bearer token van ean-db.com...'}
+						placeholder={eanDbStatus.hasKey ? 'Enter a new token to overwrite...' : 'Paste your JWT Bearer token from ean-db.com...'}
 						value={eanDbKey}
 						onChange={(e) => setEanDbKey(e.target.value)}
 					/>
@@ -337,7 +337,32 @@ export default function GeneralSettings() {
 
 				<div className="flex justify-end">
 					<Button icon={<Save size={16} />} onClick={saveEanDbKey} loading={savingEanKey} disabled={!eanDbKey.trim()}>
-						API Key Opslaan
+						Save API Key
+					</Button>
+				</div>
+			</Card>
+
+			<Card className="p-6 space-y-4">
+				<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+					<div>
+						<h3 className="font-semibold flex items-center gap-2">
+							<Database size={18} className="text-(--accent)" />
+							Data Backup & Export
+						</h3>
+						<p className="text-sm text-(--text-muted)">
+							Download a complete ZIP archive of the application&apos;s <code className="text-xs bg-(--foreground) px-1.5 py-0.5 rounded">data/</code> directory (stock logs, article
+							catalog, tasks, users, and settings).
+						</p>
+					</div>
+
+					<Button
+						variant="secondary"
+						icon={<Download size={16} />}
+						onClick={() => {
+							window.location.href = '/api/settings/backup';
+						}}
+					>
+						Download Backup (.zip)
 					</Button>
 				</div>
 			</Card>

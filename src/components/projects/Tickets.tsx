@@ -1,8 +1,26 @@
 /** @format */
 'use client';
 
-import { CheckCircle2, ChevronDown, Circle, Clock, Plus, Download, Ticket as TicketIcon, Loader2, FileText as FileIcon, GripVertical, Edit3, Package, PackageCheck, Ban } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import {
+	CheckCircle2,
+	ChevronDown,
+	Circle,
+	Clock,
+	Plus,
+	Download,
+	Ticket as TicketIcon,
+	Loader2,
+	FileText as FileIcon,
+	GripVertical,
+	Edit3,
+	Package,
+	PackageCheck,
+	Ban,
+	Search,
+	ChevronsUpDown,
+	X,
+} from 'lucide-react';
+import { useEffect, useState, useMemo } from 'react';
 
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
@@ -76,6 +94,11 @@ export default function Tickets({ client, onActionsChange }: { client: string; o
 	} | null>(null);
 	const [generatingPdf, setGeneratingPdf] = useState<string | null>(null);
 	const [users, setUsers] = useState<any[]>([]);
+
+	// Search & Filter states
+	const [searchQuery, setSearchQuery] = useState('');
+	const [stateFilter, setStateFilter] = useState<'all' | 'unfinished' | 'finished' | 'materials'>('all');
+	const [techFilter, setTechFilter] = useState<string>('');
 
 	const isAllowed = has('tickets.write');
 	const canView = has('tickets.read') || has('tickets.write');
@@ -853,6 +876,61 @@ export default function Tickets({ client, onActionsChange }: { client: string; o
 		}
 	};
 
+	const allPois = useMemo(() => tickets.flatMap((t) => t.pois), [tickets]);
+	const activePois = useMemo(() => allPois.filter((p) => p.state !== 'canceled'), [allPois]);
+	const finishedPoisCount = useMemo(() => activePois.filter((p) => p.state === 'finished').length, [activePois]);
+	const unfinishedPoisCount = useMemo(() => activePois.filter((p) => p.state === 'unfinished').length, [activePois]);
+	const materialsPendingCount = useMemo(() => activePois.filter((p) => p.requiresMaterials && p.materialState !== 'in_stock').length, [activePois]);
+	const completionPct = activePois.length > 0 ? Math.round((finishedPoisCount / activePois.length) * 100) : 0;
+
+	const uniqueTechnicians = useMemo(() => {
+		const set = new Set<string>();
+		allPois.forEach((p) => {
+			if (p.technician?.trim()) set.add(p.technician.trim());
+		});
+		return Array.from(set).sort((a, b) => a.localeCompare(b));
+	}, [allPois]);
+
+	const filteredTickets = useMemo(() => {
+		const q = searchQuery.trim().toLowerCase();
+		const hasActiveFilter = Boolean(q) || stateFilter !== 'all' || Boolean(techFilter);
+
+		return tickets
+			.map((t) => {
+				const matchingPois = t.pois.filter((p) => {
+					if (stateFilter === 'unfinished' && p.state !== 'unfinished') return false;
+					if (stateFilter === 'finished' && p.state !== 'finished') return false;
+					if (stateFilter === 'materials' && (!p.requiresMaterials || p.state === 'canceled')) return false;
+					if (techFilter && p.technician !== techFilter) return false;
+					if (q) {
+						const matchDesc = p.description?.toLowerCase().includes(q);
+						const matchTech = p.technician?.toLowerCase().includes(q);
+						const matchTicket = t.name?.toLowerCase().includes(q);
+						const matchProof = p.proofDescription?.toLowerCase().includes(q);
+						if (!matchDesc && !matchTech && !matchTicket && !matchProof) return false;
+					}
+					return true;
+				});
+
+				return {
+					ticket: t,
+					pois: hasActiveFilter ? matchingPois : t.pois,
+					matches: !hasActiveFilter || matchingPois.length > 0 || (q && t.name?.toLowerCase().includes(q)),
+				};
+			})
+			.filter((entry) => entry.matches);
+	}, [tickets, searchQuery, stateFilter, techFilter]);
+
+	const allExpanded = tickets.length > 0 && tickets.every((t) => expandedTickets[t.id]);
+	const toggleExpandAll = () => {
+		const nextState = !allExpanded;
+		const nextMap: Record<string, boolean> = {};
+		tickets.forEach((t) => {
+			nextMap[t.id] = nextState;
+		});
+		setExpandedTickets(nextMap);
+	};
+
 	if (loading) return <Loading title="Loading tickets" />;
 	if (!canView) return null;
 
@@ -864,89 +942,193 @@ export default function Tickets({ client, onActionsChange }: { client: string; o
 				<div>Users loaded: {users.length}</div>
 			</DebugInfo>
 
-			{tickets.length === 0 && <EmptyState title="No Tickets Found" description="Create a new ticket to track points of interest." />}
-
-			<div className="space-y-6">
-				{tickets.map((ticket) => (
-					<Card key={ticket.id} className="overflow-hidden">
-						<div
-							className="p-4 border-b border-(--border)/10 flex flex-col sm:flex-row sm:items-center gap-3 justify-between bg-(--background) min-w-0 cursor-pointer hover:bg-(--foreground) transition-colors"
-							onClick={() =>
-								setExpandedTickets((curr) => ({
-									...curr,
-									[ticket.id]: !curr[ticket.id],
-								}))
-							}
-						>
-							<div className="min-w-0 flex items-center gap-3">
-								<ChevronDown className={`shrink-0 text-(--text-muted) transition-transform ${expandedTickets[ticket.id] ? 'rotate-180' : ''}`} size={20} />
-								<div className="min-w-0">
-									<h3 className="font-medium truncate">{ticket.name || 'Ticket'}</h3>
-									<div className="text-xs text-(--text-muted) flex items-center gap-2 mt-1 flex-wrap min-w-0">
-										<Clock size={12} className="shrink-0" />
-										<span className="truncate min-w-0 flex-1">
-											{new Date(ticket.createdAt).toLocaleString()} &bull; Opened by {ticket.openedBy}
-										</span>
-									</div>
+			{tickets.length === 0 ? (
+				<EmptyState title="No Tickets Found" description="Create a new ticket to track points of interest." />
+			) : (
+				<>
+					{/* Project Ticket Progress & Filter Bar */}
+					<Card className="p-4 space-y-4">
+						<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+							<div className="space-y-1 flex-1">
+								<div className="flex items-center justify-between text-xs font-medium">
+									<span className="text-[var(--text-muted)]">
+										Overall Completion ({finishedPoisCount} / {activePois.length} POIs)
+									</span>
+									<span className="font-bold text-[var(--text)]">{completionPct}%</span>
+								</div>
+								<div className="h-2 w-full rounded-full bg-[var(--foreground)] overflow-hidden">
+									<div className="h-full bg-emerald-500 transition-all duration-300 rounded-full" style={{ width: `${completionPct}%` }} />
 								</div>
 							</div>
-							<div className="flex flex-wrap items-center gap-3 sm:gap-4 shrink-0">
-								<div className="text-sm font-medium shrink-0">
-									{ticket.pois.filter((p) => p.state === 'finished').length} / {ticket.pois.filter((p) => p.state !== 'canceled').length} Finished
-								</div>
-								{isAllowed && (
-									<Button
-										size="sm"
-										variant="secondary"
-										icon={<Plus size={16} />}
-										onClick={(e) => {
-											e.stopPropagation();
-											setSelectedTicket(ticket);
-											setModalOpen(true);
-										}}
-									>
-										Add POI
-									</Button>
-								)}
-								<Button
-									size="sm"
-									variant="secondary"
-									disabled={generatingPdf === ticket.id}
-									icon={generatingPdf === ticket.id ? <Loader2 size={16} className="animate-spin" /> : <FileIcon size={16} />}
-									onClick={(e) => {
-										e.stopPropagation();
-										generatePDF(ticket);
-									}}
-								>
-									{generatingPdf === ticket.id ? 'Generating...' : 'Summary'}
+
+							<div className="flex items-center gap-2 shrink-0">
+								<Button size="sm" variant="secondary" icon={<ChevronsUpDown size={14} />} onClick={toggleExpandAll}>
+									{allExpanded ? 'Collapse All' : 'Expand All'}
 								</Button>
 							</div>
 						</div>
 
-						{expandedTickets[ticket.id] && (
-							<div className="divide-y divide-(--border)/10 min-w-0">
-								<DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={(e) => handleDragEnd(e, ticket.id)}>
-									<SortableContext items={ticket.pois.map((p) => p.id)} strategy={verticalListSortingStrategy}>
-										{ticket.pois.map((poi) => (
-											<SortablePOI
-												key={poi.id}
-												poi={poi}
-												ticket={ticket}
-												currentUsername={currentUsername}
-												isAllowed={isAllowed}
-												setPoiToComplete={setPoiToComplete}
-												setPoiToEdit={setPoiToEdit}
-												setMaterialStateConfirm={setMaterialStateConfirm}
-											/>
-										))}
-									</SortableContext>
-								</DndContext>
-								{ticket.pois.length === 0 && <div className="p-4 text-sm text-(--text-muted) text-center">No points of interest for this ticket.</div>}
+						<div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3 pt-1">
+							<div className="relative flex-1">
+								<Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+								<input
+									type="text"
+									value={searchQuery}
+									onChange={(e) => setSearchQuery(e.target.value)}
+									placeholder="Search POIs, ticket names, or technician..."
+									className="w-full h-9 pl-9 pr-8 rounded-xl border border-[var(--border)]/15 bg-[var(--background)] text-xs focus:outline-none focus:border-[var(--accent)]"
+								/>
+								{searchQuery && (
+									<button type="button" onClick={() => setSearchQuery('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text)]">
+										<X size={14} />
+									</button>
+								)}
 							</div>
-						)}
+
+							{uniqueTechnicians.length > 0 && (
+								<select
+									value={techFilter}
+									onChange={(e) => setTechFilter(e.target.value)}
+									className="h-9 px-3 rounded-xl border border-[var(--border)]/15 bg-[var(--background)] text-xs font-medium text-[var(--text)] focus:outline-none focus:border-[var(--accent)]"
+								>
+									<option value="">All Technicians ({uniqueTechnicians.length})</option>
+									{uniqueTechnicians.map((tech) => (
+										<option key={tech} value={tech}>
+											{tech}
+										</option>
+									))}
+								</select>
+							)}
+
+							<div className="flex items-center gap-1 p-1 bg-[var(--foreground)] rounded-xl border border-[var(--border)]/15 overflow-x-auto scrollbar-none">
+								<button
+									type="button"
+									onClick={() => setStateFilter('all')}
+									className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
+										stateFilter === 'all' ? 'bg-[var(--accent)] text-white' : 'text-[var(--text-muted)] hover:text-[var(--text)]'
+									}`}
+								>
+									All ({activePois.length})
+								</button>
+								<button
+									type="button"
+									onClick={() => setStateFilter('unfinished')}
+									className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
+										stateFilter === 'unfinished' ? 'bg-amber-600 text-white' : 'text-[var(--text-muted)] hover:text-[var(--text)]'
+									}`}
+								>
+									Open ({unfinishedPoisCount})
+								</button>
+								<button
+									type="button"
+									onClick={() => setStateFilter('finished')}
+									className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
+										stateFilter === 'finished' ? 'bg-emerald-600 text-white' : 'text-[var(--text-muted)] hover:text-[var(--text)]'
+									}`}
+								>
+									Finished ({finishedPoisCount})
+								</button>
+								<button
+									type="button"
+									onClick={() => setStateFilter('materials')}
+									className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors whitespace-nowrap flex items-center gap-1 ${
+										stateFilter === 'materials' ? 'bg-blue-600 text-white' : 'text-[var(--text-muted)] hover:text-[var(--text)]'
+									}`}
+								>
+									<Package size={12} />
+									Materials ({materialsPendingCount})
+								</button>
+							</div>
+						</div>
 					</Card>
-				))}
-			</div>
+
+					{filteredTickets.length === 0 ? (
+						<Card className="p-8 text-center text-sm text-[var(--text-muted)] border-dashed">No tickets or POIs match your current filter.</Card>
+					) : (
+						<div className="space-y-6">
+							{filteredTickets.map(({ ticket, pois }) => (
+								<Card key={ticket.id} className="overflow-hidden">
+									<div
+										className="p-4 border-b border-(--border)/10 flex flex-col sm:flex-row sm:items-center gap-3 justify-between bg-(--background) min-w-0 cursor-pointer hover:bg-(--foreground) transition-colors"
+										onClick={() =>
+											setExpandedTickets((curr) => ({
+												...curr,
+												[ticket.id]: !curr[ticket.id],
+											}))
+										}
+									>
+										<div className="min-w-0 flex items-center gap-3">
+											<ChevronDown className={`shrink-0 text-(--text-muted) transition-transform ${expandedTickets[ticket.id] ? 'rotate-180' : ''}`} size={20} />
+											<div className="min-w-0">
+												<h3 className="font-medium truncate">{ticket.name || 'Ticket'}</h3>
+												<div className="text-xs text-(--text-muted) flex items-center gap-2 mt-1 flex-wrap min-w-0">
+													<Clock size={12} className="shrink-0" />
+													<span className="truncate min-w-0 flex-1">
+														{new Date(ticket.createdAt).toLocaleString()} &bull; Opened by {ticket.openedBy}
+													</span>
+												</div>
+											</div>
+										</div>
+										<div className="flex flex-wrap items-center gap-3 sm:gap-4 shrink-0">
+											<div className="text-sm font-medium shrink-0">
+												{ticket.pois.filter((p) => p.state === 'finished').length} / {ticket.pois.filter((p) => p.state !== 'canceled').length} Finished
+											</div>
+											{isAllowed && (
+												<Button
+													size="sm"
+													variant="secondary"
+													icon={<Plus size={16} />}
+													onClick={(e) => {
+														e.stopPropagation();
+														setSelectedTicket(ticket);
+														setModalOpen(true);
+													}}
+												>
+													Add POI
+												</Button>
+											)}
+											<Button
+												size="sm"
+												variant="secondary"
+												disabled={generatingPdf === ticket.id}
+												icon={generatingPdf === ticket.id ? <Loader2 size={16} className="animate-spin" /> : <FileIcon size={16} />}
+												onClick={(e) => {
+													e.stopPropagation();
+													generatePDF(ticket);
+												}}
+											>
+												{generatingPdf === ticket.id ? 'Generating...' : 'Summary'}
+											</Button>
+										</div>
+									</div>
+
+									{expandedTickets[ticket.id] && (
+										<div className="divide-y divide-(--border)/10 min-w-0">
+											<DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={(e) => handleDragEnd(e, ticket.id)}>
+												<SortableContext items={pois.map((p) => p.id)} strategy={verticalListSortingStrategy}>
+													{pois.map((poi) => (
+														<SortablePOI
+															key={poi.id}
+															poi={poi}
+															ticket={ticket}
+															currentUsername={currentUsername}
+															isAllowed={isAllowed}
+															setPoiToComplete={setPoiToComplete}
+															setPoiToEdit={setPoiToEdit}
+															setMaterialStateConfirm={setMaterialStateConfirm}
+														/>
+													))}
+												</SortableContext>
+											</DndContext>
+											{pois.length === 0 && <div className="p-4 text-sm text-(--text-muted) text-center">No points of interest for this ticket.</div>}
+										</div>
+									)}
+								</Card>
+							))}
+						</div>
+					)}
+				</>
+			)}
 
 			<TicketModal
 				open={modalOpen}

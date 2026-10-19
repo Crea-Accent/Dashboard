@@ -1,12 +1,11 @@
 /** @format */
 'use client';
 
-import { Eye, EyeOff, Globe, Link2, Plus, Trash2 } from 'lucide-react';
+import { Eye, EyeOff, Globe, KeyRound, Link2, Plus, Trash2 } from 'lucide-react';
 
 import Button from '@/components/ui/Button';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import Input from '@/components/ui/Input';
-import CopyButton from '@/components/ui/CopyButton';
 import Modal from '@/components/ui/Modal';
 import Toggle from '@/components/ui/Toggle';
 import { usePermissions } from '@/providers/PermissionsProvider';
@@ -25,6 +24,23 @@ type Props = {
 	value: LoginEntry[];
 	onChange: (logins: LoginEntry[]) => void;
 };
+
+function generateStrongPassword(length = 16): string {
+	const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%&*';
+	const array = new Uint32Array(length);
+	if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+		crypto.getRandomValues(array);
+		return Array.from(array, (x) => chars[x % chars.length]).join('');
+	}
+	return Array.from({ length }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+}
+
+function normalizeUrl(url: string): string {
+	const trimmed = url.trim();
+	if (!trimmed) return '';
+	if (/^https?:\/\//i.test(trimmed)) return trimmed;
+	return `https://${trimmed}`;
+}
 
 export default function Login({ value, onChange }: Props) {
 	const { has } = usePermissions();
@@ -94,7 +110,9 @@ export default function Login({ value, onChange }: Props) {
 								<div className="text-xs truncate text-(--text-muted)">{login.link || 'No URL'}</div>
 							</div>
 
-							<div className="h-10 w-10 rounded-2xl flex items-center justify-center bg-(--background) text-(--text)">{login.client ? <Eye size={16} /> : <EyeOff size={16} />}</div>
+							<div className="h-10 w-10 rounded-2xl flex items-center justify-center bg-(--background) text-(--text)" title={login.client ? 'Visible to client' : 'Internal only'}>
+								{login.client ? <Eye size={16} /> : <EyeOff size={16} />}
+							</div>
 						</div>
 
 						{editing === index ? (
@@ -105,7 +123,19 @@ export default function Login({ value, onChange }: Props) {
 
 								<Input copyable label="Username" value={login.username ?? ''} onChange={(e) => updateField(index, 'username', e.target.value)} />
 
-								<Input copyable viewable={false} label="Password" value={login.password ?? ''} onChange={(e) => updateField(index, 'password', e.target.value)} />
+								<div className="space-y-1.5">
+									<div className="flex items-center justify-between">
+										<span className="text-sm font-medium text-(--text)">Password</span>
+										<button
+											type="button"
+											onClick={() => updateField(index, 'password', generateStrongPassword())}
+											className="inline-flex items-center gap-1 text-xs font-medium text-[var(--accent)] hover:underline"
+										>
+											<KeyRound size={12} /> Generate Strong
+										</button>
+									</div>
+									<Input copyable viewable={false} value={login.password ?? ''} onChange={(e) => updateField(index, 'password', e.target.value)} />
+								</div>
 
 								<Toggle
 									checked={login.client}
@@ -116,8 +146,8 @@ export default function Login({ value, onChange }: Props) {
 							</div>
 						) : (
 							<div className="flex flex-col gap-3 flex-1">
-								<Input copyable readOnly value={login.username ?? ''} />
-								<Input copyable viewable={false} readOnly value={login.password ?? ''} />
+								<Input copyable readOnly value={login.username ?? ''} placeholder="No username" />
+								<Input copyable viewable={false} readOnly value={login.password ?? ''} placeholder="No password" />
 							</div>
 						)}
 
@@ -134,11 +164,11 @@ export default function Login({ value, onChange }: Props) {
 										setEditing(index);
 									}}
 								>
-									{editing === index ? 'Save' : 'Edit'}
+									{editing === index ? 'Done' : 'Edit'}
 								</Button>
 
 								{login.link && (
-									<Button variant="secondary" onClick={() => window.open(login.link, '_blank')}>
+									<Button variant="secondary" title={`Open ${normalizeUrl(login.link)}`} onClick={() => window.open(normalizeUrl(login.link), '_blank', 'noopener,noreferrer')}>
 										<Link2 size={16} />
 									</Button>
 								)}
@@ -176,13 +206,25 @@ export default function Login({ value, onChange }: Props) {
 				}
 			>
 				<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-					<Input copyable label="Label" value={newLogin.label ?? ''} onChange={(e) => setNewLogin({ ...newLogin, label: e.target.value })} />
+					<Input copyable label="Label" placeholder="e.g. Router Admin / NVR" value={newLogin.label ?? ''} onChange={(e) => setNewLogin({ ...newLogin, label: e.target.value })} />
 
-					<Input copyable label="Link" value={newLogin.link ?? ''} onChange={(e) => setNewLogin({ ...newLogin, link: e.target.value })} />
+					<Input copyable label="Link" placeholder="e.g. http://192.168.1.1" value={newLogin.link ?? ''} onChange={(e) => setNewLogin({ ...newLogin, link: e.target.value })} />
 
-					<Input copyable label="Username" value={newLogin.username ?? ''} onChange={(e) => setNewLogin({ ...newLogin, username: e.target.value })} />
+					<Input copyable label="Username" placeholder="e.g. admin" value={newLogin.username ?? ''} onChange={(e) => setNewLogin({ ...newLogin, username: e.target.value })} />
 
-					<Input copyable viewable={false} label="Password" value={newLogin.password ?? ''} onChange={(e) => setNewLogin({ ...newLogin, password: e.target.value })} />
+					<div className="space-y-2">
+						<div className="flex items-center justify-between">
+							<label className="text-sm font-medium text-(--text)">Password</label>
+							<button
+								type="button"
+								onClick={() => setNewLogin({ ...newLogin, password: generateStrongPassword() })}
+								className="inline-flex items-center gap-1 text-xs font-medium text-[var(--accent)] hover:underline"
+							>
+								<KeyRound size={12} /> Generate Strong
+							</button>
+						</div>
+						<Input copyable viewable={false} value={newLogin.password ?? ''} onChange={(e) => setNewLogin({ ...newLogin, password: e.target.value })} />
+					</div>
 
 					<div className="md:col-span-2">
 						<Toggle

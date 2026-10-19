@@ -1,7 +1,7 @@
 /** @format */
 'use client';
 
-import { Mail, Phone, Plus, Trash2, User } from 'lucide-react';
+import { Check, Copy, Mail, Phone, Plus, Trash2, User } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import Button from '@/components/ui/Button';
@@ -21,6 +21,7 @@ export default function Contact({ contacts: selectedContacts, onChange }: Props)
 	const [editing, setEditing] = useState<number | null>(null);
 	const [deleting, setDeleting] = useState<number | null>(null);
 	const [createOpen, setCreateOpen] = useState(false);
+	const [copiedKey, setCopiedKey] = useState<string | null>(null);
 	const [newContact, setNewContact] = useState({
 		name: '',
 		role: '',
@@ -30,6 +31,13 @@ export default function Contact({ contacts: selectedContacts, onChange }: Props)
 	});
 	const [search, setSearch] = useState('');
 	const [suggestions, setSuggestions] = useState<any[]>([]);
+
+	const handleCopyValue = (key: string, text: string) => {
+		if (!text) return;
+		navigator.clipboard.writeText(text);
+		setCopiedKey(key);
+		setTimeout(() => setCopiedKey(null), 1800);
+	};
 
 	function updateContact(index: number, key: string, value: string) {
 		setContacts((prev) => {
@@ -135,14 +143,50 @@ export default function Contact({ contacts: selectedContacts, onChange }: Props)
 							</div>
 						) : (
 							<div className="text-sm flex flex-col gap-2 flex-1 text-(--text-muted)">
-								<div className="flex items-center gap-2">
-									<Mail size={14} />
-									<span>{contact.email || 'No email'}</span>
+								<div className="flex items-center justify-between gap-2 rounded-xl px-2.5 py-1.5 bg-(--background)/60">
+									<div className="flex items-center gap-2 min-w-0">
+										<Mail size={14} className="shrink-0 text-[var(--accent)]" />
+										{contact.email ? (
+											<a href={`mailto:${contact.email}`} className="truncate hover:text-(--text) hover:underline transition-colors">
+												{contact.email}
+											</a>
+										) : (
+											<span className="opacity-60">No email</span>
+										)}
+									</div>
+									{contact.email && (
+										<button
+											type="button"
+											onClick={() => handleCopyValue(`email-${index}`, contact.email)}
+											title="Copy email"
+											className="p-1 rounded-lg hover:bg-(--foreground) text-(--text-muted) hover:text-(--text) shrink-0 transition-colors"
+										>
+											{copiedKey === `email-${index}` ? <Check size={13} className="text-emerald-500" /> : <Copy size={13} />}
+										</button>
+									)}
 								</div>
 
-								<div className="flex items-center gap-2">
-									<Phone size={14} />
-									<span>{contact.phone || 'No phone'}</span>
+								<div className="flex items-center justify-between gap-2 rounded-xl px-2.5 py-1.5 bg-(--background)/60">
+									<div className="flex items-center gap-2 min-w-0">
+										<Phone size={14} className="shrink-0 text-[var(--accent)]" />
+										{contact.phone ? (
+											<a href={`tel:${contact.phone}`} className="truncate hover:text-(--text) hover:underline transition-colors">
+												{contact.phone}
+											</a>
+										) : (
+											<span className="opacity-60">No phone</span>
+										)}
+									</div>
+									{contact.phone && (
+										<button
+											type="button"
+											onClick={() => handleCopyValue(`phone-${index}`, contact.phone)}
+											title="Copy phone number"
+											className="p-1 rounded-lg hover:bg-(--foreground) text-(--text-muted) hover:text-(--text) shrink-0 transition-colors"
+										>
+											{copiedKey === `phone-${index}` ? <Check size={13} className="text-emerald-500" /> : <Copy size={13} />}
+										</button>
+									)}
 								</div>
 							</div>
 						)}

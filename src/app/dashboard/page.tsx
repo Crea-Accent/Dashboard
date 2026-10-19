@@ -2,7 +2,7 @@
 'use client';
 
 import { APIProvider, AdvancedMarker, ColorScheme, Map, useMap } from '@vis.gl/react-google-maps';
-import { Clock, FolderKanban, ListTodo, Search, TrendingUp, TriangleAlert } from 'lucide-react';
+import { Clock, FolderKanban, ListTodo, Search, TrendingUp, TriangleAlert, ScanBarcode, ShoppingCart, Truck, Package } from 'lucide-react';
 import { ReactElement, useEffect, useMemo, useRef, useState } from 'react';
 
 import Button from '@/components/ui/Button';
@@ -95,6 +95,12 @@ export default function Home() {
 
 	const [userTasks, setUserTasks] = useState<any[]>([]);
 	const [tasksLoading, setTasksLoading] = useState(true);
+	const [stockStats, setStockStats] = useState<{
+		totalArticles: number;
+		totalItems: number;
+		needsOrder: number;
+		orderedCount?: number;
+	} | null>(null);
 
 	const userName = session?.user?.name?.split(' ')[0] ?? 'there';
 
@@ -130,9 +136,9 @@ export default function Home() {
 
 		return searched.map((p) => ({
 			...projects.find((pr) => pr.name == p.name),
-			...searched,
+			...p,
 		}));
-	}, [mapProjects, query]);
+	}, [mapProjects, projects, query]);
 
 	const sortedByRecent = useMemo(() => {
 		return [...projects].sort((a, b) => {
@@ -201,6 +207,13 @@ export default function Home() {
 
 		const stored = localStorage.getItem('recentProjects');
 		if (stored) setRecentOpened(JSON.parse(stored));
+
+		fetch('/api/stock/overview')
+			.then((r) => (r.ok ? r.json() : null))
+			.then((data) => {
+				if (data?.stats) setStockStats(data.stats);
+			})
+			.catch(() => {});
 
 		const handler = (e: KeyboardEvent) => {
 			if (e.key === '/') {
@@ -518,6 +531,64 @@ export default function Home() {
 
 			<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 				<div className="space-y-6">
+					{stockStats && (
+						<Card className="p-6 space-y-4">
+							<div className="flex items-center justify-between gap-2">
+								<h2 className="text-base font-semibold flex items-center gap-2">
+									<Package size={16} className="text-(--accent)" />
+									Stock & Inventory
+								</h2>
+								<div className="flex items-center gap-2">
+									<Link href="/dashboard/stock/mutate">
+										<Button size="sm" icon={<ScanBarcode size={14} />}>
+											Scan & Mutate
+										</Button>
+									</Link>
+									<Link href="/dashboard/stock/overview">
+										<Button size="sm" variant="secondary">
+											Overview
+										</Button>
+									</Link>
+								</div>
+							</div>
+
+							<div className="grid grid-cols-3 gap-3">
+								<Link href="/dashboard/stock/overview" className="p-3 rounded-xl bg-(--foreground) border border-(--border)/10 hover:border-(--accent) transition-colors">
+									<p className="text-xs text-(--text-muted)">Total Articles</p>
+									<p className="text-xl font-bold font-mono mt-0.5">{stockStats.totalArticles}</p>
+								</Link>
+
+								<Link
+									href="/dashboard/stock/overview?filter=needsOrder"
+									className={`p-3 rounded-xl border transition-colors ${
+										stockStats.needsOrder > 0
+											? 'bg-amber-500/10 border-amber-500/30 hover:border-amber-500 text-amber-600 dark:text-amber-400'
+											: 'bg-(--foreground) border-(--border)/10 hover:border-(--accent)'
+									}`}
+								>
+									<p className="text-xs flex items-center gap-1 font-medium">
+										<ShoppingCart size={12} /> To Order
+									</p>
+									<p className="text-xl font-bold font-mono mt-0.5">{stockStats.needsOrder}</p>
+								</Link>
+
+								<Link
+									href="/dashboard/stock/overview?filter=ordered"
+									className={`p-3 rounded-xl border transition-colors ${
+										(stockStats.orderedCount || 0) > 0
+											? 'bg-blue-500/10 border-blue-500/30 hover:border-blue-500 text-blue-600 dark:text-blue-400'
+											: 'bg-(--foreground) border-(--border)/10 hover:border-(--accent)'
+									}`}
+								>
+									<p className="text-xs flex items-center gap-1 font-medium">
+										<Truck size={12} /> On the Way
+									</p>
+									<p className="text-xl font-bold font-mono mt-0.5">{stockStats.orderedCount || 0}</p>
+								</Link>
+							</div>
+						</Card>
+					)}
+
 					{recentProjectsResolved.length > 0 && (
 						<Card className="p-6 space-y-4">
 							<h2 className="text-base font-semibold flex items-center gap-2">

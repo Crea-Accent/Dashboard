@@ -2,7 +2,7 @@
 'use client';
 
 import { AnimatePresence, motion } from 'framer-motion';
-import { ChevronDown, ChevronLeft, ChevronRight, Download, Pencil, Trash2, Upload } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronsUpDown, Download, Pencil, Search, Trash2, Upload, X } from 'lucide-react';
 import ProjectFile, { FileEntry } from '../files/File';
 import { useEffect, useRef, useState } from 'react';
 
@@ -72,6 +72,7 @@ export default function Documents({ basePath, client, onActionsChange }: { baseP
 
 	const [loading, setLoading] = useState(true);
 	const [view, setView] = useState<'grid' | 'list'>('list');
+	const [searchQuery, setSearchQuery] = useState('');
 
 	const dragCounter = useRef(0);
 	const [dragging, setDragging] = useState(false);
@@ -386,7 +387,42 @@ export default function Documents({ basePath, client, onActionsChange }: { baseP
 			/>
 
 			<div className="rounded-3xl p-6 space-y-6 bg-(--foreground)">
-				<div className="hidden"></div>
+				{(groups.length > 0 || files.length > 0) && (
+					<div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pb-2 border-b border-(--border)/10">
+						<div className="relative flex-1">
+							<Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-(--text-muted)" />
+							<input
+								type="text"
+								value={searchQuery}
+								onChange={(e) => setSearchQuery(e.target.value)}
+								placeholder="Search documents by filename, comment, uploader, or folder..."
+								className="w-full h-9 pl-9 pr-8 rounded-xl border border-(--border)/15 bg-(--background) text-xs focus:outline-none focus:border-(--accent)"
+							/>
+							{searchQuery && (
+								<button type="button" onClick={() => setSearchQuery('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-(--text-muted) hover:text-(--text)">
+									<X size={14} />
+								</button>
+							)}
+						</div>
+
+						{groups.length > 1 && (
+							<Button
+								size="sm"
+								variant="secondary"
+								icon={<ChevronsUpDown size={14} />}
+								onClick={() => {
+									if (collapsedGroups.length === groups.length) {
+										setCollapsedGroups([]);
+									} else {
+										setCollapsedGroups(groups.map((g) => g.name));
+									}
+								}}
+							>
+								{collapsedGroups.length === groups.length ? 'Expand All' : 'Collapse All'}
+							</Button>
+						)}
+					</div>
+				)}
 
 				{groups.length === 0 && files.length === 0 && (
 					<motion.div key="empty-state" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
@@ -396,7 +432,16 @@ export default function Documents({ basePath, client, onActionsChange }: { baseP
 
 				{groups.map((group) => {
 					const folderName = group.name;
-					const folderFiles = files.filter((file) => getFolderName(file) === folderName);
+					const q = searchQuery.trim().toLowerCase();
+					const folderFiles = files.filter((file) => {
+						if (getFolderName(file) !== folderName) return false;
+						if (!q) return true;
+						return file.name.toLowerCase().includes(q) || folderName.toLowerCase().includes(q);
+					});
+
+					if (q && folderFiles.length === 0 && !folderName.toLowerCase().includes(q)) {
+						return null;
+					}
 
 					const grouped = folderFiles.reduce(
 						(acc, file) => {

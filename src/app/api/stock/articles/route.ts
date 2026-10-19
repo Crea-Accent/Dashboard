@@ -3,7 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authConfig } from '@/lib/auth';
-import { getArticle, getArticles, saveArticle, getAllCachedArticles, normalizeBarcode, StockArticle } from '@/lib/eandb';
+import { getArticle, getArticles, saveArticle, saveCachedArticles, getAllCachedArticles, normalizeBarcode, StockArticle } from '@/lib/eandb';
 
 export async function GET(req: NextRequest) {
 	const session = await getServerSession(authConfig);
@@ -41,7 +41,33 @@ export async function POST(req: NextRequest) {
 			return NextResponse.json({ articles });
 		}
 
-		// Single update: { barcode: string, title?: string, brand?: string, min?: number, max?: number }
+		// Batch mark as ordered: { markOrdered: { barcode: string, orderedQty: number }[] }
+		if (Array.isArray(body.markOrdered)) {
+			const cache = await getAllCachedArticles();
+			const nowIso = new Date().toISOString();
+
+			for (const entry of body.markOrdered) {
+				if (!entry?.barcode) continue;
+				const code = normalizeBarcode(String(entry.barcode));
+				const existing = cache[code] || {
+					barcode: code,
+					title: code,
+					updatedAt: nowIso,
+				};
+				const qty = Number(entry.orderedQty || 0);
+				cache[code] = {
+					...existing,
+					orderedQty: qty > 0 ? qty : undefined,
+					orderedAt: qty > 0 ? nowIso : undefined,
+					updatedAt: nowIso,
+				};
+			}
+
+			await saveCachedArticles(cache);
+			return NextResponse.json({ success: true });
+		}
+
+		// Single update: { barcode: string, title?: string, brand?: string, min?: number, max?: number, orderedQty?: number | null }
 		if (body.barcode) {
 			const existing = await getArticle(body.barcode);
 			const parseNum = (val: any) => {
@@ -50,6 +76,19 @@ export async function POST(req: NextRequest) {
 				return isNaN(n) ? undefined : n;
 			};
 
+			let nextOrderedQty = existing.orderedQty;
+			let nextOrderedAt = existing.orderedAt;
+			if (body.orderedQty !== undefined) {
+				const parsedOrder = parseNum(body.orderedQty);
+				if (parsedOrder && parsedOrder > 0) {
+					nextOrderedQty = parsedOrder;
+					nextOrderedAt = new Date().toISOString();
+				} else {
+					nextOrderedQty = undefined;
+					nextOrderedAt = undefined;
+				}
+			}
+
 			const updated: StockArticle = {
 				...existing,
 				barcode: body.barcode,
@@ -57,6 +96,8 @@ export async function POST(req: NextRequest) {
 				brand: body.brand !== undefined ? body.brand.trim() || undefined : existing.brand,
 				min: body.min !== undefined ? parseNum(body.min) : existing.min,
 				max: body.max !== undefined ? parseNum(body.max) : existing.max,
+				orderedQty: nextOrderedQty,
+				orderedAt: nextOrderedAt,
 				notFound: false,
 				isCustom: true,
 				updatedAt: new Date().toISOString(),

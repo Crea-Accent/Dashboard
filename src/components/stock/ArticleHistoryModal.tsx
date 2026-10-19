@@ -5,7 +5,7 @@ import { useState, useEffect, useMemo } from 'react';
 import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
 import Loading from '@/components/ui/Loading';
-import { TrendingUp, TrendingDown, History, Package, Calendar, User, ArrowUpRight, ArrowDownRight, FileText, RefreshCw, Sparkles, Tag, BarChart3, AlertCircle } from 'lucide-react';
+import { TrendingUp, TrendingDown, History, Package, Calendar, User, ArrowUpRight, ArrowDownRight, FileText, RefreshCw, Sparkles, Tag, BarChart3, AlertCircle, FolderKanban } from 'lucide-react';
 import Link from 'next/link';
 
 type MutationRecord = {
@@ -20,6 +20,8 @@ type MutationRecord = {
 	quantity: number;
 	type: 'in' | 'out';
 	balanceAfter: number;
+	project?: string;
+	note?: string;
 };
 
 type DailyStat = {
@@ -114,17 +116,43 @@ export default function ArticleHistoryModal({ barcode, onClose, fallbackTitle }:
 		return { daily, mutations };
 	}, [data, timeRange]);
 
+	// Compute 30-day burn rate and estimated days until stockout
+	const burnStats = useMemo(() => {
+		if (!data) return null;
+		const cutoff30 = new Date();
+		cutoff30.setDate(cutoff30.getDate() - 30);
+		const cutoff30Str = cutoff30.toISOString().split('T')[0];
+
+		const out30d = data.daily.filter((d) => d.date >= cutoff30Str).reduce((acc, d) => acc + (d.outQty || 0), 0);
+		const dailyBurn = out30d / 30;
+		const current = data.summary.currentStock;
+		const minThreshold = data.article?.min ?? 0;
+		const availableAboveMin = Math.max(0, current - minThreshold);
+		const daysUntilMin = dailyBurn > 0 ? Math.round(availableAboveMin / dailyBurn) : null;
+		const daysUntilZero = dailyBurn > 0 && current > 0 ? Math.round(current / dailyBurn) : null;
+
+		return {
+			out30d,
+			dailyBurn,
+			daysUntilMin,
+			daysUntilZero,
+		};
+	}, [data]);
+
 	// SVG Graph Dimensions & Scaling
 	const chartConfig = useMemo(() => {
 		const points = filteredData.daily;
 		const width = 640;
 		const height = 200;
 		const padLeft = 45;
-		const padRight = 30;
+		const padRight = 35;
 		const padTop = 25;
 		const padBottom = 35;
 		const plotW = width - padLeft - padRight;
 		const plotH = height - padTop - padBottom;
+
+		const articleMin = data?.article?.min;
+		const articleMax = data?.article?.max;
 
 		if (points.length === 0) {
 			return {
@@ -139,14 +167,19 @@ export default function ArticleHistoryModal({ barcode, onClose, fallbackTitle }:
 				maxVal: 10,
 				minVal: 0,
 				zeroY: padTop + plotH,
+				minLineY: null as number | null,
+				maxLineY: null as number | null,
 				points: [],
 				balancePath: '',
 			};
 		}
 
-		// Find peak values across all in/out and running balance
+		// Find peak values across all in/out, running balance, and min/max thresholds
 		let maxVal = 5;
 		let minVal = 0;
+
+		if (articleMin !== undefined && articleMin !== null && articleMin > maxVal) maxVal = articleMin;
+		if (articleMax !== undefined && articleMax !== null && articleMax > maxVal) maxVal = articleMax;
 
 		for (const p of points) {
 			if (p.inQty > maxVal) maxVal = p.inQty;
@@ -162,6 +195,8 @@ export default function ArticleHistoryModal({ barcode, onClose, fallbackTitle }:
 		const rangeY = maxVal - minVal || 1;
 		const getY = (val: number) => padTop + plotH - ((val - minVal) / rangeY) * plotH;
 		const zeroY = getY(0);
+		const minLineY = articleMin !== undefined && articleMin !== null ? getY(articleMin) : null;
+		const maxLineY = articleMax !== undefined && articleMax !== null ? getY(articleMax) : null;
 
 		// Compute coords for each daily bucket
 		const barWidth = Math.max(6, Math.min(22, (plotW / points.length) * 0.32));
@@ -205,10 +240,12 @@ export default function ArticleHistoryModal({ barcode, onClose, fallbackTitle }:
 			maxVal,
 			minVal,
 			zeroY,
+			minLineY,
+			maxLineY,
 			points: calculatedPoints,
 			balancePath,
 		};
-	}, [filteredData.daily]);
+	}, [filteredData.daily, data?.article?.min, data?.article?.max]);
 
 	const activePoint = activePointIndex !== null && chartConfig.points[activePointIndex] ? chartConfig.points[activePointIndex] : null;
 
@@ -307,14 +344,21 @@ export default function ArticleHistoryModal({ barcode, onClose, fallbackTitle }:
 								<p className="text-[11px] text-[var(--text-muted)]">Current stock level</p>
 							</div>
 
-							{/* Total Transactions */}
+							{/* Burn Rate / 30d Usage & Forecast */}
 							<div className="p-3.5 bg-[var(--foreground)] border border-[var(--border)]/15 rounded-2xl space-y-1">
 								<div className="flex items-center justify-between text-[var(--text)]">
-									<span className="text-xs font-semibold">Bookings</span>
-									<History size={16} className="text-[var(--text-muted)]" />
+									<span className="text-xs font-semibold">30d Usage</span>
+									<TrendingDown size={16} className="text-amber-500" />
 								</div>
-								<p className="text-xl sm:text-2xl font-bold text-[var(--text)] font-mono">{data.summary.mutationCount}</p>
-								<p className="text-[11px] text-[var(--text-muted)]">Recorded batches</p>
+								<p className="text-xl sm:text-2xl font-bold text-[var(--text)] font-mono">
+									{burnStats?.out30d ? `-${burnStats.out30d}` : '0'}
+									<span className="text-xs font-normal text-[var(--text-muted)] ml-1">/ mo</span>
+								</p>
+								<p className="text-[11px] text-[var(--text-muted)] truncate">
+									{burnStats?.daysUntilZero !== null && burnStats?.daysUntilZero !== undefined
+										? `~${burnStats.daysUntilZero}d until stockout`
+										: `${data.summary.mutationCount} total bookings`}
+								</p>
 							</div>
 						</div>
 
@@ -370,6 +414,18 @@ export default function ArticleHistoryModal({ barcode, onClose, fallbackTitle }:
 									<span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] -ml-2 shrink-0" />
 									<span>Stock Level (Balance)</span>
 								</div>
+								{data.article?.min !== undefined && data.article?.min !== null && (
+									<div className="flex items-center gap-1.5 text-amber-500">
+										<span className="w-3 border-b-2 border-dashed border-amber-500 shrink-0" />
+										<span>Min ({data.article.min})</span>
+									</div>
+								)}
+								{data.article?.max !== undefined && data.article?.max !== null && (
+									<div className="flex items-center gap-1.5 text-emerald-500">
+										<span className="w-3 border-b-2 border-dashed border-emerald-500 shrink-0" />
+										<span>Max ({data.article.max})</span>
+									</div>
+								)}
 							</div>
 
 							{/* SVG Chart */}
@@ -405,6 +461,42 @@ export default function ArticleHistoryModal({ barcode, onClose, fallbackTitle }:
 											stroke="currentColor"
 											strokeOpacity="0.25"
 										/>
+
+										{/* Min & Max Threshold Reference Lines */}
+										{chartConfig.minLineY !== null && (
+											<g>
+												<line
+													x1={chartConfig.padLeft}
+													y1={chartConfig.minLineY}
+													x2={chartConfig.width - chartConfig.padRight}
+													y2={chartConfig.minLineY}
+													stroke="#f59e0b"
+													strokeWidth="1.25"
+													strokeDasharray="5 4"
+													strokeOpacity="0.75"
+												/>
+												<text x={chartConfig.width - chartConfig.padRight + 4} y={chartConfig.minLineY + 3} className="fill-amber-500 text-[9px] font-mono font-bold">
+													Min
+												</text>
+											</g>
+										)}
+										{chartConfig.maxLineY !== null && (
+											<g>
+												<line
+													x1={chartConfig.padLeft}
+													y1={chartConfig.maxLineY}
+													x2={chartConfig.width - chartConfig.padRight}
+													y2={chartConfig.maxLineY}
+													stroke="#10b981"
+													strokeWidth="1.25"
+													strokeDasharray="5 4"
+													strokeOpacity="0.7"
+												/>
+												<text x={chartConfig.width - chartConfig.padRight + 4} y={chartConfig.maxLineY + 3} className="fill-emerald-500 text-[9px] font-mono font-bold">
+													Max
+												</text>
+											</g>
+										)}
 
 										{/* Y Axis Labels */}
 										<text x={chartConfig.padLeft - 8} y={chartConfig.padTop + 4} textAnchor="end" className="fill-[var(--text-muted)] text-[10px] font-mono">
@@ -528,17 +620,27 @@ export default function ArticleHistoryModal({ barcode, onClose, fallbackTitle }:
 
 									return (
 										<div key={m.id} className="p-3.5 flex items-center justify-between gap-3 hover:bg-[var(--background)]/60 transition-colors">
-											{/* Left: Date, Time & Submitter */}
+											{/* Left: Date, Time, Submitter & Project/Note */}
 											<div className="min-w-0">
-												<div className="flex items-center gap-2">
+												<div className="flex items-center gap-2 flex-wrap">
 													<p className="font-semibold text-xs sm:text-sm text-[var(--text)]">{m.formattedDate}</p>
 													<span className="text-xs font-mono text-[var(--text-muted)]">({m.time})</span>
+													{m.project && (
+														<Link
+															href={`/dashboard/projects/${encodeURIComponent(m.project)}`}
+															className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full bg-[var(--accent)]/15 text-[var(--accent)] hover:underline"
+														>
+															<FolderKanban size={11} />
+															{m.project}
+														</Link>
+													)}
 												</div>
-												<div className="flex items-center gap-1.5 mt-0.5 text-xs text-[var(--text-muted)]">
+												<div className="flex flex-wrap items-center gap-1.5 mt-0.5 text-xs text-[var(--text-muted)]">
 													<span className="inline-flex items-center justify-center h-4 w-4 rounded-full bg-[var(--accent)]/15 text-[var(--accent)] font-bold text-[9px]">
 														{m.initials}
 													</span>
 													<span>{m.userName}</span>
+													{m.note && <span className="text-[var(--text-muted)] italic">• &ldquo;{m.note}&rdquo;</span>}
 												</div>
 											</div>
 

@@ -21,6 +21,8 @@ export type ArticleMutationRecord = {
 	quantity: number;
 	type: 'in' | 'out';
 	balanceAfter: number;
+	project?: string;
+	note?: string;
 };
 
 export type ArticleDailyStat = {
@@ -107,12 +109,12 @@ export async function GET(req: NextRequest) {
 			for (const file of logFiles) {
 				try {
 					const content = await fs.readFile(path.join(dir, file), 'utf-8');
-					const payload: Record<string, number> = JSON.parse(content);
+					const payload: Record<string, any> = JSON.parse(content);
 
 					// Check if our barcode is present
 					let foundQty: number | null = null;
 					for (const [codeKey, qty] of Object.entries(payload)) {
-						if (normalizeBarcode(codeKey) === cleanCode && typeof qty === 'number') {
+						if (codeKey !== '_meta' && normalizeBarcode(codeKey) === cleanCode && typeof qty === 'number') {
 							foundQty = (foundQty || 0) + qty;
 						}
 					}
@@ -139,6 +141,8 @@ export async function GET(req: NextRequest) {
 							quantity: foundQty,
 							type: foundQty >= 0 ? 'in' : 'out',
 							balanceAfter: runningBalance,
+							project: payload._meta?.project,
+							note: payload._meta?.note,
 						});
 					}
 				} catch (err) {

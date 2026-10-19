@@ -127,7 +127,14 @@ export default function Metadata({ client, onActionsChange }: Props) {
 		if (!data) return data;
 		return {
 			...data,
-			logins: data.logins?.map((l) => ({ ...l, password: undefined })),
+			logins: data.logins?.map((l) => ({
+				id: l.id,
+				label: l.label ?? '',
+				link: l.link ?? '',
+				username: l.username ?? '',
+				password: l.password ?? '',
+				client: l.client ?? false,
+			})),
 		};
 	};
 
@@ -185,7 +192,7 @@ export default function Metadata({ client, onActionsChange }: Props) {
 			return;
 		}
 
-		const refreshed = await fetch(`/api/projects/metadata?client=${client}`).then((r) => r.json());
+		const refreshed = await fetch(`/api/projects/metadata?client=${encodeURIComponent(client)}&reveal=true`).then((r) => r.json());
 
 		setMetadata(refreshed);
 		setInitialMetadata(refreshed);
@@ -196,6 +203,30 @@ export default function Metadata({ client, onActionsChange }: Props) {
 	};
 
 	const hasChanges = JSON.stringify(normalize(metadata)) !== JSON.stringify(normalize(initialMetadata));
+
+	useEffect(() => {
+		const handleKeyDown = (e: KeyboardEvent) => {
+			if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+				if (hasChanges && !saving && !hasWrite) {
+					e.preventDefault();
+					save();
+				}
+			}
+		};
+		const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+			if (hasChanges) {
+				e.preventDefault();
+				e.returnValue = '';
+			}
+		};
+		window.addEventListener('keydown', handleKeyDown);
+		window.addEventListener('beforeunload', handleBeforeUnload);
+		return () => {
+			window.removeEventListener('keydown', handleKeyDown);
+			window.removeEventListener('beforeunload', handleBeforeUnload);
+		};
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [hasChanges, saving, hasWrite, metadata]);
 
 	useEffect(() => {
 		if (!metadata) {

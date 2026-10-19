@@ -4,8 +4,9 @@ import { getServerSession } from 'next-auth';
 import { authConfig } from '@/lib/auth';
 import fs from 'fs/promises';
 import path from 'path';
+import { writeFileAtomic } from '@/lib/eandb';
 
-export async function submitStockMutation(items: { code: string; quantity: number }[]) {
+export async function submitStockMutation(items: { code: string; quantity: number }[], meta?: { project?: string; note?: string }) {
 	try {
 		const session = await getServerSession(authConfig);
 		if (!session || !session.user) {
@@ -17,7 +18,6 @@ export async function submitStockMutation(items: { code: string; quantity: numbe
 			.split(' ')
 			.map((n) => n[0])
 			.join('')
-
 			.toUpperCase();
 
 		const now = new Date();
@@ -26,13 +26,22 @@ export async function submitStockMutation(items: { code: string; quantity: numbe
 		const filename = `${dateTime}_${initials}.json`;
 		const dir = path.join(process.cwd(), 'data', 'stock');
 
-		const payload: Record<string, number> = {};
+		const payload: Record<string, any> = {};
+		const project = meta?.project?.trim();
+		const note = meta?.note?.trim();
+		if (project || note) {
+			payload._meta = {
+				...(project ? { project } : {}),
+				...(note ? { note } : {}),
+			};
+		}
+
 		for (const item of items) {
 			payload[item.code] = item.quantity;
 		}
 
 		await fs.mkdir(dir, { recursive: true });
-		await fs.writeFile(path.join(dir, filename), JSON.stringify(payload, null, 2), 'utf-8');
+		await writeFileAtomic(path.join(dir, filename), JSON.stringify(payload, null, 2));
 
 		return { success: true };
 	} catch (err: any) {

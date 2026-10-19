@@ -1,7 +1,7 @@
 import PageHeader from '@/components/ui/PageHeader';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
-import { FileJson, ArrowLeft, User, Calendar, Plus, Minus, Tag, ScanBarcode, Package } from 'lucide-react';
+import { FileJson, ArrowLeft, User, Calendar, Plus, Minus, Tag, ScanBarcode, Package, FolderKanban } from 'lucide-react';
 import Link from 'next/link';
 import fs from 'fs/promises';
 import path from 'path';
@@ -9,6 +9,7 @@ import { getServerSession } from 'next-auth';
 import { authConfig } from '@/lib/auth';
 import { getUsers } from '@/lib/users';
 import { getArticles } from '@/lib/eandb';
+import LogActions from './LogActions';
 
 function getInitials(name: string) {
 	return name
@@ -63,7 +64,7 @@ export default async function StockLogDetailPage(props: { params: Promise<{ id: 
 	const filename = `${id}.json`;
 	const filepath = path.join(process.cwd(), 'data', 'stock', filename);
 
-	let payload: Record<string, number> | null = null;
+	let payload: Record<string, any> | null = null;
 	try {
 		const content = await fs.readFile(filepath, 'utf-8');
 		payload = JSON.parse(content);
@@ -71,7 +72,9 @@ export default async function StockLogDetailPage(props: { params: Promise<{ id: 
 		// file not found or invalid
 	}
 
-	const barcodes = payload ? Object.keys(payload) : [];
+	const meta = payload?._meta as { project?: string; note?: string } | undefined;
+	const entries: [string, number][] = payload ? (Object.entries(payload).filter(([k, v]) => k !== '_meta' && typeof v === 'number') as [string, number][]) : [];
+	const barcodes = entries.map(([k]) => k);
 	const articles = barcodes.length > 0 ? await getArticles(barcodes) : {};
 
 	const parts = id.split('_');
@@ -90,14 +93,13 @@ export default async function StockLogDetailPage(props: { params: Promise<{ id: 
 	}
 
 	// Calculate mutation stats
-	const entries = payload ? Object.entries(payload) : [];
 	const totalAdded = entries.filter(([, q]) => q > 0).reduce((sum, [, q]) => sum + q, 0);
 	const totalRemoved = entries.filter(([, q]) => q < 0).reduce((sum, [, q]) => sum + Math.abs(q), 0);
 
 	return (
 		<div className="space-y-6 pt-4 sm:pt-6 max-w-4xl mx-auto px-4 md:px-0">
 			{/* Top Header Actions */}
-			<div className="flex items-center justify-between gap-3">
+			<div className="flex flex-wrap items-center justify-between gap-3">
 				<Link
 					href="/dashboard/stock/logs"
 					className="p-2.5 sm:p-3 bg-[var(--foreground)] hover:bg-[var(--border)]/20 rounded-full transition-colors shadow-sm text-[var(--text)] shrink-0"
@@ -106,12 +108,15 @@ export default async function StockLogDetailPage(props: { params: Promise<{ id: 
 					<ArrowLeft size={20} className="sm:w-6 sm:h-6" />
 				</Link>
 
-				<Link href="/dashboard/stock/mutate">
-					<Button icon={<ScanBarcode size={16} />}>
-						<span className="hidden sm:inline">New Mutation</span>
-						<span className="sm:hidden">Mutate</span>
-					</Button>
-				</Link>
+				<div className="flex flex-wrap items-center gap-2">
+					{payload && <LogActions logId={id} />}
+					<Link href="/dashboard/stock/mutate">
+						<Button icon={<ScanBarcode size={16} />}>
+							<span className="hidden sm:inline">New Mutation</span>
+							<span className="sm:hidden">Mutate</span>
+						</Button>
+					</Link>
+				</div>
 			</div>
 
 			<PageHeader icon={<FileJson size={24} />} title={`Log: ${formattedDate}`} description={`Booked by ${submitterName} (${initials})`} />
@@ -127,6 +132,27 @@ export default async function StockLogDetailPage(props: { params: Promise<{ id: 
 				</div>
 			) : (
 				<>
+					{(meta?.project || meta?.note) && (
+						<Card className="p-4 flex flex-wrap items-center justify-between gap-3">
+							<div className="flex flex-wrap items-center gap-3">
+								{meta.project && (
+									<Link
+										href={`/dashboard/projects/${encodeURIComponent(meta.project)}`}
+										className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold px-3 py-1.5 rounded-xl bg-[var(--accent)]/15 text-[var(--accent)] hover:brightness-95 transition"
+									>
+										<FolderKanban size={15} />
+										Project: {meta.project}
+									</Link>
+								)}
+								{meta.note && (
+									<span className="text-xs sm:text-sm text-[var(--text-muted)]">
+										Note: <strong className="text-[var(--text)] font-medium">{meta.note}</strong>
+									</span>
+								)}
+							</div>
+						</Card>
+					)}
+
 					{/* Stat Metrics Bar */}
 					<div className="grid grid-cols-3 gap-2.5 sm:gap-4">
 						<Card className="p-3 sm:p-4 text-center">

@@ -21,3 +21,28 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 		return NextResponse.json({ error: 'Failed to connect to external API' }, { status: 500 });
 	}
 }
+
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+	try {
+		const { id } = await params;
+		const body = await req.json();
+
+		const res = await fetch(`https://api.crea-accent.app/v1/messages/${id}`, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+				Accept: 'application/json',
+			},
+			body: JSON.stringify(body),
+		});
+
+		if (!res.ok) {
+			return NextResponse.json({ error: `API responded with status ${res.status}` }, { status: res.status });
+		}
+
+		const data = await res.json().catch(() => ({ ok: true }));
+		return NextResponse.json(data);
+	} catch (error) {
+		return NextResponse.json({ error: 'Failed to send test webhook to API' }, { status: 500 });
+	}
+}
