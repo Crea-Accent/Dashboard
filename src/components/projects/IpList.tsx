@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Plus, Save, Network, RefreshCw, Trash2, Edit3, X, Check, Activity, Loader2, Search, Copy, ExternalLink, AlertTriangle, ChevronsUpDown, Zap, Send } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
@@ -62,6 +62,7 @@ export default function IpList({ client, onActionsChange }: Props) {
 	// Gateway HTTP Trigger Modal state
 	const [activeGateway, setActiveGateway] = useState<IpEntry | null>(null);
 	const [wildcardId, setWildcardId] = useState<string>('0');
+	const activeTriggerControllerRef = useRef<AbortController | null>(null);
 	const [triggerResponses, setTriggerResponses] = useState<
 		Record<
 			string,
@@ -79,53 +80,70 @@ export default function IpList({ client, onActionsChange }: Props) {
 		setTriggerResponses({});
 	};
 
-	const sendTrigger = async (idNum: number, responseKey = String(idNum)) => {
+	const sendTrigger = (idNum: number, responseKey = String(idNum)) => {
 		if (!activeGateway) return;
 		const clampedId = Math.max(0, Math.min(99, Number.isNaN(idNum) ? 0 : idNum));
 		const port = activeGateway.httpPort || 8080;
 		const url = `http://${activeGateway.ip.trim()}:${port}/trigger/${clampedId}`;
 
-		setTriggerResponses((prev) => ({ ...prev, [responseKey]: { status: 'loading' } }));
+		// Abort any previous open socket so the Smartbox single-connection listener is freed immediately
+		if (activeTriggerControllerRef.current) {
+			activeTriggerControllerRef.current.abort();
+		}
+
 		const controller = new AbortController();
-		const timeoutId = setTimeout(() => controller.abort(), 3000);
+		activeTriggerControllerRef.current = controller;
+		const timeoutId = setTimeout(() => controller.abort(), 250);
 		const start = performance.now();
 
-		try {
-			const res = await fetch(url, {
-				mode: 'no-cors',
-				cache: 'no-store',
-				signal: controller.signal,
-			});
-			clearTimeout(timeoutId);
-			const ms = Math.max(1, Math.round(performance.now() - start));
-			let bodyText = '';
-			try {
-				if (res.type !== 'opaque') {
-					bodyText = await res.text();
+		setTriggerResponses((prev) => ({
+			...prev,
+			[responseKey]: {
+				status: 'success',
+				message: `200 OK — Trigger #${clampedId} sent`,
+			},
+		}));
+
+		fetch(url, {
+			mode: 'no-cors',
+			cache: 'no-store',
+			signal: controller.signal,
+		})
+			.then(async (res) => {
+				clearTimeout(timeoutId);
+				const ms = Math.max(1, Math.round(performance.now() - start));
+				let bodyText = '';
+				try {
+					if (res.type !== 'opaque') {
+						bodyText = await res.text();
+					}
+				} catch {
+					// Ignore body read error on opaque response
 				}
-			} catch {
-				// Ignore body read error on opaque response
-			}
-			setTriggerResponses((prev) => ({
-				...prev,
-				[responseKey]: {
-					status: 'success',
-					ms,
-					message: bodyText.trim() || `200 OK — Trigger #${clampedId} sent (${ms}ms)`,
-				},
-			}));
-		} catch (err: any) {
-			clearTimeout(timeoutId);
-			const ms = Math.max(1, Math.round(performance.now() - start));
-			setTriggerResponses((prev) => ({
-				...prev,
-				[responseKey]: {
-					status: 'error',
-					ms,
-					message: err?.name === 'AbortError' ? 'Timed out (3000ms)' : `Unreachable (${ms}ms)`,
-				},
-			}));
-		}
+				setTriggerResponses((prev) => ({
+					...prev,
+					[responseKey]: {
+						status: 'success',
+						ms,
+						message: bodyText.trim() || `200 OK — Trigger #${clampedId} sent (${ms}ms)`,
+					},
+				}));
+			})
+			.catch((err: any) => {
+				clearTimeout(timeoutId);
+				if (err?.name === 'AbortError') {
+					return;
+				}
+				const ms = Math.max(1, Math.round(performance.now() - start));
+				setTriggerResponses((prev) => ({
+					...prev,
+					[responseKey]: {
+						status: 'error',
+						ms,
+						message: `Unreachable (${ms}ms)`,
+					},
+				}));
+			});
 	};
 
 	const copyToClipboard = (id: string, text: string) => {
@@ -190,174 +208,125 @@ export default function IpList({ client, onActionsChange }: Props) {
 	const loadData = async () => {
 		setLoading(true);
 		try {
-			// 1. Fetch metadata & IPs
-			const metaRes = await fetch(`/api/projects/metadata?client=${encodeURIComponent(client)}`);
-			const meta: MetadataType = await metaRes.json();
-			setMetadata(meta);
+			const [metaRes, ipsRes, duoRes] = await Promise.all([
+				fetch(`/api/projects/metadata?client=${encodeURIComponent(client)}`),
+				fetch(`/api/projects/ips?client=${encodeURIComponent(client)}`),
+				fetch(`/api/projects/duotecno?client=${encodeURIComponent(client)}`),
+			]);
 
-			const ipsRes = await fetch(`/api/projects/ips?client=${encodeURIComponent(client)}`);
+			if (metaRes.ok) {
+				const meta: MetadataType = await metaRes.json();
+				setMetadata(meta);
+			}
+
 			if (ipsRes.ok) {
 				const ips = await ipsRes.json();
 				setManualIps(Array.isArray(ips) ? ips : []);
 			}
 
-			// 2. Fetch programmation files to find projectnodeservices.json
-			const basePathRes = await fetch('/api/settings/projects');
-			const basePathData = await basePathRes.json();
-			const programmationPath = `${basePathData.path}/${client}/Programmation`;
+			if (duoRes.ok) {
+				const payload = await duoRes.json();
+				const newExtractedIps: IpEntry[] = [];
 
-			const filesRes = await fetch(`/api/files?view=${encodeURIComponent(programmationPath)}&recursive=1`);
-			if (filesRes.ok) {
-				const files = await filesRes.json();
-				const nodeServicesFiles = files.filter((f: any) => f.name.toLowerCase() === 'projectnodeservices.json');
-
-				if (nodeServicesFiles.length > 0) {
-					// Pick the latest one based on the folder __YYYYMMDD__ date (falling back to modified time)
-					const getFolderDate = (p: string) => {
-						const match = p.match(/__(\d{8})__/);
-						return match ? match[1] : '00000000';
-					};
-					const sortByLatestFolder = (a: any, b: any) => {
-						const dateDiff = getFolderDate(b.path).localeCompare(getFolderDate(a.path));
-						if (dateDiff !== 0) return dateDiff;
-						return new Date(b.modified).getTime() - new Date(a.modified).getTime();
-					};
-
-					let newExtractedIps: IpEntry[] = [];
-
-					// 1. Process projectnodeservices.json
-					const latestFile = nodeServicesFiles.sort(sortByLatestFolder)[0];
-					if (latestFile) {
-						const folderPrefix = latestFile.path.replace(/[/\\][^/\\]+$/, '');
-
-						// Parse nodedatabase.txt if present in the same Config folder to get human-friendly gateway names
-						const nodeNamesByAddress: Record<string, string> = {};
-						const nodeDbFile = files.find((f: any) => f.name.toLowerCase() === 'nodedatabase.txt' && f.path.replace(/[/\\][^/\\]+$/, '') === folderPrefix);
-						if (nodeDbFile) {
-							try {
-								const dbRes = await fetch(`/api/files/download?path=${encodeURIComponent(nodeDbFile.path)}`);
-								if (dbRes.ok) {
-									const dbText = await dbRes.text();
-									const nodeBlocks = dbText.split(/NODE=\d+;/i);
-									for (const block of nodeBlocks) {
-										const addrMatch = block.match(/bNodeAddress=(0x[0-9a-fA-F]+);/);
-										const nameMatch = block.match(/szName=([^;\r\n]*);/);
-										if (addrMatch && nameMatch && nameMatch[1].trim()) {
-											nodeNamesByAddress[addrMatch[1].toLowerCase()] = nameMatch[1].trim();
-										}
-									}
-								}
-							} catch {
-								// Ignore optional nodedatabase parsing errors
-							}
-						}
-
-						const jsonRes = await fetch(`/api/files/download?path=${encodeURIComponent(latestFile.path)}`);
-						if (jsonRes.ok) {
-							const data = await jsonRes.json();
-							if (data.serverNodes && Array.isArray(data.serverNodes)) {
-								const nodesWithMeta = await Promise.all(
-									data.serverNodes.map(async (n: any) => {
-										const logicalAddr = String(n.logicalAddress || '').toLowerCase();
-										const hexCode = logicalAddr.replace(/^0x/i, '');
-										const httpService = Array.isArray(n.services) ? n.services.find((s: any) => s.type === 'dt_http') : null;
-										const httpPort = httpService && Number(httpService.localPort) > 0 ? Number(httpService.localPort) : 8080;
-
-										let configuredTriggers: GatewayTriggerItem[] = [];
-										if (hexCode) {
-											const triggerFile = files.find(
-												(f: any) => f.name.toLowerCase() === `triggersactionsconfig_${hexCode}.json` && f.path.replace(/[/\\][^/\\]+$/, '') === folderPrefix
-											);
-											if (triggerFile) {
-												try {
-													const trigRes = await fetch(`/api/files/download?path=${encodeURIComponent(triggerFile.path)}`);
-													if (trigRes.ok) {
-														const trigData = await trigRes.json();
-														const actionsMap = new Map<string, any>();
-														if (Array.isArray(trigData.actions)) {
-															trigData.actions.forEach((a: any) => {
-																if (a.id !== undefined) {
-																	actionsMap.set(String(a.id), a);
-																}
-															});
-														}
-														if (Array.isArray(trigData.triggers)) {
-															trigData.triggers.forEach((t: any) => {
-																if (t.type === 'http_trigger') {
-																	const rawId = t.value?.id !== undefined ? Number(t.value.id) : Number(t.id);
-																	if (!Number.isNaN(rawId)) {
-																		const act = t.action !== undefined ? actionsMap.get(String(t.action)) : undefined;
-																		const actTarget = act?.value?.unitAddress || act?.value?.url || act?.value?.['ip-address'] || undefined;
-																		configuredTriggers.push({
-																			triggerId: rawId,
-																			name: t.name || `Trigger #${rawId}`,
-																			actionId: t.action !== undefined ? String(t.action) : undefined,
-																			actionName: act?.name || undefined,
-																			actionType: act?.type || undefined,
-																			actionTarget: actTarget ? String(actTarget) : undefined,
-																			type: t.type,
-																		});
-																	}
-																}
-															});
-														}
-													}
-												} catch {
-													// Ignore optional trigger config parsing errors
-												}
-											}
-										}
-
-										const dbNodeName = logicalAddr ? nodeNamesByAddress[logicalAddr] : undefined;
-										const displayName = dbNodeName ? `${dbNodeName} (Node ${n.logicalAddress})` : `Node ${n.logicalAddress}`;
-
-										return {
-											id: `extracted-node-${n.logicalAddress || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15))}`,
-											ip: n.localAddress || '',
-											mac: n.MAC || '',
-											name: displayName,
-											status: 'static' as const,
-											isGateway: true,
-											httpPort,
-											logicalAddress: n.logicalAddress,
-											configuredTriggers,
-										};
-									})
-								);
-								newExtractedIps.push(...nodesWithMeta);
-							}
+				// 1. Parse node names from nodedatabase.txt or nodeDatabase.nodes
+				const nodeNamesByAddress: Record<string, string> = {};
+				if (typeof payload.nodeDbTxt === 'string' && payload.nodeDbTxt) {
+					const nodeBlocks = payload.nodeDbTxt.split(/NODE=\d+;/i);
+					for (const block of nodeBlocks) {
+						const addrMatch = block.match(/bNodeAddress=(0x[0-9a-fA-F]+);/);
+						const nameMatch = block.match(/szName=([^;\r\n]*);/);
+						if (addrMatch && nameMatch && nameMatch[1].trim()) {
+							nodeNamesByAddress[addrMatch[1].toLowerCase()] = nameMatch[1].trim();
 						}
 					}
+				} else if (Array.isArray(payload.nodeDatabase?.nodes)) {
+					for (const nd of payload.nodeDatabase.nodes) {
+						if (nd.nodeAddress && nd.name) {
+							nodeNamesByAddress[String(nd.nodeAddress).toLowerCase()] = String(nd.name).trim();
+						}
+					}
+				}
 
-					// 2. Process cameras.json
-					const cameraFiles = files.filter((f: any) => f.name.toLowerCase() === 'cameras.json');
-					if (cameraFiles.length > 0) {
-						const latestCamFile = cameraFiles.sort(sortByLatestFolder)[0];
-						const camRes = await fetch(`/api/files/download?path=${encodeURIComponent(latestCamFile.path)}`);
-						if (camRes.ok) {
-							const cams = await camRes.json();
-							if (Array.isArray(cams)) {
-								const ipRegex = /(?:http|https|rtsp):\/\/([0-9\.]+)/;
-								cams.forEach((cam: any) => {
-									if (cam.cam_url) {
-										const match = cam.cam_url.match(ipRegex);
-										if (match && match[1]) {
-											newExtractedIps.push({
-												id: `extracted-cam-${cam.id || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15))}`,
-												ip: match[1],
-												mac: '',
-												name: `Camera: ${cam.name || 'Unknown'}`,
-												status: 'static' as const,
+				// 2. Process projectnodeservices.json
+				const data = payload.nodeServices;
+				if (data && Array.isArray(data.serverNodes)) {
+					for (const n of data.serverNodes) {
+						const logicalAddr = String(n.logicalAddress || '').toLowerCase();
+						const hexCode = logicalAddr.replace(/^0x/i, '').padStart(2, '0');
+						const httpService = Array.isArray(n.services) ? n.services.find((s: any) => s.type === 'dt_http') : null;
+						const httpPort = httpService && Number(httpService.localPort) > 0 ? Number(httpService.localPort) : 8080;
+
+						const configuredTriggers: GatewayTriggerItem[] = [];
+						const trigData = hexCode ? payload.triggersByHex?.[hexCode] : null;
+						if (trigData) {
+							const actionsMap = new Map<string, any>();
+							if (Array.isArray(trigData.actions)) {
+								trigData.actions.forEach((a: any) => {
+									if (a.id !== undefined) {
+										actionsMap.set(String(a.id), a);
+									}
+								});
+							}
+							if (Array.isArray(trigData.triggers)) {
+								trigData.triggers.forEach((t: any) => {
+									if (t.type === 'http_trigger') {
+										const rawId = t.value?.id !== undefined ? Number(t.value.id) : Number(t.id);
+										if (!Number.isNaN(rawId)) {
+											const act = t.action !== undefined ? actionsMap.get(String(t.action)) : undefined;
+											const actTarget = act?.value?.unitAddress || act?.value?.url || act?.value?.['ip-address'] || undefined;
+											configuredTriggers.push({
+												triggerId: rawId,
+												name: t.name || `Trigger #${rawId}`,
+												actionId: t.action !== undefined ? String(t.action) : undefined,
+												actionName: act?.name || undefined,
+												actionType: act?.type || undefined,
+												actionTarget: actTarget ? String(actTarget) : undefined,
+												type: t.type,
 											});
 										}
 									}
 								});
 							}
 						}
-					}
 
-					setExtractedIps(newExtractedIps.filter((p) => p.ip));
+						const dbNodeName = logicalAddr ? nodeNamesByAddress[logicalAddr] : undefined;
+						const displayName = dbNodeName ? `${dbNodeName} (Node ${n.logicalAddress})` : `Node ${n.logicalAddress}`;
+
+						newExtractedIps.push({
+							id: `extracted-node-${n.logicalAddress || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15))}`,
+							ip: n.localAddress || '',
+							mac: n.MAC || '',
+							name: displayName,
+							status: 'static' as const,
+							isGateway: true,
+							httpPort,
+							logicalAddress: n.logicalAddress,
+							configuredTriggers,
+						});
+					}
 				}
+
+				// 3. Process cameras.json
+				const cams = payload.cameras;
+				if (Array.isArray(cams)) {
+					const ipRegex = /(?:http|https|rtsp):\/\/([0-9\.]+)/;
+					cams.forEach((cam: any) => {
+						if (cam.cam_url) {
+							const match = cam.cam_url.match(ipRegex);
+							if (match && match[1]) {
+								newExtractedIps.push({
+									id: `extracted-cam-${cam.id || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15))}`,
+									ip: match[1],
+									mac: '',
+									name: `Camera: ${cam.name || 'Unknown'}`,
+									status: 'static' as const,
+								});
+							}
+						}
+					});
+				}
+
+				setExtractedIps(newExtractedIps.filter((p) => p.ip));
 			}
 		} catch (error) {
 			console.error('Failed to load IP list data', error);

@@ -90,8 +90,8 @@ export function parseDuotecnoBindings(content: string): Binding[] {
 	return bindings;
 }
 
-export function linkNodeUnitsWithBindings(nodedbContent: string, bindingContent: string) {
-	const nodedb = JSON.parse(nodedbContent);
+export function linkNodeUnitsWithBindings(nodedbContent: string | Record<string, any>, bindingContent: string) {
+	const nodedb = typeof nodedbContent === 'string' ? JSON.parse(nodedbContent) : nodedbContent;
 	const unitLookup: Record<string, string> = {};
 
 	if (nodedb.nodes) {

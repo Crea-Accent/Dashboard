@@ -1,5 +1,11 @@
 # panel
 
+## 0.14.1
+
+### Patch Changes
+
+- Speed up fix for controls and ips
+
 ## 0.14.0
 
 ### Minor Changes

@@ -1,7 +1,7 @@
 'use client';
 
 import { Info, Pointer, SunDim, Zap, Hand, Sun, Search, Filter, X, Loader2 } from 'lucide-react';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
 import Modal from '../ui/Modal';
@@ -170,16 +170,29 @@ function normalizeDuotecnoAddr(addr?: string): string {
 	return `${normalizeHexPart(parts[0])};${normalizeHexPart(parts[1])}`;
 }
 
+type CachedControlsData = {
+	nodes: any[];
+	bindings: any[];
+	httpTriggers: HttpTriggerLink[];
+	ledTemplate: LedTemplateConfig;
+	ledsByNode: Record<string, LedBlockConfig[]>;
+	projectSetup: any;
+};
+
+const controlsDataCache = new Map<string, CachedControlsData>();
+
 export default function Controls({ basePath, client, onActionsChange }: { basePath: string; client: string; onActionsChange?: (actions: any) => void }) {
-	const [projectSetup, setProjectSetup] = useState<any>(null);
-	const [loading, setLoading] = useState(true);
+	const cached = controlsDataCache.get(client);
+	const [projectSetup, setProjectSetup] = useState<any>(cached?.projectSetup ?? null);
+	const [loading, setLoading] = useState(!cached);
 	const [printing, setPrinting] = useState(false);
-	const [nodesData, setNodesData] = useState<any[]>([]);
-	const [bindingsData, setBindingsData] = useState<any[]>([]);
-	const [httpTriggers, setHttpTriggers] = useState<HttpTriggerLink[]>([]);
-	const [ledTemplate, setLedTemplate] = useState<LedTemplateConfig>({});
-	const [ledsByNode, setLedsByNode] = useState<Record<string, LedBlockConfig[]>>({});
+	const [nodesData, setNodesData] = useState<any[]>(cached?.nodes ?? []);
+	const [bindingsData, setBindingsData] = useState<any[]>(cached?.bindings ?? []);
+	const [httpTriggers, setHttpTriggers] = useState<HttpTriggerLink[]>(cached?.httpTriggers ?? []);
+	const [ledTemplate, setLedTemplate] = useState<LedTemplateConfig>(cached?.ledTemplate ?? {});
+	const [ledsByNode, setLedsByNode] = useState<Record<string, LedBlockConfig[]>>(cached?.ledsByNode ?? {});
 	const [activeQuadrants, setActiveQuadrants] = useState<Record<string, boolean>>({});
+	const activeControllersRef = useRef<Record<string, AbortController>>({});
 	const [triggerStatus, setTriggerStatus] = useState<
 		Record<
 			string,
@@ -263,201 +276,147 @@ export default function Controls({ basePath, client, onActionsChange }: { basePa
 
 		async function load() {
 			try {
-				setLoading(true);
-				const programmationPath = `${basePath}/${client}/Programmation`;
-
-				const files = await fetch(`/api/files?view=${encodeURIComponent(programmationPath)}&recursive=1`).then((r) => r.json());
-
-				let latestFolder = null;
-				if (Array.isArray(files)) {
-					const projectFolders = Array.from(
-						new Set(files.filter((f: any) => f.type === 'file' && f.name.toLowerCase().endsWith('.duo')).map((f: any) => f.path.split(/[\\/]/).slice(0, -1).join('/')))
-					) as string[];
-
-					latestFolder = projectFolders
-						.map((folder: string) => {
-							const folderName = folder.split(/[\\/]/).pop() ?? '';
-							const [, date] = folderName.split('__');
-							return { folder, date: date ?? '00000000' };
-						})
-						.sort((a, b) => b.date.localeCompare(a.date))[0]?.folder;
+				if (!controlsDataCache.has(client)) {
+					setLoading(true);
 				}
 
-				if (latestFolder) {
-					const nodeDatabase = await fetch(`/api/files/download?path=${encodeURIComponent(`${latestFolder}/Config/nodedatabase.cache.json`)}`).then((r) => r.json());
+				const res = await fetch(`/api/projects/duotecno?client=${encodeURIComponent(client)}`);
+				if (!res.ok) return;
+				const payload = await res.json();
 
-					const bindingTxt = await fetch(`/api/files/download?path=${encodeURIComponent(`${latestFolder}/Config/bindingconfiginfo.txt`)}`).then((r) => r.text());
-					const canbusData = await fetch(`/api/projects/canbus?client=${encodeURIComponent(client)}`)
-						.then((r) => r.json())
-						.catch(() => null);
+				const nodeDatabase = payload.nodeDatabase;
+				const bindingTxt = payload.bindingTxt || '';
+				const canbusSetup = payload.canbusSetup ?? null;
 
-					const linkedBindings = linkNodeUnitsWithBindings(JSON.stringify(nodeDatabase), bindingTxt);
+				if (!nodeDatabase) return;
 
-					// Parse projectnodeservices.json + TriggersActionsconfig_<hex>.json (+ MoodConfig_<hex>.txt) and LEDConfig / ledscfg_<hex>.txt
-					const discoveredTriggers: HttpTriggerLink[] = [];
-					let parsedTemplate: LedTemplateConfig = {};
-					const parsedLedsByNode: Record<string, LedBlockConfig[]> = {};
-					try {
-						const configFolderPrefix = `${latestFolder}/Config`.replace(/\\/g, '/').toLowerCase();
-						const configFiles = Array.isArray(files) ? files.filter((f: any) => f.path.replace(/\\/g, '/').toLowerCase().startsWith(configFolderPrefix)) : [];
+				const linkedBindings = linkNodeUnitsWithBindings(nodeDatabase, bindingTxt);
 
-						// 1. Parse LEDConfig template + per-node ledscfg_<hex>.txt
-						try {
-							const selectedTemplateFile = configFiles.find((f: any) => f.name.toLowerCase() === 'ledconfigselectedtemplate.txt');
-							let templateFile: any = null;
-							if (selectedTemplateFile) {
-								const selTxt = await fetch(`/api/files/download?path=${encodeURIComponent(selectedTemplateFile.path)}`).then((r) => (r.ok ? r.text() : ''));
-								const tplName = selTxt.trim().toLowerCase();
-								if (tplName) {
-									templateFile = configFiles.find((f: any) => f.name.toLowerCase() === `ledconfigtemplate,${tplName}.txt`);
-								}
+				const discoveredTriggers: HttpTriggerLink[] = [];
+				let parsedTemplate: LedTemplateConfig = {};
+				const parsedLedsByNode: Record<string, LedBlockConfig[]> = {};
+
+				try {
+					if (payload.ledTemplateTxt) {
+						parsedTemplate = parseLedTemplateTxt(payload.ledTemplateTxt);
+					}
+					if (payload.ledsCfgByNode && typeof payload.ledsCfgByNode === 'object') {
+						for (const [nodeKey, txt] of Object.entries(payload.ledsCfgByNode)) {
+							if (typeof txt === 'string' && txt) {
+								parsedLedsByNode[nodeKey] = parseLedsCfgTxt(txt);
 							}
-							if (!templateFile) {
-								templateFile = configFiles.find((f: any) => f.name.toLowerCase().startsWith('ledconfigtemplate,'));
-							}
-							if (templateFile) {
-								const tplTxt = await fetch(`/api/files/download?path=${encodeURIComponent(templateFile.path)}`).then((r) => (r.ok ? r.text() : ''));
-								if (tplTxt) {
-									parsedTemplate = parseLedTemplateTxt(tplTxt);
-								}
-							}
+						}
+					}
 
-							const ledCfgFiles = configFiles.filter((f: any) => /^ledscfg_[0-9a-f]{2}\.txt$/i.test(f.name));
-							await Promise.all(
-								ledCfgFiles.map(async (lf: any) => {
-									const match = lf.name.match(/^ledscfg_([0-9a-f]{2})\.txt$/i);
-									if (!match) return;
-									const nodeKey = `0x${match[1].toLowerCase()}`;
-									const txt = await fetch(`/api/files/download?path=${encodeURIComponent(lf.path)}`).then((r) => (r.ok ? r.text() : ''));
-									if (txt) {
-										parsedLedsByNode[nodeKey] = parseLedsCfgTxt(txt);
+					const nsData = payload.nodeServices;
+					if (Array.isArray(nsData?.serverNodes)) {
+						for (const srvNode of nsData.serverNodes) {
+							const logicalAddr = normalizeHexPart(String(srvNode.logicalAddress || ''));
+							const hexCode = logicalAddr.replace(/^0x/, '');
+							const gatewayIp = String(srvNode.localAddress || '').trim();
+							if (!hexCode || !gatewayIp) continue;
+
+							const httpService = Array.isArray(srvNode.services) ? srvNode.services.find((s: any) => s.type === 'dt_http') : null;
+							const httpPort = httpService && Number(httpService.localPort) > 0 ? Number(httpService.localPort) : 8080;
+
+							const trigData = payload.triggersByHex?.[hexCode];
+							if (!trigData) continue;
+
+							const moodOutputsByUnit: Record<string, Set<string>> = {};
+							const moodTxt = payload.moodsByHex?.[hexCode];
+							if (typeof moodTxt === 'string' && moodTxt) {
+								let currentMoodUnit = '';
+								for (const rawLine of moodTxt.split(/\r?\n/)) {
+									const line = rawLine.trim();
+									const moodMatch = line.match(/^MOOD=(0x[0-9a-fA-F]+);/i);
+									if (moodMatch) {
+										currentMoodUnit = normalizeHexPart(moodMatch[1]);
+										if (!moodOutputsByUnit[currentMoodUnit]) {
+											moodOutputsByUnit[currentMoodUnit] = new Set();
+										}
+										continue;
 									}
-								})
-							);
-						} catch {
-							// Ignore optional LEDConfig parse errors
-						}
-
-						const nodeServicesFile = configFiles.find((f: any) => f.name.toLowerCase() === 'projectnodeservices.json');
-						if (nodeServicesFile) {
-							const nsRes = await fetch(`/api/files/download?path=${encodeURIComponent(nodeServicesFile.path)}`);
-							if (nsRes.ok) {
-								const nsData = await nsRes.json();
-								if (Array.isArray(nsData.serverNodes)) {
-									await Promise.all(
-										nsData.serverNodes.map(async (srvNode: any) => {
-											const logicalAddr = normalizeHexPart(String(srvNode.logicalAddress || ''));
-											const hexCode = logicalAddr.replace(/^0x/, '');
-											const gatewayIp = String(srvNode.localAddress || '').trim();
-											if (!hexCode || !gatewayIp) return;
-
-											const httpService = Array.isArray(srvNode.services) ? srvNode.services.find((s: any) => s.type === 'dt_http') : null;
-											const httpPort = httpService && Number(httpService.localPort) > 0 ? Number(httpService.localPort) : 8080;
-
-											const trigFile = configFiles.find((f: any) => f.name.toLowerCase() === `triggersactionsconfig_${hexCode}.json`);
-											if (!trigFile) return;
-
-											// Optionally parse MoodConfig_<hex>.txt in case the virtual unit is a Mood
-											const moodOutputsByUnit: Record<string, Set<string>> = {};
-											const moodFile = configFiles.find((f: any) => f.name.toLowerCase() === `moodconfig_${hexCode}.txt`);
-											if (moodFile) {
-												try {
-													const moodTxt = await fetch(`/api/files/download?path=${encodeURIComponent(moodFile.path)}`).then((r) => (r.ok ? r.text() : ''));
-													let currentMoodUnit = '';
-													for (const rawLine of moodTxt.split(/\r?\n/)) {
-														const line = rawLine.trim();
-														const moodMatch = line.match(/^MOOD=(0x[0-9a-fA-F]+);/i);
-														if (moodMatch) {
-															currentMoodUnit = normalizeHexPart(moodMatch[1]);
-															if (!moodOutputsByUnit[currentMoodUnit]) {
-																moodOutputsByUnit[currentMoodUnit] = new Set();
-															}
-															continue;
-														}
-														const entryMatch = line.match(/^entry=([0-9a-fA-F]{2})([0-9a-fA-F]{2})/i);
-														if (entryMatch && currentMoodUnit) {
-															const outAddr = `0x${entryMatch[1].toLowerCase()};0x${entryMatch[2].toLowerCase()}`;
-															moodOutputsByUnit[currentMoodUnit].add(outAddr);
-														}
-													}
-												} catch {
-													// Ignore optional mood config errors
-												}
-											}
-
-											const trigRes = await fetch(`/api/files/download?path=${encodeURIComponent(trigFile.path)}`);
-											if (!trigRes.ok) return;
-											const trigData = await trigRes.json();
-
-											const actionsMap = new Map<string, any>();
-											if (Array.isArray(trigData.actions)) {
-												trigData.actions.forEach((a: any) => {
-													if (a.id !== undefined) actionsMap.set(String(a.id), a);
-												});
-											}
-
-											if (Array.isArray(trigData.triggers)) {
-												trigData.triggers.forEach((t: any) => {
-													if (t.type !== 'http_trigger') return;
-													const rawId = t.value?.id !== undefined ? Number(t.value.id) : Number(t.id);
-													if (Number.isNaN(rawId)) return;
-
-													const act = t.action !== undefined ? actionsMap.get(String(t.action)) : undefined;
-													const rawUnitAddr = act?.value?.unitAddress;
-													if (!rawUnitAddr) return;
-
-													const normUnitAddr = normalizeHexPart(String(rawUnitAddr));
-													const fullAddress = `${logicalAddr};${normUnitAddr}`;
-													const targetOutputs = new Set<string>();
-
-													// 1. Find all outputs in bindingconfiginfo.txt where this virtual unit is an INPUT
-													linkedBindings.forEach((b: any) => {
-														const hasVirtualInput = (b.inputs || []).some((inp: any) => normalizeDuotecnoAddr(inp.Address) === fullAddress);
-														if (hasVirtualInput) {
-															(b.outputs || []).forEach((out: any) => {
-																const normOut = normalizeDuotecnoAddr(out.Address);
-																if (normOut) targetOutputs.add(normOut);
-															});
-														}
-													});
-
-													// 2. Also include outputs from MoodConfig if this virtual unit triggers a mood
-													const moodTargets = moodOutputsByUnit[normUnitAddr];
-													if (moodTargets) {
-														moodTargets.forEach((addr) => targetOutputs.add(addr));
-													}
-
-													discoveredTriggers.push({
-														gatewayIp,
-														httpPort,
-														nodeAddress: logicalAddr,
-														unitAddress: normUnitAddr,
-														fullAddress,
-														triggerId: rawId,
-														triggerName: t.name || `http${rawId}`,
-														actionName: act?.name || undefined,
-														actionType: act?.type || undefined,
-														targetOutputs,
-													});
-												});
-											}
-										})
-									);
+									const entryMatch = line.match(/^entry=([0-9a-fA-F]{2})([0-9a-fA-F]{2})/i);
+									if (entryMatch && currentMoodUnit) {
+										const outAddr = `0x${entryMatch[1].toLowerCase()};0x${entryMatch[2].toLowerCase()}`;
+										moodOutputsByUnit[currentMoodUnit].add(outAddr);
+									}
 								}
 							}
-						}
-					} catch {
-						// Ignore optional trigger discovery errors
-					}
 
-					if (isMounted) {
-						setNodesData(nodeDatabase.nodes ?? []);
-						setBindingsData(linkedBindings);
-						setHttpTriggers(discoveredTriggers);
-						setLedTemplate(parsedTemplate);
-						setLedsByNode(parsedLedsByNode);
-						setProjectSetup(canbusData?.setup);
+							const actionsMap = new Map<string, any>();
+							if (Array.isArray(trigData.actions)) {
+								trigData.actions.forEach((a: any) => {
+									if (a.id !== undefined) actionsMap.set(String(a.id), a);
+								});
+							}
+
+							if (Array.isArray(trigData.triggers)) {
+								trigData.triggers.forEach((t: any) => {
+									if (t.type !== 'http_trigger') return;
+									const rawId = t.value?.id !== undefined ? Number(t.value.id) : Number(t.id);
+									if (Number.isNaN(rawId)) return;
+
+									const act = t.action !== undefined ? actionsMap.get(String(t.action)) : undefined;
+									const rawUnitAddr = act?.value?.unitAddress;
+									if (!rawUnitAddr) return;
+
+									const normUnitAddr = normalizeHexPart(String(rawUnitAddr));
+									const fullAddress = `${logicalAddr};${normUnitAddr}`;
+									const targetOutputs = new Set<string>();
+
+									linkedBindings.forEach((b: any) => {
+										const hasVirtualInput = (b.inputs || []).some((inp: any) => normalizeDuotecnoAddr(inp.Address) === fullAddress);
+										if (hasVirtualInput) {
+											(b.outputs || []).forEach((out: any) => {
+												const normOut = normalizeDuotecnoAddr(out.Address);
+												if (normOut) targetOutputs.add(normOut);
+											});
+										}
+									});
+
+									const moodTargets = moodOutputsByUnit[normUnitAddr];
+									if (moodTargets) {
+										moodTargets.forEach((addr) => targetOutputs.add(addr));
+									}
+
+									discoveredTriggers.push({
+										gatewayIp,
+										httpPort,
+										nodeAddress: logicalAddr,
+										unitAddress: normUnitAddr,
+										fullAddress,
+										triggerId: rawId,
+										triggerName: t.name || `http${rawId}`,
+										actionName: act?.name || undefined,
+										actionType: act?.type || undefined,
+										targetOutputs,
+									});
+								});
+							}
+						}
 					}
+				} catch {
+					// Ignore optional trigger discovery errors
+				}
+
+				const nextData: CachedControlsData = {
+					nodes: nodeDatabase.nodes ?? [],
+					bindings: linkedBindings,
+					httpTriggers: discoveredTriggers,
+					ledTemplate: parsedTemplate,
+					ledsByNode: parsedLedsByNode,
+					projectSetup: canbusSetup,
+				};
+				controlsDataCache.set(client, nextData);
+
+				if (isMounted) {
+					setNodesData(nextData.nodes);
+					setBindingsData(nextData.bindings);
+					setHttpTriggers(nextData.httpTriggers);
+					setLedTemplate(nextData.ledTemplate);
+					setLedsByNode(nextData.ledsByNode);
+					setProjectSetup(nextData.projectSetup);
 				}
 			} catch (err) {
 				console.error('Error loading controls data:', err);
@@ -541,12 +500,31 @@ export default function Controls({ basePath, client, onActionsChange }: { basePa
 			}));
 	}, [hasExplicitButtons, allModules, nodesData]);
 
+	// Pre-index bindings by normalized input address ("0x08;0x00") for O(1) lookup per quadrant
+	const bindingsByInputAddr = useMemo(() => {
+		const map = new Map<string, any[]>();
+		for (const b of bindingsData) {
+			if (!Array.isArray(b.inputs)) continue;
+			for (const inp of b.inputs) {
+				const addr = normalizeDuotecnoAddr(inp.Address);
+				if (!addr) continue;
+				const list = map.get(addr);
+				if (list) {
+					list.push(b);
+				} else {
+					map.set(addr, [b]);
+				}
+			}
+		}
+		return map;
+	}, [bindingsData]);
+
 	// Helper to inspect a switch's 4 quadrants (indices 0, 1, 2, 3)
 	const getUnitBindingsForIdx = (node: any, idx: number) => {
 		const unit = getQuadrantUnit(node, idx);
 		if (!node || !unit) return [];
-		const addrKey = `${node.nodeAddress};${unit.unitAddress}`;
-		return bindingsData.filter((b) => b.inputs.some((i: any) => i.Address?.startsWith(addrKey)));
+		const addrKey = normalizeDuotecnoAddr(`${node.nodeAddress};${unit.unitAddress}`);
+		return bindingsByInputAddr.get(addrKey) || [];
 	};
 
 	// Resolve LED feedback { colorOn, colorOff } for a switch quadrant from ledscfg_<hex>.txt and LEDConfigTemplate
@@ -602,50 +580,69 @@ export default function Controls({ basePath, client, onActionsChange }: { basePa
 		});
 	};
 
-	const fireHttpTrigger = async (trig: HttpTriggerLink, e?: React.MouseEvent) => {
+	const fireHttpTrigger = (trig: HttpTriggerLink, e?: React.MouseEvent) => {
 		e?.stopPropagation();
-		const key = `${trig.gatewayIp}:${trig.httpPort}/${trig.triggerId}`;
-		const url = `http://${trig.gatewayIp}:${trig.httpPort}/trigger/${trig.triggerId}`;
+		const gatewayKey = `${trig.gatewayIp}:${trig.httpPort}`;
+		const key = `${gatewayKey}/${trig.triggerId}`;
+		const url = `http://${gatewayKey}/trigger/${trig.triggerId}`;
 
-		setTriggerStatus((prev) => ({ ...prev, [key]: { status: 'loading' } }));
+		// Abort any previous open socket to this gateway so the Smartbox single-connection listener is freed immediately
+		if (activeControllersRef.current[gatewayKey]) {
+			activeControllersRef.current[gatewayKey].abort();
+		}
+
 		const controller = new AbortController();
-		const timeoutId = setTimeout(() => controller.abort(), 3000);
+		activeControllersRef.current[gatewayKey] = controller;
+		const timeoutId = setTimeout(() => controller.abort(), 250);
 		const start = performance.now();
 
-		try {
-			const res = await fetch(url, {
-				mode: 'no-cors',
-				cache: 'no-store',
-				signal: controller.signal,
-			});
-			clearTimeout(timeoutId);
-			const ms = Math.max(1, Math.round(performance.now() - start));
-			let bodyText = '';
-			try {
-				if (res.type !== 'opaque') {
-					bodyText = await res.text();
+		setTriggerStatus((prev) => ({
+			...prev,
+			[key]: {
+				status: 'success',
+				message: `200 OK — Trigger #${trig.triggerId} sent`,
+			},
+		}));
+
+		fetch(url, {
+			mode: 'no-cors',
+			cache: 'no-store',
+			signal: controller.signal,
+		})
+			.then(async (res) => {
+				clearTimeout(timeoutId);
+				const ms = Math.max(1, Math.round(performance.now() - start));
+				let bodyText = '';
+				try {
+					if (res.type !== 'opaque') {
+						bodyText = await res.text();
+					}
+				} catch {
+					// Ignore opaque response body read errors
 				}
-			} catch {
-				// Ignore opaque response body read errors
-			}
-			setTriggerStatus((prev) => ({
-				...prev,
-				[key]: {
-					status: 'success',
-					message: bodyText.trim() || `200 OK — Trigger #${trig.triggerId} sent (${ms}ms)`,
-				},
-			}));
-		} catch (err: any) {
-			clearTimeout(timeoutId);
-			const ms = Math.max(1, Math.round(performance.now() - start));
-			setTriggerStatus((prev) => ({
-				...prev,
-				[key]: {
-					status: 'error',
-					message: err?.name === 'AbortError' ? 'Timed out (3000ms)' : `Unreachable (${ms}ms)`,
-				},
-			}));
-		}
+				setTriggerStatus((prev) => ({
+					...prev,
+					[key]: {
+						status: 'success',
+						message: bodyText.trim() || `200 OK — Trigger #${trig.triggerId} sent (${ms}ms)`,
+					},
+				}));
+			})
+			.catch((err: any) => {
+				clearTimeout(timeoutId);
+				if (err?.name === 'AbortError') {
+					// On DuoTecno Smartbox, the GET packet is processed immediately in <10ms even if the HTTP socket stays open
+					return;
+				}
+				const ms = Math.max(1, Math.round(performance.now() - start));
+				setTriggerStatus((prev) => ({
+					...prev,
+					[key]: {
+						status: 'error',
+						message: `Unreachable (${ms}ms)`,
+					},
+				}));
+			});
 	};
 
 	const switchHasBindings = (node: any) => {
@@ -776,8 +773,6 @@ export default function Controls({ basePath, client, onActionsChange }: { basePa
 								new Map(unitBindings.flatMap((b) => getHttpTriggersForBinding(b)).map((t) => [`${t.gatewayIp}:${t.httpPort}/${t.triggerId}`, t])).values()
 							);
 							const primaryTrigger = quadrantTriggers[0];
-							const trigKey = primaryTrigger ? `${primaryTrigger.gatewayIp}:${primaryTrigger.httpPort}/${primaryTrigger.triggerId}` : '';
-							const trigState = trigKey ? triggerStatus[trigKey]?.status || 'idle' : 'idle';
 
 							const quadrantKey = addrKey || `${entry.key}-${idx}`;
 							const isActive = Boolean(activeQuadrants[quadrantKey]);
@@ -842,11 +837,7 @@ export default function Controls({ basePath, client, onActionsChange }: { basePa
 												return (
 													<div key={i} className="flex flex-col items-center w-full justify-center gap-0.5 min-w-0" title={`Binding: ${bindingName} (Event: ${inputEvent})`}>
 														<div className="flex flex-row items-center w-full justify-center gap-1.5 min-w-0">
-															{trigState === 'loading' && i === 0 ? (
-																<Loader2 size={15} className="shrink-0 animate-spin text-(--accent)" />
-															) : (
-																<Icon size={15} className="shrink-0 text-(--accent)" />
-															)}
+															<Icon size={15} className="shrink-0 text-(--accent)" />
 															<div className="flex flex-col items-start justify-center min-w-0">
 																{outputs.map((outName, oIdx) => (
 																	<span
