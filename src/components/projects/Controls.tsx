@@ -280,7 +280,7 @@ export default function Controls({ basePath, client, onActionsChange }: { basePa
 					setLoading(true);
 				}
 
-				const res = await fetch(`/api/projects/duotecno?client=${encodeURIComponent(client)}`);
+				const res = await fetch(`/api/projects/duotecno?client=${encodeURIComponent(client)}`, { cache: 'no-store' });
 				if (!res.ok) return;
 				const payload = await res.json();
 

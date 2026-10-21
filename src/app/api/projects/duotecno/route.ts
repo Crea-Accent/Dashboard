@@ -4,6 +4,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 
+export const dynamic = 'force-dynamic';
+
 function loadProjectsSettings() {
 	const DATA_DIR = path.join(process.cwd(), 'data');
 	const PROJECTS_PATH = path.join(DATA_DIR, 'projects.json');
@@ -11,11 +13,29 @@ function loadProjectsSettings() {
 	return JSON.parse(raw);
 }
 
-function getFolderDate(name: string): string {
-	const match = name.match(/__(\d{8})/);
-	if (match) return match[1];
+function parseFolderVersion(rawName: string): { date: number; revision: number } {
+	const name = rawName.replace(/\.[^.]+$/, '');
 	const parts = name.split('__');
-	return parts[1] ?? '00000000';
+	const rawDate = parts.find((p) => /^\d{8}$/.test(p)) ?? '';
+
+	let date = 0;
+	if (rawDate) {
+		if (/^(19|20)\d{6}$/.test(rawDate)) {
+			date = Number(rawDate);
+		} else if (/^\d{4}(19|20)\d{2}$/.test(rawDate)) {
+			const dd = rawDate.slice(0, 2);
+			const mm = rawDate.slice(2, 4);
+			const yyyy = rawDate.slice(4, 8);
+			date = Number(`${yyyy}${mm}${dd}`);
+		} else {
+			date = Number(rawDate);
+		}
+	}
+
+	const revMatch = name.match(/_(\d+)$/);
+	const revision = revMatch ? Number(revMatch[1]) : 0;
+
+	return { date, revision };
 }
 
 function findLatestProgrammationFolder(progDir: string): string | null {
@@ -24,12 +44,28 @@ function findLatestProgrammationFolder(progDir: string): string | null {
 	const entries = fs.readdirSync(progDir, { withFileTypes: true });
 	const dirs = entries
 		.filter((e) => e.isDirectory())
-		.map((e) => ({
-			name: e.name,
-			fullPath: path.join(progDir, e.name),
-			date: getFolderDate(e.name),
-		}))
-		.sort((a, b) => b.date.localeCompare(a.date));
+		.map((e) => {
+			const fullPath = path.join(progDir, e.name);
+			const { date, revision } = parseFolderVersion(e.name);
+			let mtimeMs = 0;
+			try {
+				mtimeMs = fs.statSync(fullPath).mtimeMs;
+			} catch {
+				// Ignore
+			}
+			return {
+				name: e.name,
+				fullPath,
+				date,
+				revision,
+				mtimeMs,
+			};
+		})
+		.sort((a, b) => {
+			if (b.date !== a.date) return b.date - a.date;
+			if (b.revision !== a.revision) return b.revision - a.revision;
+			return b.mtimeMs - a.mtimeMs;
+		});
 
 	// Check sorted top-level directories first (fast path: avoids scanning old backups)
 	for (const d of dirs) {
@@ -135,7 +171,26 @@ export async function GET(request: NextRequest) {
 		const nodeDbTxt = nodeDbTxtPath ? readTextIfExists(nodeDbTxtPath) : null;
 		const bindingTxt = bindingPath ? readTextIfExists(bindingPath) : null;
 		const nodeServices = nodeServicesPath ? readJsonIfExists(nodeServicesPath) : null;
-		const cameras = camerasPath ? readJsonIfExists(camerasPath) : null;
+		let cameras = camerasPath ? readJsonIfExists(camerasPath) : null;
+		if (!cameras) {
+			const jsonDir = path.join(latestFolder, 'JSON');
+			if (fs.existsSync(jsonDir)) {
+				try {
+					for (const sub of fs.readdirSync(jsonDir, { withFileTypes: true })) {
+						if (sub.isDirectory()) {
+							const candidate = path.join(jsonDir, sub.name, 'cameras.json');
+							const parsed = readJsonIfExists(candidate);
+							if (parsed) {
+								cameras = parsed;
+								break;
+							}
+						}
+					}
+				} catch {
+					// Ignore
+				}
+			}
+		}
 
 		// 3. Read TriggersActionsconfig_<hex>.json and MoodConfig_<hex>.txt for serverNodes
 		const triggersByHex: Record<string, any> = {};
@@ -198,19 +253,26 @@ export async function GET(request: NextRequest) {
 			}
 		}
 
-		return NextResponse.json({
-			latestFolder,
-			canbusSetup,
-			nodeDatabase,
-			nodeDbTxt,
-			bindingTxt,
-			nodeServices,
-			triggersByHex,
-			moodsByHex,
-			ledTemplateTxt,
-			ledsCfgByNode,
-			cameras,
-		});
+		return NextResponse.json(
+			{
+				latestFolder,
+				canbusSetup,
+				nodeDatabase,
+				nodeDbTxt,
+				bindingTxt,
+				nodeServices,
+				triggersByHex,
+				moodsByHex,
+				ledTemplateTxt,
+				ledsCfgByNode,
+				cameras,
+			},
+			{
+				headers: {
+					'Cache-Control': 'no-store, no-cache, must-revalidate',
+				},
+			}
+		);
 	} catch (error) {
 		console.error('Error loading duotecno data:', error);
 		return NextResponse.json({ error: 'Failed to load duotecno data' }, { status: 500 });

@@ -1,5 +1,11 @@
 # panel
 
+## 0.14.2
+
+### Patch Changes
+
+- fix loader
+
 ## 0.14.1
 
 ### Patch Changes

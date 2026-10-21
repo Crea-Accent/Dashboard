@@ -548,25 +548,43 @@ export default function Canbus({ basePath, client }: Props) {
 
 			const programmationPath = `${basePath}/${client}/Programmation`;
 
-			const files = await fetch(`/api/files?view=${encodeURIComponent(programmationPath)}&recursive=1`).then((r) => r.json());
+			const files = await fetch(`/api/files?view=${encodeURIComponent(programmationPath)}&recursive=1`, { cache: 'no-store' }).then((r) => r.json());
 
 			// Find every folder that contains a .duo file
 			const projectFolders: Array<string> = Array.from(
 				new Set(files.filter((f: any) => f.type === 'file' && f.name.toLowerCase().endsWith('.duo')).map((f: any) => f.path.split(/[\\/]/).slice(0, -1).join('/')))
 			);
 
-			// Pick the folder whose name ends with YYYYMMDD
+			// Pick the most recent folder by date, revision suffix (_1, _2, ...), and modified time
 			const latestFolder = projectFolders
 				.map((folder: string) => {
 					const folderName = folder.split(/[\\/]/).pop() ?? '';
-					const [, date] = folderName.split('__');
+					const parts = folderName.split('__');
+					let date = '00000000';
+					if (parts.length > 1 && /^\d{8}$/.test(parts[1])) {
+						const rawDate = parts[1];
+						const yearPrefix = parseInt(rawDate.slice(0, 4), 10);
+						date = yearPrefix >= 2000 && yearPrefix <= 2100 ? rawDate : `${rawDate.slice(4, 8)}${rawDate.slice(2, 4)}${rawDate.slice(0, 2)}`;
+					}
+					const tail = parts.length > 2 ? parts.slice(2).join('__') : folderName;
+					const revMatch = tail.match(/_(\d+)$/);
+					const revision = revMatch ? parseInt(revMatch[1], 10) : 0;
+					const duoFile = files.find((f: any) => f.type === 'file' && f.name.toLowerCase().endsWith('.duo') && f.path.replace(/\\/g, '/').startsWith(`${folder}/`));
+					const mtime = duoFile?.modified ? new Date(duoFile.modified).getTime() : 0;
 
 					return {
 						folder,
-						date: date ?? '00000000',
+						date,
+						revision,
+						mtime,
 					};
 				})
-				.sort((a, b) => b.date.localeCompare(a.date))[0]?.folder;
+				.sort((a, b) => {
+					const dateCmp = b.date.localeCompare(a.date);
+					if (dateCmp !== 0) return dateCmp;
+					if (b.revision !== a.revision) return b.revision - a.revision;
+					return b.mtime - a.mtime;
+				})[0]?.folder;
 
 			const moduleDefinitions = await fetch('/api/projects/modules').then((r) => r.json());
 			setAvailableModules(moduleDefinitions.modules ?? []);

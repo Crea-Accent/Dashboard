@@ -209,9 +209,9 @@ export default function IpList({ client, onActionsChange }: Props) {
 		setLoading(true);
 		try {
 			const [metaRes, ipsRes, duoRes] = await Promise.all([
-				fetch(`/api/projects/metadata?client=${encodeURIComponent(client)}`),
-				fetch(`/api/projects/ips?client=${encodeURIComponent(client)}`),
-				fetch(`/api/projects/duotecno?client=${encodeURIComponent(client)}`),
+				fetch(`/api/projects/metadata?client=${encodeURIComponent(client)}`, { cache: 'no-store' }),
+				fetch(`/api/projects/ips?client=${encodeURIComponent(client)}`, { cache: 'no-store' }),
+				fetch(`/api/projects/duotecno?client=${encodeURIComponent(client)}`, { cache: 'no-store' }),
 			]);
 
 			if (metaRes.ok) {

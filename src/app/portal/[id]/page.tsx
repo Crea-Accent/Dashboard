@@ -81,7 +81,7 @@ export default function Page() {
 				if (data.allowed && data.basePath) {
 					try {
 						const programmationPath = `${data.basePath}/${projectId}/Programmation`;
-						const files = await fetch(`/api/files?view=${encodeURIComponent(programmationPath)}&recursive=1`).then((r) => r.json());
+						const files = await fetch(`/api/files?view=${encodeURIComponent(programmationPath)}&recursive=1`, { cache: 'no-store' }).then((r) => r.json());
 
 						if (Array.isArray(files)) {
 							const projectFolders = Array.from(
@@ -91,10 +91,26 @@ export default function Page() {
 							const latestFolder = projectFolders
 								.map((folder: string) => {
 									const folderName = folder.split(/[\\/]/).pop() ?? '';
-									const [, date] = folderName.split('__');
-									return { folder, date: date ?? '00000000' };
+									const parts = folderName.split('__');
+									let date = '00000000';
+									if (parts.length > 1 && /^\d{8}$/.test(parts[1])) {
+										const rawDate = parts[1];
+										const yearPrefix = parseInt(rawDate.slice(0, 4), 10);
+										date = yearPrefix >= 2000 && yearPrefix <= 2100 ? rawDate : `${rawDate.slice(4, 8)}${rawDate.slice(2, 4)}${rawDate.slice(0, 2)}`;
+									}
+									const tail = parts.length > 2 ? parts.slice(2).join('__') : folderName;
+									const revMatch = tail.match(/_(\d+)$/);
+									const revision = revMatch ? parseInt(revMatch[1], 10) : 0;
+									const duoFile = files.find((f: any) => f.type === 'file' && f.name.toLowerCase().endsWith('.duo') && f.path.replace(/\\/g, '/').startsWith(`${folder}/`));
+									const mtime = duoFile?.modified ? new Date(duoFile.modified).getTime() : 0;
+									return { folder, date, revision, mtime };
 								})
-								.sort((a, b) => b.date.localeCompare(a.date))[0]?.folder;
+								.sort((a, b) => {
+									const dateCmp = b.date.localeCompare(a.date);
+									if (dateCmp !== 0) return dateCmp;
+									if (b.revision !== a.revision) return b.revision - a.revision;
+									return b.mtime - a.mtime;
+								})[0]?.folder;
 
 							if (latestFolder) {
 								const nodeDatabase = await fetch(`/api/files/download?path=${encodeURIComponent(`${latestFolder}/Config/nodedatabase.cache.json`)}`).then((r) => r.json());
