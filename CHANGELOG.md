@@ -1,5 +1,11 @@
 # panel
 
+## 0.14.0
+
+### Minor Changes
+
+- Added actual control over buttons and triggers into the network and control tabs
+
 ## 0.13.0
 
 ### Minor Changes

@@ -1,10 +1,10 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
-import { Plus, Save, Network, RefreshCw, Trash2, Edit3, X, Check, Activity, Loader2, Search, Copy, ExternalLink, AlertTriangle, ChevronsUpDown } from 'lucide-react';
+import { Plus, Save, Network, RefreshCw, Trash2, Edit3, X, Check, Activity, Loader2, Search, Copy, ExternalLink, AlertTriangle, ChevronsUpDown, Zap, Send } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import EmptyState from '@/components/ui/EmptyState';
-import { MetadataType, IpEntry } from '@/components/projects/Metadata';
+import { MetadataType, IpEntry, GatewayTriggerItem } from '@/components/projects/Metadata';
 import { motion, AnimatePresence } from 'framer-motion';
 import Toggle from '@/components/ui/Toggle';
 import Modal from '@/components/ui/Modal';
@@ -56,6 +56,77 @@ export default function IpList({ client, onActionsChange }: Props) {
 	});
 	const [editingId, setEditingId] = useState<string | null>(null);
 	const [pingStatus, setPingStatus] = useState<Record<string, 'loading' | 'alive' | 'dead'>>({});
+	const [pingLatency, setPingLatency] = useState<Record<string, number>>({});
+	const [reachableSubnets, setReachableSubnets] = useState<Record<string, boolean>>({});
+
+	// Gateway HTTP Trigger Modal state
+	const [activeGateway, setActiveGateway] = useState<IpEntry | null>(null);
+	const [wildcardId, setWildcardId] = useState<string>('0');
+	const [triggerResponses, setTriggerResponses] = useState<
+		Record<
+			string,
+			{
+				status: 'idle' | 'loading' | 'success' | 'error';
+				message?: string;
+				ms?: number;
+			}
+		>
+	>({});
+
+	const openTriggerModal = (entry: IpEntry) => {
+		setActiveGateway(entry);
+		setWildcardId('0');
+		setTriggerResponses({});
+	};
+
+	const sendTrigger = async (idNum: number, responseKey = String(idNum)) => {
+		if (!activeGateway) return;
+		const clampedId = Math.max(0, Math.min(99, Number.isNaN(idNum) ? 0 : idNum));
+		const port = activeGateway.httpPort || 8080;
+		const url = `http://${activeGateway.ip.trim()}:${port}/trigger/${clampedId}`;
+
+		setTriggerResponses((prev) => ({ ...prev, [responseKey]: { status: 'loading' } }));
+		const controller = new AbortController();
+		const timeoutId = setTimeout(() => controller.abort(), 3000);
+		const start = performance.now();
+
+		try {
+			const res = await fetch(url, {
+				mode: 'no-cors',
+				cache: 'no-store',
+				signal: controller.signal,
+			});
+			clearTimeout(timeoutId);
+			const ms = Math.max(1, Math.round(performance.now() - start));
+			let bodyText = '';
+			try {
+				if (res.type !== 'opaque') {
+					bodyText = await res.text();
+				}
+			} catch {
+				// Ignore body read error on opaque response
+			}
+			setTriggerResponses((prev) => ({
+				...prev,
+				[responseKey]: {
+					status: 'success',
+					ms,
+					message: bodyText.trim() || `200 OK — Trigger #${clampedId} sent (${ms}ms)`,
+				},
+			}));
+		} catch (err: any) {
+			clearTimeout(timeoutId);
+			const ms = Math.max(1, Math.round(performance.now() - start));
+			setTriggerResponses((prev) => ({
+				...prev,
+				[responseKey]: {
+					status: 'error',
+					ms,
+					message: err?.name === 'AbortError' ? 'Timed out (3000ms)' : `Unreachable (${ms}ms)`,
+				},
+			}));
+		}
+	};
 
 	const copyToClipboard = (id: string, text: string) => {
 		navigator.clipboard?.writeText(text);
@@ -63,14 +134,32 @@ export default function IpList({ client, onActionsChange }: Props) {
 		setTimeout(() => setCopiedId((prev) => (prev === id ? null : prev)), 1500);
 	};
 
+	const probeLocalIp = async (ip: string, timeoutMs = 2200): Promise<{ alive: boolean; ms?: number }> => {
+		const cleanIp = ip.trim();
+		if (!cleanIp) return { alive: false };
+		const controller = new AbortController();
+		const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+		const start = performance.now();
+		try {
+			await fetch(`http://${cleanIp}`, {
+				mode: 'no-cors',
+				cache: 'no-store',
+				signal: controller.signal,
+			});
+			clearTimeout(timeoutId);
+			return { alive: true, ms: Math.max(1, Math.round(performance.now() - start)) };
+		} catch {
+			clearTimeout(timeoutId);
+			return { alive: false };
+		}
+	};
+
 	const pingIp = async (id: string, ip: string) => {
 		setPingStatus((prev) => ({ ...prev, [id]: 'loading' }));
-		try {
-			const res = await fetch(`/api/ping?ip=${ip}`);
-			const data = await res.json();
-			setPingStatus((prev) => ({ ...prev, [id]: data.alive ? 'alive' : 'dead' }));
-		} catch {
-			setPingStatus((prev) => ({ ...prev, [id]: 'dead' }));
+		const result = await probeLocalIp(ip);
+		setPingStatus((prev) => ({ ...prev, [id]: result.alive ? 'alive' : 'dead' }));
+		if (result.ms !== undefined) {
+			setPingLatency((prev) => ({ ...prev, [id]: result.ms! }));
 		}
 	};
 
@@ -81,12 +170,10 @@ export default function IpList({ client, onActionsChange }: Props) {
 
 		await Promise.all(
 			entries.map(async (entry) => {
-				try {
-					const res = await fetch(`/api/ping?ip=${entry.ip}`);
-					const data = await res.json();
-					setPingStatus((prev) => ({ ...prev, [entry.id]: data.alive ? 'alive' : 'dead' }));
-				} catch {
-					setPingStatus((prev) => ({ ...prev, [entry.id]: 'dead' }));
+				const result = await probeLocalIp(entry.ip);
+				setPingStatus((prev) => ({ ...prev, [entry.id]: result.alive ? 'alive' : 'dead' }));
+				if (result.ms !== undefined) {
+					setPingLatency((prev) => ({ ...prev, [entry.id]: result.ms! }));
 				}
 			})
 		);
@@ -125,25 +212,119 @@ export default function IpList({ client, onActionsChange }: Props) {
 				const nodeServicesFiles = files.filter((f: any) => f.name.toLowerCase() === 'projectnodeservices.json');
 
 				if (nodeServicesFiles.length > 0) {
-					// Pick the latest one based on the folder date
+					// Pick the latest one based on the folder __YYYYMMDD__ date (falling back to modified time)
+					const getFolderDate = (p: string) => {
+						const match = p.match(/__(\d{8})__/);
+						return match ? match[1] : '00000000';
+					};
+					const sortByLatestFolder = (a: any, b: any) => {
+						const dateDiff = getFolderDate(b.path).localeCompare(getFolderDate(a.path));
+						if (dateDiff !== 0) return dateDiff;
+						return new Date(b.modified).getTime() - new Date(a.modified).getTime();
+					};
+
 					let newExtractedIps: IpEntry[] = [];
 
 					// 1. Process projectnodeservices.json
-					const latestFile = nodeServicesFiles.sort((a: any, b: any) => new Date(b.modified).getTime() - new Date(a.modified).getTime())[0];
+					const latestFile = nodeServicesFiles.sort(sortByLatestFolder)[0];
 					if (latestFile) {
+						const folderPrefix = latestFile.path.replace(/[/\\][^/\\]+$/, '');
+
+						// Parse nodedatabase.txt if present in the same Config folder to get human-friendly gateway names
+						const nodeNamesByAddress: Record<string, string> = {};
+						const nodeDbFile = files.find((f: any) => f.name.toLowerCase() === 'nodedatabase.txt' && f.path.replace(/[/\\][^/\\]+$/, '') === folderPrefix);
+						if (nodeDbFile) {
+							try {
+								const dbRes = await fetch(`/api/files/download?path=${encodeURIComponent(nodeDbFile.path)}`);
+								if (dbRes.ok) {
+									const dbText = await dbRes.text();
+									const nodeBlocks = dbText.split(/NODE=\d+;/i);
+									for (const block of nodeBlocks) {
+										const addrMatch = block.match(/bNodeAddress=(0x[0-9a-fA-F]+);/);
+										const nameMatch = block.match(/szName=([^;\r\n]*);/);
+										if (addrMatch && nameMatch && nameMatch[1].trim()) {
+											nodeNamesByAddress[addrMatch[1].toLowerCase()] = nameMatch[1].trim();
+										}
+									}
+								}
+							} catch {
+								// Ignore optional nodedatabase parsing errors
+							}
+						}
+
 						const jsonRes = await fetch(`/api/files/download?path=${encodeURIComponent(latestFile.path)}`);
 						if (jsonRes.ok) {
 							const data = await jsonRes.json();
 							if (data.serverNodes && Array.isArray(data.serverNodes)) {
-								newExtractedIps.push(
-									...data.serverNodes.map((n: any) => ({
-										id: `extracted-node-${n.logicalAddress || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15))}`,
-										ip: n.localAddress || '',
-										mac: n.MAC || '',
-										name: `Node ${n.logicalAddress}`,
-										status: 'static' as const,
-									}))
+								const nodesWithMeta = await Promise.all(
+									data.serverNodes.map(async (n: any) => {
+										const logicalAddr = String(n.logicalAddress || '').toLowerCase();
+										const hexCode = logicalAddr.replace(/^0x/i, '');
+										const httpService = Array.isArray(n.services) ? n.services.find((s: any) => s.type === 'dt_http') : null;
+										const httpPort = httpService && Number(httpService.localPort) > 0 ? Number(httpService.localPort) : 8080;
+
+										let configuredTriggers: GatewayTriggerItem[] = [];
+										if (hexCode) {
+											const triggerFile = files.find(
+												(f: any) => f.name.toLowerCase() === `triggersactionsconfig_${hexCode}.json` && f.path.replace(/[/\\][^/\\]+$/, '') === folderPrefix
+											);
+											if (triggerFile) {
+												try {
+													const trigRes = await fetch(`/api/files/download?path=${encodeURIComponent(triggerFile.path)}`);
+													if (trigRes.ok) {
+														const trigData = await trigRes.json();
+														const actionsMap = new Map<string, any>();
+														if (Array.isArray(trigData.actions)) {
+															trigData.actions.forEach((a: any) => {
+																if (a.id !== undefined) {
+																	actionsMap.set(String(a.id), a);
+																}
+															});
+														}
+														if (Array.isArray(trigData.triggers)) {
+															trigData.triggers.forEach((t: any) => {
+																if (t.type === 'http_trigger') {
+																	const rawId = t.value?.id !== undefined ? Number(t.value.id) : Number(t.id);
+																	if (!Number.isNaN(rawId)) {
+																		const act = t.action !== undefined ? actionsMap.get(String(t.action)) : undefined;
+																		const actTarget = act?.value?.unitAddress || act?.value?.url || act?.value?.['ip-address'] || undefined;
+																		configuredTriggers.push({
+																			triggerId: rawId,
+																			name: t.name || `Trigger #${rawId}`,
+																			actionId: t.action !== undefined ? String(t.action) : undefined,
+																			actionName: act?.name || undefined,
+																			actionType: act?.type || undefined,
+																			actionTarget: actTarget ? String(actTarget) : undefined,
+																			type: t.type,
+																		});
+																	}
+																}
+															});
+														}
+													}
+												} catch {
+													// Ignore optional trigger config parsing errors
+												}
+											}
+										}
+
+										const dbNodeName = logicalAddr ? nodeNamesByAddress[logicalAddr] : undefined;
+										const displayName = dbNodeName ? `${dbNodeName} (Node ${n.logicalAddress})` : `Node ${n.logicalAddress}`;
+
+										return {
+											id: `extracted-node-${n.logicalAddress || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15))}`,
+											ip: n.localAddress || '',
+											mac: n.MAC || '',
+											name: displayName,
+											status: 'static' as const,
+											isGateway: true,
+											httpPort,
+											logicalAddress: n.logicalAddress,
+											configuredTriggers,
+										};
+									})
 								);
+								newExtractedIps.push(...nodesWithMeta);
 							}
 						}
 					}
@@ -151,7 +332,7 @@ export default function IpList({ client, onActionsChange }: Props) {
 					// 2. Process cameras.json
 					const cameraFiles = files.filter((f: any) => f.name.toLowerCase() === 'cameras.json');
 					if (cameraFiles.length > 0) {
-						const latestCamFile = cameraFiles.sort((a: any, b: any) => new Date(b.modified).getTime() - new Date(a.modified).getTime())[0];
+						const latestCamFile = cameraFiles.sort(sortByLatestFolder)[0];
 						const camRes = await fetch(`/api/files/download?path=${encodeURIComponent(latestCamFile.path)}`);
 						if (camRes.ok) {
 							const cams = await camRes.json();
@@ -255,6 +436,65 @@ export default function IpList({ client, onActionsChange }: Props) {
 		return { allIps: list, duplicateIpSet: dupSet };
 	}, [extractedIps, manualIps]);
 
+	// Check each x.x.x.0-254 subnet range to see if the user is on the same local network
+	useEffect(() => {
+		if (allIps.length === 0 || typeof window === 'undefined') return;
+		let cancelled = false;
+
+		const subnetGroups: Record<string, IpEntry[]> = {};
+		for (const entry of allIps) {
+			const parts = entry.ip.trim().split('.');
+			if (parts.length === 4) {
+				const subnetKey = `${parts[0]}.${parts[1]}.${parts[2]}.x`;
+				if (!subnetGroups[subnetKey]) subnetGroups[subnetKey] = [];
+				subnetGroups[subnetKey].push(entry);
+			}
+		}
+
+		// Check if window.location.hostname already matches one of the x.x.x prefixes
+		const hostParts = window.location.hostname.split('.');
+		if (hostParts.length === 4 && hostParts.every((p) => /^\d+$/.test(p))) {
+			const hostSubnet = `${hostParts[0]}.${hostParts[1]}.${hostParts[2]}.x`;
+			if (subnetGroups[hostSubnet]) {
+				setReachableSubnets((prev) => ({ ...prev, [hostSubnet]: true }));
+			}
+		}
+
+		// Probe gateway (.1, .254) and project IPs in each x.x.x.0-254 subnet
+		Object.entries(subnetGroups).forEach(async ([subnetKey, entries]) => {
+			const prefix = subnetKey.slice(0, -2); // "x.x.x"
+			const deviceSample = entries.slice(0, 6);
+			const gatewayIps = [`${prefix}.1`, `${prefix}.254`];
+
+			const deviceChecks = deviceSample.map(async (entry) => {
+				const res = await probeLocalIp(entry.ip, 1500);
+				if (!cancelled && res.alive) {
+					setReachableSubnets((prev) => (prev[subnetKey] ? prev : { ...prev, [subnetKey]: true }));
+					setPingStatus((prev) => ({ ...prev, [entry.id]: 'alive' }));
+					if (res.ms !== undefined) {
+						setPingLatency((prev) => ({ ...prev, [entry.id]: res.ms! }));
+					}
+				}
+				return res.alive;
+			});
+
+			const gatewayChecks = gatewayIps.map(async (gwIp) => {
+				const res = await probeLocalIp(gwIp, 1500);
+				if (!cancelled && res.alive) {
+					setReachableSubnets((prev) => (prev[subnetKey] ? prev : { ...prev, [subnetKey]: true }));
+				}
+				return res.alive;
+			});
+
+			await Promise.all([...deviceChecks, ...gatewayChecks]);
+		});
+
+		return () => {
+			cancelled = true;
+		};
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [allIps]);
+
 	if (loading) {
 		return (
 			<div className="p-8 flex justify-center">
@@ -341,48 +581,8 @@ export default function IpList({ client, onActionsChange }: Props) {
 
 	return (
 		<div className="flex flex-col gap-5 pb-32">
-			{/* IP Conflict Warning Banner */}
-			{duplicateIpSet.size > 0 && (
-				<div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center justify-between gap-3 text-red-500">
-					<div className="flex items-center gap-2.5 text-sm font-medium">
-						<AlertTriangle size={18} className="shrink-0" />
-						<span>
-							<strong>IP Conflict Detected:</strong> Multiple devices are assigned to <span className="font-mono font-bold">{Array.from(duplicateIpSet).join(', ')}</span>
-						</span>
-					</div>
-				</div>
-			)}
-
-			{/* Search & Subnet Controls Bar */}
-			{allIps.length > 0 && (
-				<div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-					<div className="relative flex-1">
-						<Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
-						<input
-							type="text"
-							value={searchQuery}
-							onChange={(e) => {
-								setSearchQuery(e.target.value);
-								if (e.target.value.trim()) {
-									setOpenSubnets(subnetKeys);
-								}
-							}}
-							placeholder={`Search ${allIps.length} devices by IP, name, or MAC address...`}
-							className="w-full h-11 pl-10 pr-4 rounded-2xl border border-[var(--border)]/15 bg-[var(--foreground)] text-sm text-[var(--text)] focus:outline-none focus:border-[var(--accent)]"
-						/>
-					</div>
-
-					<Button variant="secondary" icon={<ChevronsUpDown size={15} />} onClick={() => setOpenSubnets(allSubnetsOpen ? [] : subnetKeys)} className="shrink-0">
-						{allSubnetsOpen ? 'Collapse All' : 'Expand All'}
-					</Button>
-				</div>
-			)}
-
 			{subnetKeys.length === 0 ? (
-				<EmptyState
-					title={searchQuery ? 'No Matching Devices' : 'No IP Addresses Found'}
-					description={searchQuery ? 'Try another IP, device name, or MAC address.' : 'Upload a DuoTecno project or manually add IPs to track them here.'}
-				/>
+				<EmptyState title="No IP Addresses Found" description="Upload a DuoTecno project or manually add IPs to track them here." />
 			) : (
 				<div className="flex flex-col gap-4">
 					{subnetKeys.map((subnet) => (
@@ -392,38 +592,29 @@ export default function IpList({ client, onActionsChange }: Props) {
 									<Network className="text-(--accent)" size={20} />
 									<span className="font-semibold text-(--text) text-lg">{subnet}</span>
 									<span className="text-xs font-medium text-(--text-muted) bg-(--foreground) px-2 py-1 rounded-full">{subnets[subnet].length} IPs</span>
-									{subnets[subnet].some((e) => duplicateIpSet.has(e.ip.trim())) && (
-										<span className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full bg-red-500/15 text-red-500">
-											<AlertTriangle size={12} /> Conflict
-										</span>
-									)}
 								</div>
 							</button>
 
 							<AnimatePresence initial={false}>
-								{(openSubnets.includes(subnet) || Boolean(q)) && (
+								{openSubnets.includes(subnet) && (
 									<motion.div {...collapseAnimation} className="">
 										<div className="p-4 grid gap-2">
 											<div className="flex justify-between items-center mb-2 px-2">
 												<span className="text-sm font-medium text-[var(--text-muted)]">Devices</span>
-												<Button variant="ghost" size="sm" onClick={() => pingAll(subnets[subnet])} icon={<Activity size={14} />} className="!h-7 text-xs">
-													Ping All
-												</Button>
+												{reachableSubnets[subnet] && (
+													<Button variant="ghost" size="sm" onClick={() => pingAll(subnets[subnet])} icon={<Activity size={14} />} className="!h-7 text-xs">
+														Ping All
+													</Button>
+												)}
 											</div>
 											{subnets[subnet].map((entry) => {
 												const isManual = (entry as any).isManual;
 												const isOverride = (entry as any).isOverride;
 												const manualEntry = isManual ? manualIps.find((m) => m.id === entry.id) : null;
 												const isEditing = editingId === entry.id;
-												const hasConflict = duplicateIpSet.has(entry.ip.trim());
 
 												return (
-													<div
-														key={entry.id}
-														className={`flex flex-col md:flex-row md:items-center gap-4 bg-[var(--background)] p-4 rounded-2xl border ${
-															hasConflict ? 'border-red-500/40 bg-red-500/[0.03]' : 'border-transparent'
-														}`}
-													>
+													<div key={entry.id} className="flex flex-col md:flex-row md:items-center gap-4 bg-[var(--background)] p-4 rounded-2xl">
 														{isEditing && manualEntry ? (
 															isOverride ? (
 																<div className="flex-1 grid grid-cols-1 md:grid-cols-[1fr_2fr_1fr_auto] gap-3 items-center">
@@ -469,28 +660,11 @@ export default function IpList({ client, onActionsChange }: Props) {
 														) : (
 															<>
 																<div className="w-full md:w-48 font-mono text-sm text-(--text) flex items-center gap-2">
-																	<div>
-																		<span className="opacity-50">{entry.ip.split('.').slice(0, 3).join('.')}.</span>
-																		<span className="font-bold text-(--accent)">{entry.ip.split('.')[3]}</span>
-																	</div>
-																	<button
-																		type="button"
-																		onClick={() => copyToClipboard(entry.id, entry.ip)}
-																		className="p-1 rounded-md text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--foreground)] transition-colors"
-																		title="Copy IP address"
-																	>
-																		{copiedId === entry.id ? <Check size={13} className="text-emerald-500" /> : <Copy size={13} />}
-																	</button>
+																	<span className="opacity-50">{entry.ip.split('.').slice(0, 3).join('.')}.</span>
+																	<span className="font-bold text-(--accent)">{entry.ip.split('.')[3]}</span>
 																</div>
-																<div className="flex-1 min-w-0">
-																	<div className="font-medium text-(--text) truncate flex items-center gap-2">
-																		<span className="truncate">{entry.name || 'Unknown Device'}</span>
-																		{hasConflict && (
-																			<span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-red-500/15 text-red-500 shrink-0">
-																				<AlertTriangle size={11} /> Duplicate IP
-																			</span>
-																		)}
-																	</div>
+																<div className="flex-1">
+																	<div className="font-medium text-(--text)">{entry.name || 'Unknown Device'}</div>
 																	{entry.mac && <div className="text-xs text-(--text-muted) font-mono mt-1">{entry.mac}</div>}
 																</div>
 																<div className="flex items-center gap-3">
@@ -505,26 +679,28 @@ export default function IpList({ client, onActionsChange }: Props) {
 																	)}
 
 																	<div className="flex items-center gap-1">
-																		<a
-																			href={`http://${entry.ip}`}
-																			target="_blank"
-																			rel="noopener noreferrer"
-																			className="p-2 rounded-xl text-[var(--text-muted)] hover:text-[var(--accent)] hover:bg-[var(--foreground)] transition-colors"
-																			title={`Open http://${entry.ip} in new tab`}
+																		<Button
+																			variant="ghost"
+																			size="sm"
+																			onClick={() => openTriggerModal(entry)}
+																			className="!px-2.5 !h-8 text-xs"
+																			icon={<Zap size={15} />}
 																		>
-																			<ExternalLink size={15} />
-																		</a>
-																		<Button variant="ghost" size="sm" onClick={() => pingIp(entry.id, entry.ip)} className="!px-2" title="Ping IP">
-																			{pingStatus[entry.id] === 'loading' ? (
-																				<Loader2 size={16} className="animate-spin text-[var(--text-muted)]" />
-																			) : pingStatus[entry.id] === 'alive' ? (
-																				<Activity size={16} className="text-green-500" />
-																			) : pingStatus[entry.id] === 'dead' ? (
-																				<Activity size={16} className="text-red-500" />
-																			) : (
-																				<Activity size={16} className="text-[var(--text-muted)] hover:text-[var(--text)] transition-colors" />
-																			)}
+																			Trigger
 																		</Button>
+																		{reachableSubnets[subnet] && (
+																			<Button variant="ghost" size="sm" onClick={() => pingIp(entry.id, entry.ip)} className="!px-2" title="Ping IP">
+																				{pingStatus[entry.id] === 'loading' ? (
+																					<Loader2 size={16} className="animate-spin text-[var(--text-muted)]" />
+																				) : pingStatus[entry.id] === 'alive' ? (
+																					<Activity size={16} className="text-green-500" />
+																				) : pingStatus[entry.id] === 'dead' ? (
+																					<Activity size={16} className="text-red-500" />
+																				) : (
+																					<Activity size={16} className="text-[var(--text-muted)] hover:text-[var(--text)] transition-colors" />
+																				)}
+																			</Button>
+																		)}
 																		{hasWrite && (
 																			<>
 																				<Button
@@ -590,6 +766,124 @@ export default function IpList({ client, onActionsChange }: Props) {
 						</Button>
 					</div>
 				</div>
+			</Modal>
+
+			<Modal open={Boolean(activeGateway)} title={activeGateway ? `HTTP Triggers — ${activeGateway.name || activeGateway.ip}` : 'HTTP Triggers'} size="lg" onClose={() => setActiveGateway(null)}>
+				{activeGateway &&
+					(() => {
+						const port = activeGateway.httpPort || 8080;
+						const cleanIp = activeGateway.ip.trim();
+						const triggers = activeGateway.configuredTriggers || [];
+						const wildcardResp = triggerResponses['wildcard'];
+
+						return (
+							<div className="flex flex-col gap-3">
+								{triggers.map((trig) => {
+									const resp = triggerResponses[String(trig.triggerId)];
+
+									return (
+										<div key={trig.triggerId} className="p-3.5 rounded-2xl bg-[var(--background)] border border-[var(--border)]/10 flex flex-col gap-2">
+											<div className="flex items-center justify-between gap-2 text-xs px-0.5">
+												<span className="font-semibold text-[var(--text)]">{trig.name}</span>
+												{(trig.actionName || trig.actionType) && (
+													<span className="text-[var(--text-muted)] truncate">
+														{trig.actionName || `#${trig.actionId}`}
+														{trig.actionType ? ` (${trig.actionType}${trig.actionTarget ? ` • ${trig.actionTarget}` : ''})` : ''}
+													</span>
+												)}
+											</div>
+
+											<div className="flex items-center gap-2">
+												<div className="flex-1 min-w-0 flex items-center bg-[var(--foreground)] border border-[var(--border)]/15 rounded-xl px-3 h-10 font-mono text-xs sm:text-sm">
+													<span className="text-[var(--text-muted)] truncate select-all">
+														http://{cleanIp}:{port}/trigger/
+													</span>
+												</div>
+
+												<div className="w-16 h-10 shrink-0 flex items-center justify-center rounded-xl bg-[var(--foreground)] border border-[var(--border)]/15 font-mono text-sm text-[var(--accent)] font-bold select-all">
+													{trig.triggerId}
+												</div>
+
+												<Button
+													variant="primary"
+													size="sm"
+													className="!h-10 shrink-0"
+													onClick={() => sendTrigger(trig.triggerId, String(trig.triggerId))}
+													disabled={resp?.status === 'loading'}
+													icon={resp?.status === 'loading' ? <Loader2 size={15} className="animate-spin" /> : <Zap size={15} />}
+												>
+													Trigger
+												</Button>
+											</div>
+
+											{resp && resp.status !== 'idle' && (
+												<div
+													className={`px-3 py-2 rounded-xl font-mono text-xs border ${
+														resp.status === 'loading'
+															? 'bg-[var(--foreground)] border-[var(--border)]/15 text-[var(--text-muted)]'
+															: resp.status === 'success'
+																? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500'
+																: 'bg-red-500/10 border-red-500/30 text-red-500'
+													}`}
+												>
+													{resp.status === 'loading' ? 'Sending...' : resp.message}
+												</div>
+											)}
+										</div>
+									);
+								})}
+
+								{/* Wildcard / Custom Trigger Entry */}
+								<div className="p-3.5 rounded-2xl bg-[var(--background)] border border-[var(--border)]/10 flex flex-col gap-2">
+									<div className="flex items-center gap-2">
+										<div className="flex-1 min-w-0 flex items-center bg-[var(--foreground)] border border-[var(--border)]/15 rounded-xl px-3 h-10 font-mono text-xs sm:text-sm">
+											<span className="text-[var(--text-muted)] truncate select-all">
+												http://{cleanIp}:{port}/trigger/
+											</span>
+										</div>
+
+										<input
+											type="number"
+											min={0}
+											max={99}
+											value={wildcardId}
+											onChange={(e) => setWildcardId(e.target.value)}
+											onKeyDown={(e) => {
+												if (e.key === 'Enter') sendTrigger(parseInt(wildcardId || '0', 10), 'wildcard');
+											}}
+											placeholder="0-99"
+											className="w-16 h-10 shrink-0 px-2 rounded-xl bg-[var(--foreground)] border border-[var(--border)]/20 font-mono text-sm text-[var(--accent)] font-bold text-center focus:outline-none focus:border-[var(--accent)]"
+										/>
+
+										<Button
+											variant="primary"
+											size="sm"
+											className="!h-10 shrink-0"
+											onClick={() => sendTrigger(parseInt(wildcardId || '0', 10), 'wildcard')}
+											disabled={wildcardResp?.status === 'loading'}
+											icon={wildcardResp?.status === 'loading' ? <Loader2 size={15} className="animate-spin" /> : <Zap size={15} />}
+										>
+											Trigger
+										</Button>
+									</div>
+
+									{wildcardResp && wildcardResp.status !== 'idle' && (
+										<div
+											className={`px-3 py-2 rounded-xl font-mono text-xs border ${
+												wildcardResp.status === 'loading'
+													? 'bg-[var(--foreground)] border-[var(--border)]/15 text-[var(--text-muted)]'
+													: wildcardResp.status === 'success'
+														? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500'
+														: 'bg-red-500/10 border-red-500/30 text-red-500'
+											}`}
+										>
+											{wildcardResp.status === 'loading' ? 'Sending...' : wildcardResp.message}
+										</div>
+									)}
+								</div>
+							</div>
+						);
+					})()}
 			</Modal>
 		</div>
 	);

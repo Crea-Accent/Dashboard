@@ -1,6 +1,6 @@
 'use client';
 
-import { Info, Pointer, SunDim, Zap, Hand, Sun, Search, Filter, X } from 'lucide-react';
+import { Info, Pointer, SunDim, Zap, Hand, Sun, Search, Filter, X, Loader2 } from 'lucide-react';
 import { useEffect, useState, useMemo } from 'react';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
@@ -8,12 +8,187 @@ import Modal from '../ui/Modal';
 import { linkNodeUnitsWithBindings } from '@/lib/duotecno';
 import { ReactSVG } from 'react-svg';
 
+type HttpTriggerLink = {
+	gatewayIp: string;
+	httpPort: number;
+	nodeAddress: string;
+	unitAddress: string;
+	fullAddress: string; // normalized "0xfc;0x9c"
+	triggerId: number;
+	triggerName: string;
+	actionName?: string;
+	actionType?: string;
+	targetOutputs: Set<string>; // normalized "0x07;0x00" output addresses driven by this virtual unit
+};
+
+type LedBlockConfig = {
+	ledIndex: number;
+	func: number;
+	targetAddress?: string;
+	feedbackType?: string;
+	hasCustomFeedback: boolean;
+	colorOn: number;
+	colorOff: number;
+};
+
+type LedTemplateConfig = Record<string, { colorOn: number; colorOff: number }>;
+
+const DUOTECNO_LED_COLORS: Record<number, { name: string; hex: string; glow: string; border: string; bg: string }> = {
+	1: { name: 'Red', hex: '#ef4444', glow: '0 0 14px rgba(239, 68, 68, 0.85)', border: 'rgba(239, 68, 68, 0.65)', bg: 'rgba(239, 68, 68, 0.14)' },
+	2: { name: 'Green', hex: '#22c55e', glow: '0 0 14px rgba(34, 197, 94, 0.85)', border: 'rgba(34, 197, 94, 0.65)', bg: 'rgba(34, 197, 94, 0.14)' },
+	3: { name: 'Blue', hex: '#3b82f6', glow: '0 0 14px rgba(59, 130, 246, 0.85)', border: 'rgba(59, 130, 246, 0.65)', bg: 'rgba(59, 130, 246, 0.14)' },
+	4: { name: 'Yellow', hex: '#eab308', glow: '0 0 14px rgba(234, 179, 8, 0.85)', border: 'rgba(234, 179, 8, 0.65)', bg: 'rgba(234, 179, 8, 0.14)' },
+	5: { name: 'Purple', hex: '#a855f7', glow: '0 0 14px rgba(168, 85, 247, 0.85)', border: 'rgba(168, 85, 247, 0.65)', bg: 'rgba(168, 85, 247, 0.14)' },
+	6: { name: 'White', hex: '#ffffff', glow: '0 0 14px rgba(255, 255, 255, 0.95), 0 0 6px rgba(148, 163, 184, 0.8)', border: 'rgba(228, 228, 231, 0.85)', bg: 'rgba(255, 255, 255, 0.16)' },
+	7: { name: 'Cyan', hex: '#06b6d4', glow: '0 0 14px rgba(6, 182, 212, 0.85)', border: 'rgba(6, 182, 212, 0.65)', bg: 'rgba(6, 182, 212, 0.14)' },
+	8: { name: 'Orange', hex: '#f97316', glow: '0 0 14px rgba(249, 115, 22, 0.85)', border: 'rgba(249, 115, 22, 0.65)', bg: 'rgba(249, 115, 22, 0.14)' },
+};
+
+function parseLedTemplateTxt(content: string): LedTemplateConfig {
+	const result: LedTemplateConfig = {};
+	let currentSection = '';
+	let colorOn = 6;
+	let colorOff = 0;
+
+	const flush = () => {
+		if (currentSection) {
+			result[currentSection] = { colorOn, colorOff };
+		}
+	};
+
+	for (const rawLine of content.split(/\r?\n/)) {
+		const line = rawLine.trim().replace(/;$/, '');
+		if (!line || line.startsWith(';')) continue;
+		const [k, v] = line.split('=');
+		if (!k || v === undefined) continue;
+		const key = k.trim();
+		const val = v.trim();
+
+		if (key.startsWith('FDBK_')) {
+			flush();
+			currentSection = key;
+			colorOn = 6;
+			colorOff = 0;
+		} else if (key === 'ColorOn' || key === 'ColorActive' || key === 'ColorBusyUp' || key === 'ColorHeating') {
+			const n = parseInt(val.split(';')[0], 10);
+			if (!Number.isNaN(n)) colorOn = n;
+		} else if (key === 'ColorPreset' || key === 'ColorSrc') {
+			const n = parseInt(val.split(';')[0], 10);
+			if (!Number.isNaN(n)) colorOn = n;
+		} else if (key === 'ColorOff' || key === 'ColorIdle' || key === 'ColorStable') {
+			const n = parseInt(val.split(';')[0], 10);
+			if (!Number.isNaN(n)) colorOff = n;
+		}
+	}
+	flush();
+	return result;
+}
+
+function parseLedsCfgTxt(content: string): LedBlockConfig[] {
+	const blocks: LedBlockConfig[] = [];
+	let current: Partial<LedBlockConfig> | null = null;
+	let nodeAddr = '';
+	let unitAddr = '';
+
+	const flush = () => {
+		if (current && current.ledIndex !== undefined) {
+			const normNode = normalizeHexPart(nodeAddr);
+			const normUnit = normalizeHexPart(unitAddr);
+			const targetAddress = normNode && normUnit && normNode !== '0xff' && normUnit !== '0xff' ? `${normNode};${normUnit}` : undefined;
+			blocks.push({
+				ledIndex: current.ledIndex,
+				func: current.func ?? 0,
+				targetAddress,
+				feedbackType: current.feedbackType,
+				hasCustomFeedback: Boolean(current.hasCustomFeedback),
+				colorOn: current.colorOn ?? 6,
+				colorOff: current.colorOff ?? 0,
+			});
+		}
+	};
+
+	for (const rawLine of content.split(/\r?\n/)) {
+		const line = rawLine.trim().replace(/;$/, '');
+		if (!line || line.startsWith(';')) continue;
+		const [k, v] = line.split('=');
+		if (!k || v === undefined) continue;
+		const key = k.trim();
+		const val = v.trim();
+
+		if (key === 'GENERAL') {
+			flush();
+			current = null;
+			continue;
+		}
+		if (key === 'LED') {
+			flush();
+			current = { ledIndex: parseInt(val, 10), func: 0, hasCustomFeedback: false, colorOn: 6, colorOff: 0 };
+			nodeAddr = '';
+			unitAddr = '';
+			continue;
+		}
+		if (!current) continue;
+
+		if (key === 'Function') {
+			current.func = parseInt(val, 10) || 0;
+		} else if (key === 'NodeAddress') {
+			nodeAddr = val;
+		} else if (key === 'UnitAddress') {
+			unitAddr = val;
+		} else if (key.startsWith('FDBK_')) {
+			current.feedbackType = key;
+			if (parseInt(val, 10) === 1) {
+				current.hasCustomFeedback = true;
+			}
+		} else if (key === 'ColorOn' || key === 'ColorActive' || key === 'ColorUp' || key === 'ColorBusyUp') {
+			const n = parseInt(val.split(';')[0], 10);
+			if (!Number.isNaN(n) && (n > 0 || key === 'ColorOn' || key === 'ColorActive')) {
+				current.colorOn = n;
+			}
+		} else if (key === 'ColorSrc' || key === 'ColorPreset') {
+			const n = parseInt(val.split(';')[0], 10);
+			if (!Number.isNaN(n)) current.colorOn = n;
+		} else if (key === 'ColorOff' || key === 'ColorIdle') {
+			const n = parseInt(val.split(';')[0], 10);
+			if (!Number.isNaN(n)) current.colorOff = n;
+		}
+	}
+	flush();
+	return blocks;
+}
+
+function normalizeHexPart(part: string): string {
+	const clean = part.trim().toLowerCase().replace(/^0x/, '');
+	if (!clean) return '';
+	return `0x${clean.padStart(2, '0')}`;
+}
+
+function normalizeDuotecnoAddr(addr?: string): string {
+	if (!addr) return '';
+	const parts = addr.trim().replace(/;$/, '').split(';');
+	if (parts.length < 2) return addr.trim().toLowerCase();
+	return `${normalizeHexPart(parts[0])};${normalizeHexPart(parts[1])}`;
+}
+
 export default function Controls({ basePath, client, onActionsChange }: { basePath: string; client: string; onActionsChange?: (actions: any) => void }) {
 	const [projectSetup, setProjectSetup] = useState<any>(null);
 	const [loading, setLoading] = useState(true);
 	const [printing, setPrinting] = useState(false);
 	const [nodesData, setNodesData] = useState<any[]>([]);
 	const [bindingsData, setBindingsData] = useState<any[]>([]);
+	const [httpTriggers, setHttpTriggers] = useState<HttpTriggerLink[]>([]);
+	const [ledTemplate, setLedTemplate] = useState<LedTemplateConfig>({});
+	const [ledsByNode, setLedsByNode] = useState<Record<string, LedBlockConfig[]>>({});
+	const [activeQuadrants, setActiveQuadrants] = useState<Record<string, boolean>>({});
+	const [triggerStatus, setTriggerStatus] = useState<
+		Record<
+			string,
+			{
+				status: 'idle' | 'loading' | 'success' | 'error';
+				message?: string;
+			}
+		>
+	>({});
 	const [bindingsModal, setBindingsModal] = useState<any | null>(null);
 	const [focusedChannel, setFocusedChannel] = useState<number | null>(null);
 
@@ -116,9 +291,171 @@ export default function Controls({ basePath, client, onActionsChange }: { basePa
 						.then((r) => r.json())
 						.catch(() => null);
 
+					const linkedBindings = linkNodeUnitsWithBindings(JSON.stringify(nodeDatabase), bindingTxt);
+
+					// Parse projectnodeservices.json + TriggersActionsconfig_<hex>.json (+ MoodConfig_<hex>.txt) and LEDConfig / ledscfg_<hex>.txt
+					const discoveredTriggers: HttpTriggerLink[] = [];
+					let parsedTemplate: LedTemplateConfig = {};
+					const parsedLedsByNode: Record<string, LedBlockConfig[]> = {};
+					try {
+						const configFolderPrefix = `${latestFolder}/Config`.replace(/\\/g, '/').toLowerCase();
+						const configFiles = Array.isArray(files) ? files.filter((f: any) => f.path.replace(/\\/g, '/').toLowerCase().startsWith(configFolderPrefix)) : [];
+
+						// 1. Parse LEDConfig template + per-node ledscfg_<hex>.txt
+						try {
+							const selectedTemplateFile = configFiles.find((f: any) => f.name.toLowerCase() === 'ledconfigselectedtemplate.txt');
+							let templateFile: any = null;
+							if (selectedTemplateFile) {
+								const selTxt = await fetch(`/api/files/download?path=${encodeURIComponent(selectedTemplateFile.path)}`).then((r) => (r.ok ? r.text() : ''));
+								const tplName = selTxt.trim().toLowerCase();
+								if (tplName) {
+									templateFile = configFiles.find((f: any) => f.name.toLowerCase() === `ledconfigtemplate,${tplName}.txt`);
+								}
+							}
+							if (!templateFile) {
+								templateFile = configFiles.find((f: any) => f.name.toLowerCase().startsWith('ledconfigtemplate,'));
+							}
+							if (templateFile) {
+								const tplTxt = await fetch(`/api/files/download?path=${encodeURIComponent(templateFile.path)}`).then((r) => (r.ok ? r.text() : ''));
+								if (tplTxt) {
+									parsedTemplate = parseLedTemplateTxt(tplTxt);
+								}
+							}
+
+							const ledCfgFiles = configFiles.filter((f: any) => /^ledscfg_[0-9a-f]{2}\.txt$/i.test(f.name));
+							await Promise.all(
+								ledCfgFiles.map(async (lf: any) => {
+									const match = lf.name.match(/^ledscfg_([0-9a-f]{2})\.txt$/i);
+									if (!match) return;
+									const nodeKey = `0x${match[1].toLowerCase()}`;
+									const txt = await fetch(`/api/files/download?path=${encodeURIComponent(lf.path)}`).then((r) => (r.ok ? r.text() : ''));
+									if (txt) {
+										parsedLedsByNode[nodeKey] = parseLedsCfgTxt(txt);
+									}
+								})
+							);
+						} catch {
+							// Ignore optional LEDConfig parse errors
+						}
+
+						const nodeServicesFile = configFiles.find((f: any) => f.name.toLowerCase() === 'projectnodeservices.json');
+						if (nodeServicesFile) {
+							const nsRes = await fetch(`/api/files/download?path=${encodeURIComponent(nodeServicesFile.path)}`);
+							if (nsRes.ok) {
+								const nsData = await nsRes.json();
+								if (Array.isArray(nsData.serverNodes)) {
+									await Promise.all(
+										nsData.serverNodes.map(async (srvNode: any) => {
+											const logicalAddr = normalizeHexPart(String(srvNode.logicalAddress || ''));
+											const hexCode = logicalAddr.replace(/^0x/, '');
+											const gatewayIp = String(srvNode.localAddress || '').trim();
+											if (!hexCode || !gatewayIp) return;
+
+											const httpService = Array.isArray(srvNode.services) ? srvNode.services.find((s: any) => s.type === 'dt_http') : null;
+											const httpPort = httpService && Number(httpService.localPort) > 0 ? Number(httpService.localPort) : 8080;
+
+											const trigFile = configFiles.find((f: any) => f.name.toLowerCase() === `triggersactionsconfig_${hexCode}.json`);
+											if (!trigFile) return;
+
+											// Optionally parse MoodConfig_<hex>.txt in case the virtual unit is a Mood
+											const moodOutputsByUnit: Record<string, Set<string>> = {};
+											const moodFile = configFiles.find((f: any) => f.name.toLowerCase() === `moodconfig_${hexCode}.txt`);
+											if (moodFile) {
+												try {
+													const moodTxt = await fetch(`/api/files/download?path=${encodeURIComponent(moodFile.path)}`).then((r) => (r.ok ? r.text() : ''));
+													let currentMoodUnit = '';
+													for (const rawLine of moodTxt.split(/\r?\n/)) {
+														const line = rawLine.trim();
+														const moodMatch = line.match(/^MOOD=(0x[0-9a-fA-F]+);/i);
+														if (moodMatch) {
+															currentMoodUnit = normalizeHexPart(moodMatch[1]);
+															if (!moodOutputsByUnit[currentMoodUnit]) {
+																moodOutputsByUnit[currentMoodUnit] = new Set();
+															}
+															continue;
+														}
+														const entryMatch = line.match(/^entry=([0-9a-fA-F]{2})([0-9a-fA-F]{2})/i);
+														if (entryMatch && currentMoodUnit) {
+															const outAddr = `0x${entryMatch[1].toLowerCase()};0x${entryMatch[2].toLowerCase()}`;
+															moodOutputsByUnit[currentMoodUnit].add(outAddr);
+														}
+													}
+												} catch {
+													// Ignore optional mood config errors
+												}
+											}
+
+											const trigRes = await fetch(`/api/files/download?path=${encodeURIComponent(trigFile.path)}`);
+											if (!trigRes.ok) return;
+											const trigData = await trigRes.json();
+
+											const actionsMap = new Map<string, any>();
+											if (Array.isArray(trigData.actions)) {
+												trigData.actions.forEach((a: any) => {
+													if (a.id !== undefined) actionsMap.set(String(a.id), a);
+												});
+											}
+
+											if (Array.isArray(trigData.triggers)) {
+												trigData.triggers.forEach((t: any) => {
+													if (t.type !== 'http_trigger') return;
+													const rawId = t.value?.id !== undefined ? Number(t.value.id) : Number(t.id);
+													if (Number.isNaN(rawId)) return;
+
+													const act = t.action !== undefined ? actionsMap.get(String(t.action)) : undefined;
+													const rawUnitAddr = act?.value?.unitAddress;
+													if (!rawUnitAddr) return;
+
+													const normUnitAddr = normalizeHexPart(String(rawUnitAddr));
+													const fullAddress = `${logicalAddr};${normUnitAddr}`;
+													const targetOutputs = new Set<string>();
+
+													// 1. Find all outputs in bindingconfiginfo.txt where this virtual unit is an INPUT
+													linkedBindings.forEach((b: any) => {
+														const hasVirtualInput = (b.inputs || []).some((inp: any) => normalizeDuotecnoAddr(inp.Address) === fullAddress);
+														if (hasVirtualInput) {
+															(b.outputs || []).forEach((out: any) => {
+																const normOut = normalizeDuotecnoAddr(out.Address);
+																if (normOut) targetOutputs.add(normOut);
+															});
+														}
+													});
+
+													// 2. Also include outputs from MoodConfig if this virtual unit triggers a mood
+													const moodTargets = moodOutputsByUnit[normUnitAddr];
+													if (moodTargets) {
+														moodTargets.forEach((addr) => targetOutputs.add(addr));
+													}
+
+													discoveredTriggers.push({
+														gatewayIp,
+														httpPort,
+														nodeAddress: logicalAddr,
+														unitAddress: normUnitAddr,
+														fullAddress,
+														triggerId: rawId,
+														triggerName: t.name || `http${rawId}`,
+														actionName: act?.name || undefined,
+														actionType: act?.type || undefined,
+														targetOutputs,
+													});
+												});
+											}
+										})
+									);
+								}
+							}
+						}
+					} catch {
+						// Ignore optional trigger discovery errors
+					}
+
 					if (isMounted) {
 						setNodesData(nodeDatabase.nodes ?? []);
-						setBindingsData(linkNodeUnitsWithBindings(JSON.stringify(nodeDatabase), bindingTxt));
+						setBindingsData(linkedBindings);
+						setHttpTriggers(discoveredTriggers);
+						setLedTemplate(parsedTemplate);
+						setLedsByNode(parsedLedsByNode);
 						setProjectSetup(canbusData?.setup);
 					}
 				}
@@ -158,6 +495,19 @@ export default function Controls({ basePath, client, onActionsChange }: { basePa
 
 	const hasExplicitButtons = useMemo(() => allModules.some((m) => ['DTBS-4x', 'DT1ET-4x', 'DT1C-4x'].includes(m.moduleId)), [allModules]);
 
+	// Helper to resolve the 4 physical button quadrant units (indices 0=LB, 1=LO, 2=RB, 3=RO)
+	const getQuadrantUnit = (node: any, idx: number) => {
+		if (!node || !Array.isArray(node.units)) return undefined;
+		const quadrantNames = ['LB', 'LO', 'RB', 'RO'];
+		const targetName = quadrantNames[idx];
+		if (targetName) {
+			const byName = node.units.find((u: any) => (u.name || '').trim().toUpperCase() === targetName);
+			if (byName) return byName;
+		}
+		const offset = node.units[0]?.unitTypeName === 'Sens' ? 1 : 0;
+		return node.units[idx + offset];
+	};
+
 	// Normalize switches into a unified list of { key, name, physicalAddress, node }
 	const switchEntries = useMemo(() => {
 		if (hasExplicitButtons) {
@@ -176,8 +526,11 @@ export default function Controls({ basePath, client, onActionsChange }: { basePa
 
 		return nodesData
 			.filter((node) => {
+				const units = node.units || [];
+				const hasAllQuadrantNames = ['LB', 'LO', 'RB', 'RO'].every((qName) => units.some((u: any) => (u.name || '').trim().toUpperCase() === qName));
+				if (hasAllQuadrantNames) return true;
 				if (node.nodeTypeName !== 'Std. Node') return false;
-				const controlCount = (node.units || []).filter((u: any) => u.unitTypeName === 'Control').length;
+				const controlCount = units.filter((u: any) => u.unitTypeName === 'Control').length;
 				return controlCount >= 4;
 			})
 			.map((node, index) => ({
@@ -190,10 +543,36 @@ export default function Controls({ basePath, client, onActionsChange }: { basePa
 
 	// Helper to inspect a switch's 4 quadrants (indices 0, 1, 2, 3)
 	const getUnitBindingsForIdx = (node: any, idx: number) => {
-		if (!node || !node.units || !node.units[idx]) return [];
-		const unit = node.units[idx];
+		const unit = getQuadrantUnit(node, idx);
+		if (!node || !unit) return [];
 		const addrKey = `${node.nodeAddress};${unit.unitAddress}`;
 		return bindingsData.filter((b) => b.inputs.some((i: any) => i.Address?.startsWith(addrKey)));
+	};
+
+	// Resolve LED feedback { colorOn, colorOff } for a switch quadrant from ledscfg_<hex>.txt and LEDConfigTemplate
+	const getQuadrantLedFeedback = (node: any, idx: number, unitBindings: any[]): { colorOn: number; colorOff: number } => {
+		const nodeKey = normalizeHexPart(String(node?.nodeAddress || ''));
+		const nodeLeds = ledsByNode[nodeKey] || [];
+		// DuoTecno LED indices: LED=0 is LB (idx 0), LED=1 is RB (idx 2), LED=2 is LO (idx 1), LED=3 is RO (idx 3)
+		const ledIdx = idx === 1 ? 2 : idx === 2 ? 1 : idx;
+
+		const bindingOutputAddrs = new Set(unitBindings.flatMap((b) => (b.outputs || []).map((o: any) => normalizeDuotecnoAddr(o.Address)).filter(Boolean)));
+
+		const ledBlock = nodeLeds.find((b) => b.ledIndex === ledIdx) || nodeLeds.find((b) => b.targetAddress && bindingOutputAddrs.has(b.targetAddress));
+
+		if (ledBlock && ledBlock.func > 0 && ledBlock.hasCustomFeedback) {
+			return { colorOn: ledBlock.colorOn, colorOff: ledBlock.colorOff };
+		}
+
+		// Fall back to LEDConfigSelectedTemplate -> LEDConfigTemplate,<name>.txt
+		const sectionKey = ledBlock?.feedbackType || 'FDBK_SWITCH';
+		const tpl = ledTemplate[sectionKey] || ledTemplate.FDBK_SWITCH || ledTemplate.FDBK_DIMMER || ledTemplate.FDBK_TACTILE;
+
+		if (tpl) {
+			return { colorOn: tpl.colorOn, colorOff: tpl.colorOff };
+		}
+
+		return { colorOn: 6, colorOff: 0 };
 	};
 
 	const getOutputsForBinding = (b: any) => {
@@ -212,6 +591,63 @@ export default function Controls({ basePath, client, onActionsChange }: { basePa
 		return [bindingName.replace(/\s+[PLS]$/i, '')];
 	};
 
+	const getHttpTriggersForBinding = (b: any): HttpTriggerLink[] => {
+		if (!b || httpTriggers.length === 0) return [];
+		const bInputs = (b.inputs || []).map((i: any) => normalizeDuotecnoAddr(i.Address)).filter(Boolean);
+		const bOutputs = (b.outputs || []).map((o: any) => normalizeDuotecnoAddr(o.Address)).filter(Boolean);
+
+		return httpTriggers.filter((trig) => {
+			if (bInputs.includes(trig.fullAddress) || bOutputs.includes(trig.fullAddress)) return true;
+			return bOutputs.some((outAddr: string) => trig.targetOutputs.has(outAddr));
+		});
+	};
+
+	const fireHttpTrigger = async (trig: HttpTriggerLink, e?: React.MouseEvent) => {
+		e?.stopPropagation();
+		const key = `${trig.gatewayIp}:${trig.httpPort}/${trig.triggerId}`;
+		const url = `http://${trig.gatewayIp}:${trig.httpPort}/trigger/${trig.triggerId}`;
+
+		setTriggerStatus((prev) => ({ ...prev, [key]: { status: 'loading' } }));
+		const controller = new AbortController();
+		const timeoutId = setTimeout(() => controller.abort(), 3000);
+		const start = performance.now();
+
+		try {
+			const res = await fetch(url, {
+				mode: 'no-cors',
+				cache: 'no-store',
+				signal: controller.signal,
+			});
+			clearTimeout(timeoutId);
+			const ms = Math.max(1, Math.round(performance.now() - start));
+			let bodyText = '';
+			try {
+				if (res.type !== 'opaque') {
+					bodyText = await res.text();
+				}
+			} catch {
+				// Ignore opaque response body read errors
+			}
+			setTriggerStatus((prev) => ({
+				...prev,
+				[key]: {
+					status: 'success',
+					message: bodyText.trim() || `200 OK — Trigger #${trig.triggerId} sent (${ms}ms)`,
+				},
+			}));
+		} catch (err: any) {
+			clearTimeout(timeoutId);
+			const ms = Math.max(1, Math.round(performance.now() - start));
+			setTriggerStatus((prev) => ({
+				...prev,
+				[key]: {
+					status: 'error',
+					message: err?.name === 'AbortError' ? 'Timed out (3000ms)' : `Unreachable (${ms}ms)`,
+				},
+			}));
+		}
+	};
+
 	const switchHasBindings = (node: any) => {
 		if (!node) return false;
 		return [0, 1, 2, 3].some((idx) => getUnitBindingsForIdx(node, idx).length > 0);
@@ -220,7 +656,7 @@ export default function Controls({ basePath, client, onActionsChange }: { basePa
 	const quadrantMatchesSearch = (node: any, idx: number, q: string) => {
 		if (!q) return false;
 		const term = q.toLowerCase();
-		const unit = node?.units?.[idx];
+		const unit = getQuadrantUnit(node, idx);
 		if (unit?.name?.toLowerCase().includes(term)) return true;
 
 		const unitBindings = getUnitBindingsForIdx(node, idx);
@@ -331,26 +767,68 @@ export default function Controls({ basePath, client, onActionsChange }: { basePa
 						const { node } = entry;
 
 						const renderQuadrant = (idx: number) => {
-							const unit = node?.units?.[idx];
+							const unit = getQuadrantUnit(node, idx);
 							const addrKey = node && unit ? `${node.nodeAddress};${unit.unitAddress}` : '';
 							const unitBindings = getUnitBindingsForIdx(node, idx);
 							const isHighlighted = qTrim.length > 0 && quadrantMatchesSearch(node, idx, qTrim);
 
+							const quadrantTriggers = Array.from(
+								new Map(unitBindings.flatMap((b) => getHttpTriggersForBinding(b)).map((t) => [`${t.gatewayIp}:${t.httpPort}/${t.triggerId}`, t])).values()
+							);
+							const primaryTrigger = quadrantTriggers[0];
+							const trigKey = primaryTrigger ? `${primaryTrigger.gatewayIp}:${primaryTrigger.httpPort}/${primaryTrigger.triggerId}` : '';
+							const trigState = trigKey ? triggerStatus[trigKey]?.status || 'idle' : 'idle';
+
+							const quadrantKey = addrKey || `${entry.key}-${idx}`;
+							const isActive = Boolean(activeQuadrants[quadrantKey]);
+							const ledFeedback = getQuadrantLedFeedback(node, idx, unitBindings);
+							const onColor = DUOTECNO_LED_COLORS[ledFeedback.colorOn];
+							const offColor = DUOTECNO_LED_COLORS[ledFeedback.colorOff];
+							const displayLedColor = isActive ? onColor : offColor || onColor;
+
 							return (
 								<div
-									onClick={() => {
-										if (node) {
+									onClick={(e) => {
+										if (primaryTrigger) {
+											setActiveQuadrants((prev) => ({ ...prev, [quadrantKey]: !prev[quadrantKey] }));
+											fireHttpTrigger(primaryTrigger, e);
+										} else if (node) {
 											setFocusedChannel(idx);
 											setBindingsModal(node);
 										}
 									}}
-									title={unit ? `${unit.name} — Click to inspect bindings` : undefined}
-									className={`flex items-center justify-center z-10 w-full h-full overflow-hidden rounded-lg transition-all ${
-										node ? 'cursor-pointer hover:bg-[var(--accent)]/5' : ''
-									} ${isHighlighted ? 'ring-2 ring-[var(--accent)] bg-[var(--accent)]/10 print:ring-0 print:bg-transparent' : ''}`}
+									title={
+										primaryTrigger
+											? `${unit?.name || ''} — Click to trigger ${primaryTrigger.triggerName} (http://${primaryTrigger.gatewayIp}:${primaryTrigger.httpPort}/trigger/${primaryTrigger.triggerId}) • LED: ${onColor?.name || 'Off'}`
+											: unit
+												? `${unit.name} — Click to inspect bindings${onColor ? ` • LED: ${onColor.name}` : ''}`
+												: undefined
+									}
+									style={
+										isActive && onColor
+											? {
+													backgroundColor: onColor.bg,
+													boxShadow: `inset 0 0 0 1.5px ${onColor.border}, ${onColor.glow}`,
+												}
+											: undefined
+									}
+									className={`relative flex flex-col items-center justify-center z-10 w-full h-full overflow-hidden transition-all select-none ${
+										primaryTrigger ? 'cursor-pointer hover:bg-[var(--accent)]/8 active:scale-[0.99]' : node ? 'cursor-pointer hover:bg-[var(--accent)]/5' : ''
+									} ${isHighlighted ? 'ring-2 ring-inset ring-[var(--accent)] bg-[var(--accent)]/10 print:ring-0 print:bg-transparent' : ''}`}
 								>
+									{unitBindings.length > 0 && displayLedColor && (
+										<span
+											className="absolute top-2 left-1/2 -translate-x-1/2 w-6 h-1.5 rounded-full transition-all duration-200 print:hidden"
+											style={{
+												backgroundColor: displayLedColor.hex,
+												boxShadow: isActive || offColor ? displayLedColor.glow : 'none',
+												opacity: isActive || offColor ? 1 : primaryTrigger ? 0.65 : 0.4,
+											}}
+										/>
+									)}
+
 									{unitBindings.length > 0 ? (
-										<div className="flex flex-col gap-2 items-center justify-center w-full px-1">
+										<div className="flex flex-col gap-1.5 items-center justify-center w-full px-2 pt-3">
 											{unitBindings.map((b, i) => {
 												const inputEvent = b.inputs.find((input: any) => input.Address?.startsWith(addrKey))?.Event;
 												let Icon = Zap;
@@ -362,17 +840,23 @@ export default function Controls({ basePath, client, onActionsChange }: { basePa
 												const outputs = getOutputsForBinding(b);
 
 												return (
-													<div key={i} className="flex flex-row items-center w-full justify-center gap-2 min-w-0" title={`Binding: ${bindingName} (Event: ${inputEvent})`}>
-														<Icon size={16} className="shrink-0 text-(--accent)" />
-														<div className="flex flex-col items-start justify-center min-w-0">
-															{outputs.map((outName, oIdx) => (
-																<span
-																	key={oIdx}
-																	className="text-xs sm:text-sm font-medium leading-tight truncate max-w-full text-left print:whitespace-normal print:overflow-visible print:!text-black"
-																>
-																	{outName}
-																</span>
-															))}
+													<div key={i} className="flex flex-col items-center w-full justify-center gap-0.5 min-w-0" title={`Binding: ${bindingName} (Event: ${inputEvent})`}>
+														<div className="flex flex-row items-center w-full justify-center gap-1.5 min-w-0">
+															{trigState === 'loading' && i === 0 ? (
+																<Loader2 size={15} className="shrink-0 animate-spin text-(--accent)" />
+															) : (
+																<Icon size={15} className="shrink-0 text-(--accent)" />
+															)}
+															<div className="flex flex-col items-start justify-center min-w-0">
+																{outputs.map((outName, oIdx) => (
+																	<span
+																		key={oIdx}
+																		className="text-xs font-medium leading-tight truncate max-w-full text-left print:whitespace-normal print:overflow-visible print:!text-black"
+																	>
+																		{outName}
+																	</span>
+																))}
+															</div>
 														</div>
 													</div>
 												);
@@ -411,9 +895,12 @@ export default function Controls({ basePath, client, onActionsChange }: { basePa
 								<div className="relative w-full aspect-square print:aspect-auto print:h-0 print:pb-[100%] bg-[var(--background)] print:bg-transparent rounded-xl border border-[var(--border)]/10 print:border-gray-200 overflow-hidden">
 									<ReactSVG
 										src="/modules/DTBS-4x/drawing.svg"
-										className="absolute inset-0 w-full h-full p-1 [&>div]:w-full [&>div]:h-full [&_svg]:w-full [&_svg]:h-full opacity-20 print:opacity-40 pointer-events-none"
+										beforeInjection={(svg) => {
+											svg.setAttribute('viewBox', '79 -61.5 680 680');
+										}}
+										className="absolute inset-0 w-full h-full [&>div]:w-full [&>div]:h-full [&_svg]:w-full [&_svg]:h-full opacity-20 print:opacity-40 pointer-events-none"
 									/>
-									<div className="absolute inset-0 grid grid-cols-2 grid-rows-2 p-[12%] gap-2">
+									<div className="absolute inset-[9%] grid grid-cols-2 grid-rows-2 gap-[0.5%]">
 										{renderQuadrant(0)}
 										{renderQuadrant(2)}
 										{renderQuadrant(1)}
@@ -439,7 +926,7 @@ export default function Controls({ basePath, client, onActionsChange }: { basePa
 					{focusedChannel !== null && (
 						<div className="mb-3 flex items-center justify-between px-3 py-2 rounded-xl bg-[var(--accent)]/10 border border-[var(--accent)]/20 text-xs">
 							<span className="font-medium text-[var(--accent)]">
-								Viewing Button Quadrant #{focusedChannel + 1} ({bindingsModal?.units?.[focusedChannel]?.name || `Ch ${focusedChannel}`})
+								Viewing Button Quadrant #{focusedChannel + 1} ({getQuadrantUnit(bindingsModal, focusedChannel)?.name || `Ch ${focusedChannel}`})
 							</span>
 							<button type="button" onClick={() => setFocusedChannel(null)} className="font-semibold text-[var(--text-muted)] hover:text-[var(--text)]">
 								Show All Channels
@@ -448,7 +935,8 @@ export default function Controls({ basePath, client, onActionsChange }: { basePa
 					)}
 					<div className="flex flex-col gap-4">
 						{bindingsModal?.units.map((unit: any, index: number) => {
-							if (focusedChannel !== null && index !== focusedChannel) return null;
+							const focusedUnit = focusedChannel !== null ? getQuadrantUnit(bindingsModal, focusedChannel) : null;
+							if (focusedUnit && unit.unitAddress !== focusedUnit.unitAddress) return null;
 
 							const addrKey = `${bindingsModal.nodeAddress};${unit.unitAddress}`;
 							const unitBindings = bindingsData.filter((b) => b.inputs.some((i: any) => i.Address?.startsWith(addrKey)));
@@ -472,9 +960,11 @@ export default function Controls({ basePath, client, onActionsChange }: { basePa
 												else if (inputEvent === '0x03' || inputEvent === '0x02') eventLabel = 'Short Pulse';
 												else if (inputEvent) eventLabel = `Event: ${inputEvent}`;
 
+												const matchedTriggers = getHttpTriggersForBinding(b);
+
 												return (
-													<div key={bIdx} className="bg-[var(--foreground)] rounded-md p-3">
-														<div className="flex items-center justify-between mb-2">
+													<div key={bIdx} className="bg-[var(--foreground)] rounded-md p-3 space-y-3">
+														<div className="flex items-center justify-between">
 															<span className="font-medium text-sm text-[var(--accent)]">{eventLabel}</span>
 															<span className="text-xs opacity-50">{b.BindingStrName}</span>
 														</div>
@@ -493,6 +983,56 @@ export default function Controls({ basePath, client, onActionsChange }: { basePa
 																);
 															})}
 														</div>
+
+														{matchedTriggers.length > 0 && (
+															<div className="pt-2 border-t border-[var(--border)]/10 space-y-2">
+																{matchedTriggers.map((trig) => {
+																	const key = `${trig.gatewayIp}:${trig.httpPort}/${trig.triggerId}`;
+																	const resp = triggerStatus[key];
+																	return (
+																		<div key={key} className="flex flex-col gap-2">
+																			<div className="flex items-center justify-between gap-2 text-xs">
+																				<span className="font-semibold text-[var(--text)]">{trig.triggerName}</span>
+																				<span className="text-[var(--text-muted)] font-mono">{trig.fullAddress}</span>
+																			</div>
+																			<div className="flex items-center gap-2">
+																				<div className="flex-1 min-w-0 flex items-center bg-[var(--background)] border border-[var(--border)]/15 rounded-xl px-3 h-10 font-mono text-xs sm:text-sm">
+																					<span className="text-[var(--text-muted)] truncate select-all">
+																						http://{trig.gatewayIp}:{trig.httpPort}/trigger/
+																					</span>
+																				</div>
+																				<div className="w-16 h-10 shrink-0 flex items-center justify-center rounded-xl bg-[var(--background)] border border-[var(--border)]/15 font-mono text-sm text-[var(--accent)] font-bold select-all">
+																					{trig.triggerId}
+																				</div>
+																				<Button
+																					variant="primary"
+																					size="sm"
+																					className="!h-10 shrink-0"
+																					onClick={(e) => fireHttpTrigger(trig, e)}
+																					disabled={resp?.status === 'loading'}
+																					icon={resp?.status === 'loading' ? <Loader2 size={15} className="animate-spin" /> : <Zap size={15} />}
+																				>
+																					Trigger
+																				</Button>
+																			</div>
+																			{resp && resp.status !== 'idle' && (
+																				<div
+																					className={`px-3 py-2 rounded-xl font-mono text-xs border ${
+																						resp.status === 'loading'
+																							? 'bg-[var(--background)] border-[var(--border)]/15 text-[var(--text-muted)]'
+																							: resp.status === 'success'
+																								? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500'
+																								: 'bg-red-500/10 border-red-500/30 text-red-500'
+																					}`}
+																				>
+																					{resp.status === 'loading' ? 'Sending...' : resp.message}
+																				</div>
+																			)}
+																		</div>
+																	);
+																})}
+															</div>
+														)}
 													</div>
 												);
 											})}

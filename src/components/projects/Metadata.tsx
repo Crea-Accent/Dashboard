@@ -1,12 +1,26 @@
 /** @format */
 'use client';
 
+export type GatewayTriggerItem = {
+	triggerId: number;
+	name: string;
+	actionId?: string;
+	actionName?: string;
+	actionType?: string;
+	actionTarget?: string;
+	type?: string;
+};
+
 export type IpEntry = {
 	id: string;
 	ip: string;
 	mac?: string;
 	name: string;
 	status: 'static' | 'free' | 'dhcp';
+	isGateway?: boolean;
+	httpPort?: number;
+	logicalAddress?: string;
+	configuredTriggers?: GatewayTriggerItem[];
 };
 
 import { AnimatePresence, motion } from 'framer-motion';

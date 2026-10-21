@@ -303,13 +303,16 @@ export default function Page() {
 												<div className="relative w-full aspect-square print:aspect-auto print:h-0 print:pb-[100%] bg-[var(--background)] print:bg-transparent rounded-xl border border-[var(--border)]/10 print:border-gray-200 overflow-hidden ">
 													<ReactSVG
 														src="/modules/DTBS-4x/drawing.svg"
-														className="absolute inset-0 w-full h-full p-1 [&>div]:w-full [&>div]:h-full [&_svg]:w-full [&_svg]:h-full opacity-20 print:opacity-40 pointer-events-none"
+														beforeInjection={(svg) => {
+															svg.setAttribute('viewBox', '79 -61.5 680 680');
+														}}
+														className="absolute inset-0 w-full h-full [&>div]:w-full [&>div]:h-full [&_svg]:w-full [&_svg]:h-full opacity-20 print:opacity-40 pointer-events-none"
 													/>
-													<div className="absolute inset-0 grid grid-cols-2 grid-rows-2 p-[12%] gap-2">
-														<div className="flex items-center justify-center z-10 w-full h-full overflow-hidden">{getUnitContent(0)}</div>
-														<div className="flex items-center justify-center z-10 w-full h-full overflow-hidden">{getUnitContent(2)}</div>
-														<div className="flex items-center justify-center z-10 w-full h-full overflow-hidden">{getUnitContent(1)}</div>
-														<div className="flex items-center justify-center z-10 w-full h-full overflow-hidden">{getUnitContent(3)}</div>
+													<div className="absolute inset-[9%] grid grid-cols-2 grid-rows-2 gap-[0.5%]">
+														<div className="flex items-center justify-center z-10 w-full h-full overflow-hidden px-2">{getUnitContent(0)}</div>
+														<div className="flex items-center justify-center z-10 w-full h-full overflow-hidden px-2">{getUnitContent(2)}</div>
+														<div className="flex items-center justify-center z-10 w-full h-full overflow-hidden px-2">{getUnitContent(1)}</div>
+														<div className="flex items-center justify-center z-10 w-full h-full overflow-hidden px-2">{getUnitContent(3)}</div>
 													</div>
 												</div>
 											</Card>
@@ -406,13 +409,16 @@ export default function Page() {
 												<div className="relative w-full aspect-square print:aspect-auto print:h-0 print:pb-[100%] bg-[var(--background)] print:bg-transparent rounded-xl border border-[var(--border)]/10 print:border-gray-200 overflow-hidden ">
 													<ReactSVG
 														src="/modules/DTBS-4x/drawing.svg"
-														className="absolute inset-0 w-full h-full p-1 [&>div]:w-full [&>div]:h-full [&_svg]:w-full [&_svg]:h-full opacity-20 print:opacity-40 pointer-events-none"
+														beforeInjection={(svg) => {
+															svg.setAttribute('viewBox', '79 -61.5 680 680');
+														}}
+														className="absolute inset-0 w-full h-full [&>div]:w-full [&>div]:h-full [&_svg]:w-full [&_svg]:h-full opacity-20 print:opacity-40 pointer-events-none"
 													/>
-													<div className="absolute inset-0 grid grid-cols-2 grid-rows-2 p-[12%] gap-2">
-														<div className="flex items-center justify-center z-10 w-full h-full overflow-hidden">{getUnitContent(0)}</div>
-														<div className="flex items-center justify-center z-10 w-full h-full overflow-hidden">{getUnitContent(2)}</div>
-														<div className="flex items-center justify-center z-10 w-full h-full overflow-hidden">{getUnitContent(1)}</div>
-														<div className="flex items-center justify-center z-10 w-full h-full overflow-hidden">{getUnitContent(3)}</div>
+													<div className="absolute inset-[9%] grid grid-cols-2 grid-rows-2 gap-[0.5%]">
+														<div className="flex items-center justify-center z-10 w-full h-full overflow-hidden px-2">{getUnitContent(0)}</div>
+														<div className="flex items-center justify-center z-10 w-full h-full overflow-hidden px-2">{getUnitContent(2)}</div>
+														<div className="flex items-center justify-center z-10 w-full h-full overflow-hidden px-2">{getUnitContent(1)}</div>
+														<div className="flex items-center justify-center z-10 w-full h-full overflow-hidden px-2">{getUnitContent(3)}</div>
 													</div>
 												</div>
 											</Card>
