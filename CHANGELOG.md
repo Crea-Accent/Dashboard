@@ -1,5 +1,11 @@
 # panel
 
+## 0.14.3
+
+### Patch Changes
+
+- fix t&a readings
+
 ## 0.14.2
 
 ### Patch Changes

@@ -93,7 +93,7 @@ export default function IpList({ client, onActionsChange }: Props) {
 
 		const controller = new AbortController();
 		activeTriggerControllerRef.current = controller;
-		const timeoutId = setTimeout(() => controller.abort(), 250);
+		const timeoutId = setTimeout(() => controller.abort(), 1500);
 		const start = performance.now();
 
 		setTriggerResponses((prev) => ({

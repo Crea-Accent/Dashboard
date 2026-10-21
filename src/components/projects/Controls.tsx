@@ -593,7 +593,7 @@ export default function Controls({ basePath, client, onActionsChange }: { basePa
 
 		const controller = new AbortController();
 		activeControllersRef.current[gatewayKey] = controller;
-		const timeoutId = setTimeout(() => controller.abort(), 250);
+		const timeoutId = setTimeout(() => controller.abort(), 1500);
 		const start = performance.now();
 
 		setTriggerStatus((prev) => ({

@@ -97,7 +97,7 @@ function findLatestProgrammationFolder(progDir: string): string | null {
 function readTextIfExists(filePath: string): string | null {
 	try {
 		if (fs.existsSync(filePath)) {
-			return fs.readFileSync(filePath, 'utf8');
+			return fs.readFileSync(filePath, 'utf8').replace(/^\uFEFF/, '');
 		}
 	} catch {
 		// Ignore
