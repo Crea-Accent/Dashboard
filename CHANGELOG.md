@@ -1,5 +1,11 @@
 # panel
 
+## 0.15.1
+
+### Patch Changes
+
+- Added tracking permission to some areas
+
 ## 0.15.0
 
 ### Minor Changes

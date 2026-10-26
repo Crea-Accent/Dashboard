@@ -34,6 +34,7 @@ import Input from '@/components/ui/Input';
 import Modal from '@/components/ui/Modal';
 import Selector from '@/components/ui/Selector';
 import { useToast } from '@/providers/ToastProvider';
+import { usePermissions } from '@/providers/PermissionsProvider';
 import EventModal from '@/components/events/EventModal';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 
@@ -44,6 +45,8 @@ export default function EventDetail({ params }: { params: Promise<{ id: string }
 	const resolvedId = decodeURIComponent(resolvedParams.id);
 	const toast = useToast();
 	const { data: session } = useSession();
+	const { has } = usePermissions();
+	const canReadTracking = has('tracking.read');
 
 	const [id, setId] = useState<string | null>(null);
 	const [event, setEvent] = useState<any>(null);
@@ -555,7 +558,7 @@ export default function EventDetail({ params }: { params: Promise<{ id: string }
 						<h2 className="text-lg font-semibold">Invites</h2>
 						<p className="text-sm text-zinc-500">
 							{invitedContacts.length} people invited
-							{invitedContacts.some((c: any) => (c.inviteData.inviteCount || 0) > 0) && (
+							{canReadTracking && invitedContacts.some((c: any) => (c.inviteData.inviteCount || 0) > 0) && (
 								<>
 									{' · '}
 									{invitedContacts.filter((c: any) => c.inviteData.opened).length}/{invitedContacts.filter((c: any) => (c.inviteData.inviteCount || 0) > 0).length} read
@@ -645,7 +648,8 @@ export default function EventDetail({ params }: { params: Promise<{ id: string }
 
 											<span className="text-xs font-medium text-zinc-400 border-l border-zinc-300 dark:border-zinc-600 pl-3">Sent: {contact.inviteData.inviteCount || 0}</span>
 
-											{hasBeenMailed &&
+											{canReadTracking &&
+												hasBeenMailed &&
 												(contact.inviteData.opened ? (
 													<span
 														title={contact.inviteData.openedAt ? `Last opened: ${new Date(contact.inviteData.openedAt).toLocaleString('nl-BE')}` : 'Email opened'}

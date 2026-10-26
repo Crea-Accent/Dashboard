@@ -111,6 +111,16 @@ export const PERMISSIONS = [
 		label: 'Stock - Write',
 		group: 'Stock',
 	},
+	{
+		key: 'tracking.read',
+		label: 'Tracking - Read',
+		group: 'Tracking',
+	},
+	{
+		key: 'tracking.write',
+		label: 'Tracking - Write',
+		group: 'Tracking',
+	},
 ] as const;
 
 export function groupPermissions() {

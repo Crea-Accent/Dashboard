@@ -1,7 +1,7 @@
 /** @format */
 'use client';
 
-import { Boxes, Building2, ClipboardList, FolderOpen, HardDrive, Package, Settings, Shield, Users } from 'lucide-react';
+import { Boxes, Building2, ClipboardList, Eye, FolderOpen, HardDrive, Package, Settings, Shield, Users } from 'lucide-react';
 
 import Card from '@/components/ui/Card';
 import { PERMISSIONS } from '@/lib/permissions';
@@ -22,6 +22,7 @@ const icons: Record<string, React.ReactNode> = {
 	procedures: <ClipboardList size={18} />,
 	projects: <FolderOpen size={18} />,
 	roles: <Shield size={18} />,
+	tracking: <Eye size={18} />,
 	users: <Users size={18} />,
 	workspace: <Boxes size={18} />,
 };
