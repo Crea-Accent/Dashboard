@@ -553,7 +553,15 @@ export default function EventDetail({ params }: { params: Promise<{ id: string }
 				<div className="flex items-center justify-between">
 					<div>
 						<h2 className="text-lg font-semibold">Invites</h2>
-						<p className="text-sm text-zinc-500">{invitedContacts.length} people invited</p>
+						<p className="text-sm text-zinc-500">
+							{invitedContacts.length} people invited
+							{invitedContacts.some((c: any) => (c.inviteData.inviteCount || 0) > 0) && (
+								<>
+									{' · '}
+									{invitedContacts.filter((c: any) => c.inviteData.opened).length}/{invitedContacts.filter((c: any) => (c.inviteData.inviteCount || 0) > 0).length} read
+								</>
+							)}
+						</p>
 					</div>
 					<div className="flex gap-3">
 						<Button
@@ -636,6 +644,20 @@ export default function EventDetail({ params }: { params: Promise<{ id: string }
 											)}
 
 											<span className="text-xs font-medium text-zinc-400 border-l border-zinc-300 dark:border-zinc-600 pl-3">Sent: {contact.inviteData.inviteCount || 0}</span>
+
+											{hasBeenMailed &&
+												(contact.inviteData.opened ? (
+													<span
+														title={contact.inviteData.openedAt ? `Last opened: ${new Date(contact.inviteData.openedAt).toLocaleString('nl-BE')}` : 'Email opened'}
+														className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-sky-500/15 text-sky-600 dark:text-sky-400 font-semibold"
+													>
+														<Eye size={12} /> Read{contact.inviteData.openCount && contact.inviteData.openCount > 1 ? ` (${contact.inviteData.openCount}×)` : ''}
+													</span>
+												) : (
+													<span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-zinc-200/80 text-zinc-500 dark:bg-zinc-700/60 dark:text-zinc-400 font-medium">
+														Unread
+													</span>
+												))}
 										</div>
 									</div>
 									<div className="flex items-center gap-3">

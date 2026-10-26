@@ -1,5 +1,11 @@
 # panel
 
+## 0.15.0
+
+### Minor Changes
+
+- Added mail reads on invites
+
 ## 0.14.3
 
 ### Patch Changes

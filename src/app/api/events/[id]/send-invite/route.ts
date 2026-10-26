@@ -103,6 +103,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 				TextBody: `Uitnodiging voor ${event.name}. Bevestig uw aanwezigheid via deze link: ${baseUrl}/invite/${event.id}/${contact.id}`,
 				HtmlBody: emailHtml,
 				MessageStream: 'outbound',
+				TrackOpens: true,
+				TrackLinks: 'HtmlAndText',
+				Tag: String(event.id),
+				Metadata: {
+					eventId: String(event.id),
+					contactId: String(contact.id),
+				},
 			}),
 		});
 
@@ -119,9 +126,18 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 			);
 		}
 
-		// 5. Increment count atomically and save
+		// 5. Increment count atomically and save MessageID for open tracking
 		if (!testEmail && inviteIndex !== -1) {
-			event.invites[inviteIndex].inviteCount = (event.invites[inviteIndex].inviteCount || 0) + 1;
+			const inv = event.invites[inviteIndex];
+			inv.inviteCount = (inv.inviteCount || 0) + 1;
+			inv.lastSentAt = new Date().toISOString();
+			if (postmarkData?.MessageID) {
+				inv.lastMessageId = postmarkData.MessageID;
+				const prevIds = Array.isArray(inv.messageIds) ? inv.messageIds : [];
+				if (!prevIds.includes(postmarkData.MessageID)) {
+					inv.messageIds = [...prevIds, postmarkData.MessageID];
+				}
+			}
 			await fs.writeFile(existsSync(eventPath) ? eventPath : fallbackPath, JSON.stringify(event, null, 2));
 		}
 
