@@ -1,5 +1,11 @@
 # panel
 
+## 0.16.0
+
+### Minor Changes
+
+- Added duotecno version control and button utilities
+
 ## 0.15.1
 
 ### Patch Changes

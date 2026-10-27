@@ -54,6 +54,7 @@ const units = {
 type Props = {
 	client: string;
 	basePath: string;
+	version?: string;
 };
 
 export type ModuleDefinition = {
@@ -99,7 +100,7 @@ type ModuleSelection =
 			topology: TopologyModule;
 	  };
 
-export default function Canbus({ basePath, client }: Props) {
+export default function Canbus({ basePath, client, version }: Props) {
 	const { has } = usePermissions();
 
 	const [dockNode, setDockNode] = useState<HTMLElement | null>(null);
@@ -514,6 +515,7 @@ export default function Canbus({ basePath, client }: Props) {
 				},
 				body: JSON.stringify({
 					client,
+					version,
 					data: {
 						[viewMode]: next,
 					},
@@ -536,62 +538,25 @@ export default function Canbus({ basePath, client }: Props) {
 	async function load() {
 		try {
 			setLoading(true);
+			const versionParam = version ? `&version=${encodeURIComponent(version)}` : '';
 
-			const [metadata, canbusData] = await Promise.all([
-				fetch(`/api/projects/metadata?client=${client}`)
+			const [metadata, canbusData, duoData, moduleDefinitions] = await Promise.all([
+				fetch(`/api/projects/metadata?client=${encodeURIComponent(client)}`, { cache: 'no-store' })
 					.then((r) => r.json())
 					.catch(() => null),
-				fetch(`/api/projects/canbus?client=${client}`)
+				fetch(`/api/projects/canbus?client=${encodeURIComponent(client)}${versionParam}`, { cache: 'no-store' })
 					.then((r) => r.json())
 					.catch(() => null),
+				fetch(`/api/projects/duotecno?client=${encodeURIComponent(client)}${versionParam}`, { cache: 'no-store' })
+					.then((r) => r.json())
+					.catch(() => null),
+				fetch('/api/projects/modules').then((r) => r.json()),
 			]);
 
-			const programmationPath = `${basePath}/${client}/Programmation`;
-
-			const files = await fetch(`/api/files?view=${encodeURIComponent(programmationPath)}&recursive=1`, { cache: 'no-store' }).then((r) => r.json());
-
-			// Find every folder that contains a .duo file
-			const projectFolders: Array<string> = Array.from(
-				new Set(files.filter((f: any) => f.type === 'file' && f.name.toLowerCase().endsWith('.duo')).map((f: any) => f.path.split(/[\\/]/).slice(0, -1).join('/')))
-			);
-
-			// Pick the most recent folder by date, revision suffix (_1, _2, ...), and modified time
-			const latestFolder = projectFolders
-				.map((folder: string) => {
-					const folderName = folder.split(/[\\/]/).pop() ?? '';
-					const parts = folderName.split('__');
-					let date = '00000000';
-					if (parts.length > 1 && /^\d{8}$/.test(parts[1])) {
-						const rawDate = parts[1];
-						const yearPrefix = parseInt(rawDate.slice(0, 4), 10);
-						date = yearPrefix >= 2000 && yearPrefix <= 2100 ? rawDate : `${rawDate.slice(4, 8)}${rawDate.slice(2, 4)}${rawDate.slice(0, 2)}`;
-					}
-					const tail = parts.length > 2 ? parts.slice(2).join('__') : folderName;
-					const revMatch = tail.match(/_(\d+)$/);
-					const revision = revMatch ? parseInt(revMatch[1], 10) : 0;
-					const duoFile = files.find((f: any) => f.type === 'file' && f.name.toLowerCase().endsWith('.duo') && f.path.replace(/\\/g, '/').startsWith(`${folder}/`));
-					const mtime = duoFile?.modified ? new Date(duoFile.modified).getTime() : 0;
-
-					return {
-						folder,
-						date,
-						revision,
-						mtime,
-					};
-				})
-				.sort((a, b) => {
-					const dateCmp = b.date.localeCompare(a.date);
-					if (dateCmp !== 0) return dateCmp;
-					if (b.revision !== a.revision) return b.revision - a.revision;
-					return b.mtime - a.mtime;
-				})[0]?.folder;
-
-			const moduleDefinitions = await fetch('/api/projects/modules').then((r) => r.json());
-			setAvailableModules(moduleDefinitions.modules ?? []);
-
+			setAvailableModules(moduleDefinitions?.modules ?? []);
 			setMetadata(metadata);
 
-			let loadedSetup = canbusData?.setup ?? metadata?.setup ?? [];
+			let loadedSetup = canbusData?.setup ?? duoData?.canbusSetup ?? metadata?.setup ?? [];
 			if (loadedSetup.length > 0 && !Array.isArray(loadedSetup[0])) {
 				loadedSetup = [loadedSetup];
 			}
@@ -604,25 +569,24 @@ export default function Canbus({ basePath, client }: Props) {
 				metadata.sim = loadedSim;
 			}
 
-			if (!latestFolder) {
+			if (!duoData?.latestFolder) {
 				setFoundModules([]);
 				setNoProgrammation(true);
 				setViewMode('sim');
 				setTopology(loadedSim);
 			} else {
 				setNoProgrammation(false);
-				try {
-					const nodeDatabase = await fetch(`/api/files/download?path=${encodeURIComponent(`${latestFolder}/Config/nodedatabase.cache.json`)}`).then((r) => r.json());
+				const nodeDatabase = duoData.nodeDatabase;
+				if (nodeDatabase) {
 					setFoundModules(nodeDatabase.nodes ?? []);
-
 					try {
-						const bindingTxt = await fetch(`/api/files/download?path=${encodeURIComponent(`${latestFolder}/Config/bindingconfiginfo.txt`)}`).then((r) => r.text());
-						const bindings = linkNodeUnitsWithBindings(JSON.stringify(nodeDatabase), bindingTxt);
+						const bindingTxt = duoData.bindingTxt || '';
+						const bindings = linkNodeUnitsWithBindings(nodeDatabase, bindingTxt);
 						setBindingsData(bindings);
-					} catch (err) {
+					} catch {
 						setBindingsData([]);
 					}
-				} catch (e) {
+				} else {
 					setFoundModules([]);
 					setBindingsData([]);
 				}
@@ -1068,7 +1032,7 @@ export default function Canbus({ basePath, client }: Props) {
 
 	useEffect(() => {
 		load();
-	}, [client, basePath]);
+	}, [client, basePath, version]);
 
 	useEffect(() => {
 		if (metadata) {

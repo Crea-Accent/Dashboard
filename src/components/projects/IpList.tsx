@@ -21,6 +21,7 @@ type IpListActions = {
 
 type Props = {
 	client: string;
+	version?: string;
 	onActionsChange?: (actions: IpListActions) => void;
 };
 
@@ -31,7 +32,7 @@ const collapseAnimation = {
 	transition: { duration: 0.2 },
 };
 
-export default function IpList({ client, onActionsChange }: Props) {
+export default function IpList({ client, version, onActionsChange }: Props) {
 	const { has } = usePermissions();
 	const hasWrite = has('projects.write');
 
@@ -208,10 +209,11 @@ export default function IpList({ client, onActionsChange }: Props) {
 	const loadData = async () => {
 		setLoading(true);
 		try {
+			const versionParam = version ? `&version=${encodeURIComponent(version)}` : '';
 			const [metaRes, ipsRes, duoRes] = await Promise.all([
 				fetch(`/api/projects/metadata?client=${encodeURIComponent(client)}`, { cache: 'no-store' }),
-				fetch(`/api/projects/ips?client=${encodeURIComponent(client)}`, { cache: 'no-store' }),
-				fetch(`/api/projects/duotecno?client=${encodeURIComponent(client)}`, { cache: 'no-store' }),
+				fetch(`/api/projects/ips?client=${encodeURIComponent(client)}${versionParam}`, { cache: 'no-store' }),
+				fetch(`/api/projects/duotecno?client=${encodeURIComponent(client)}${versionParam}`, { cache: 'no-store' }),
 			]);
 
 			if (metaRes.ok) {
@@ -338,7 +340,7 @@ export default function IpList({ client, onActionsChange }: Props) {
 
 	useEffect(() => {
 		loadData();
-	}, [client]);
+	}, [client, version]);
 
 	const save = async () => {
 		setSaving(true);
@@ -348,6 +350,7 @@ export default function IpList({ client, onActionsChange }: Props) {
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
 					client,
+					version,
 					ips: manualIps,
 				}),
 			});

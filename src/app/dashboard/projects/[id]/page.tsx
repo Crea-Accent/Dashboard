@@ -28,6 +28,7 @@ import {
 	Ticket,
 	Network,
 	ScanBarcode,
+	GitCompare,
 } from 'lucide-react';
 import { NotPermitted, usePermissions } from '@/providers/PermissionsProvider';
 import { useEffect, useState } from 'react';
@@ -37,6 +38,7 @@ import Button from '@/components/ui/Button';
 import Canbus from '@/components/projects/Canbus';
 import IpList from '@/components/projects/IpList';
 import Controls from '@/components/projects/Controls';
+import DuotecnoDiffModal, { DuotecnoVersionItem } from '@/components/projects/DuotecnoDiffModal';
 import Feed from '@/components/projects/Feed';
 import Documents from '@/components/projects/Document';
 import EmptyState from '@/components/ui/EmptyState';
@@ -163,6 +165,26 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 	const [picturesActions, setPicturesActions] = useState<FileTabActions | null>(null);
 	const [ipsActions, setIpsActions] = useState<any>(null);
 	const [selectorOpen, setSelectorOpen] = useState(false);
+	const [duotecnoVersions, setDuotecnoVersions] = useState<DuotecnoVersionItem[]>([]);
+	const [selectedVersion, setSelectedVersion] = useState<string>('');
+	const [diffModalOpen, setDiffModalOpen] = useState(false);
+
+	const loadDuotecnoVersions = async (targetClient = projectId) => {
+		try {
+			const res = await fetch(`/api/projects/duotecno?client=${encodeURIComponent(targetClient)}`, { cache: 'no-store' });
+			if (!res.ok) return;
+			const data = await res.json();
+			const list: DuotecnoVersionItem[] = Array.isArray(data.versions) ? data.versions : [];
+			setDuotecnoVersions(list);
+			if (list.length > 0) {
+				setSelectedVersion((prev) => (prev && list.some((v) => v.id === prev) ? prev : list[0].id));
+			} else {
+				setSelectedVersion('');
+			}
+		} catch {
+			// Ignore
+		}
+	};
 
 	const allTabs = [
 		{ key: 'info', label: 'Info', icon: <Folder /> },
@@ -205,6 +227,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 					.then((r) => r.json())
 					.catch(() => null),
 				fetch('/api/projects/map').then((r) => r.json()),
+				loadDuotecnoVersions(projectId),
 			]);
 
 			const searchParams = new URL(window.location.href).searchParams;
@@ -427,6 +450,30 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 							onChange={(value) => metadataActions?.setLabel(value)}
 						/>
 					)}
+
+					{(tab === 'programmation' || tab === 'canbus' || tab === 'ips' || tab === 'controls') && duotecnoVersions.length > 0 && (
+						<div className="flex items-center gap-1.5 shrink-0">
+							<div className="w-px h-6 bg-(--border)/20 mx-1 hidden sm:block" />
+							<Selector
+								className={`transition-all duration-300 ease-in-out ${selectorOpen ? 'w-full sm:w-64' : 'w-36 sm:w-56'} !min-w-0 !border-transparent hover:!border-(--border)/10 !bg-transparent hover:!bg-(--background)`}
+								hideLabelOnMobile={!selectorOpen}
+								direction="up"
+								onOpenChange={setSelectorOpen}
+								value={selectedVersion || duotecnoVersions[0]?.id || ''}
+								options={duotecnoVersions.map((v, idx) => ({
+									label: v.label,
+									value: v.id,
+									color: idx === 0 ? '#10b981' : '#f59e0b',
+								}))}
+								onChange={(val) => setSelectedVersion(val)}
+							/>
+							{duotecnoVersions.length > 1 && (
+								<Button variant="secondary" icon={<GitCompare size={16} />} onClick={() => setDiffModalOpen(true)}>
+									<span className="hidden sm:inline">Compare</span>
+								</Button>
+							)}
+						</div>
+					)}
 				</motion.div>
 
 				{/* Content */}
@@ -436,16 +483,20 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 						{tab === 'solar' && <Solar client={client} />}
 						{tab === 'schemas' && <Schemas basePath={settings.path} client={client} onActionsChange={setSchemaActions} />}
 						{tab === 'documents' && <Documents basePath={settings.path} client={client} onActionsChange={setDocumentActions} />}
-						{tab === 'programmation' && <Programmation basePath={settings.path} client={client} onActionsChange={setProgrammationActions} />}
-						{tab === 'canbus' && <Canbus basePath={settings.path} client={client} />}
-						{tab === 'ips' && <IpList client={client} onActionsChange={setIpsActions} />}
-						{tab === 'controls' && <Controls basePath={settings.path} client={client} onActionsChange={setControlsActions} />}
+						{tab === 'programmation' && (
+							<Programmation basePath={settings.path} client={client} onActionsChange={setProgrammationActions} onVersionsChange={() => loadDuotecnoVersions(client)} />
+						)}
+						{tab === 'canbus' && <Canbus basePath={settings.path} client={client} version={selectedVersion} />}
+						{tab === 'ips' && <IpList client={client} version={selectedVersion} onActionsChange={setIpsActions} />}
+						{tab === 'controls' && <Controls basePath={settings.path} client={client} version={selectedVersion} onActionsChange={setControlsActions} />}
 						{tab === 'pictures' && <Pictures basePath={settings.path} client={client} onActionsChange={setPicturesActions} />}
 						{tab === 'tickets' && <Tickets client={client} onActionsChange={setTicketsActions} />}
 						{tab === 'stock' && <ProjectStock client={client} />}
 						{tab === 'feed' && <Feed projectId={metadata?.id} onActionsChange={setFeedActions} />}
 					</motion.div>
 				</div>
+
+				<DuotecnoDiffModal open={diffModalOpen} onClose={() => setDiffModalOpen(false)} client={client} versions={duotecnoVersions} initialTargetVersion={selectedVersion} />
 			</div>
 		</NotPermitted>
 	);

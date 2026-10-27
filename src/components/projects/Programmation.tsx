@@ -58,7 +58,17 @@ function detectProgrammationType(entry: FileEntry): 'DuoTecno' | 'DALI' | 'Loxon
 	return 'Other';
 }
 
-export default function Programmation({ basePath, client, onActionsChange }: { basePath: string; client: string; onActionsChange?: (actions: any) => void }) {
+export default function Programmation({
+	basePath,
+	client,
+	onActionsChange,
+	onVersionsChange,
+}: {
+	basePath: string;
+	client: string;
+	onActionsChange?: (actions: any) => void;
+	onVersionsChange?: () => void;
+}) {
 	const { has } = usePermissions();
 	const [view, setView] = useState<'grid' | 'list'>('list');
 
@@ -138,6 +148,7 @@ export default function Programmation({ basePath, client, onActionsChange }: { b
 
 		if (success) {
 			await load();
+			onVersionsChange?.();
 		}
 	};
 
@@ -177,6 +188,7 @@ export default function Programmation({ basePath, client, onActionsChange }: { b
 		});
 
 		await load();
+		onVersionsChange?.();
 	};
 
 	useEffect(() => {

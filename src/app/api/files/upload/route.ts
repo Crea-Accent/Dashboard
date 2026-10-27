@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import AdmZip from 'adm-zip';
 import { authConfig } from '@/lib/auth';
+import { listProgrammationFolders, readVersionedProjectJson } from '@/lib/duotecnoVersions';
 import fs from 'fs';
 import { getServerSession } from 'next-auth';
 import os from 'os';
@@ -142,6 +143,11 @@ export async function POST(request: NextRequest) {
 		.join('__');
 
 	if (kind === 'programmation' && ext === '.zip') {
+		const existingVersions = listProgrammationFolders(targetDir);
+		const prevLatest = existingVersions[0] ?? null;
+		const mostRecentCanbus = readVersionedProjectJson(projectDir, existingVersions, 0, 'canbus.json');
+		const mostRecentIps = readVersionedProjectJson(projectDir, existingVersions, 0, 'ips.json');
+
 		const uniquePath = resolveUniquePath(targetDir, baseName);
 		const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'panel-programmation-'));
 
@@ -152,6 +158,38 @@ export async function POST(request: NextRequest) {
 			zip.extractAllTo(tempDir, true);
 
 			copyDirectoryRecursive(tempDir, uniquePath);
+
+			// Preserve snapshot on previous latest version and seed the newly uploaded version
+			// with the most recent body we already had across Canbus and Network.
+			if (mostRecentCanbus !== null) {
+				if (prevLatest && !fs.existsSync(path.join(prevLatest.folderPath, 'canbus.json'))) {
+					try {
+						fs.writeFileSync(path.join(prevLatest.folderPath, 'canbus.json'), JSON.stringify(mostRecentCanbus, null, '\t'));
+					} catch {
+						// Ignore
+					}
+				}
+				try {
+					fs.writeFileSync(path.join(uniquePath, 'canbus.json'), JSON.stringify(mostRecentCanbus, null, '\t'));
+				} catch {
+					// Ignore
+				}
+			}
+
+			if (mostRecentIps !== null) {
+				if (prevLatest && !fs.existsSync(path.join(prevLatest.folderPath, 'ips.json'))) {
+					try {
+						fs.writeFileSync(path.join(prevLatest.folderPath, 'ips.json'), JSON.stringify(mostRecentIps, null, '\t'));
+					} catch {
+						// Ignore
+					}
+				}
+				try {
+					fs.writeFileSync(path.join(uniquePath, 'ips.json'), JSON.stringify(mostRecentIps, null, '\t'));
+				} catch {
+					// Ignore
+				}
+			}
 
 			return NextResponse.json({
 				ok: true,
